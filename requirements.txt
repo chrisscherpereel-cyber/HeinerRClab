@@ -1,0 +1,6 @@
+# Runtime dependencies (Streamlit Community Cloud installs these)
+streamlit>=1.50,<2
+numpy>=1.26,<3
+pandas>=2.1,<3
+plotly>=5.22
+scipy>=1.11

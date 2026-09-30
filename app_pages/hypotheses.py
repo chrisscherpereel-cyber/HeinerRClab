@@ -39,6 +39,15 @@ def lever_choices(rule):
     return ["desired_margin", "c_max", "delta"] if rule == "Bertrand" else ["c_max", "delta", "q_range"]
 
 
+LEVER_HELP = ("Parameter that moves industry profitability. Bertrand: desired margin m*, max raw-material cost or "
+              "volatility Δ. Cournot: max raw-material cost, volatility Δ or demand quantity range.")
+STEPS_HELP = "Number of evenly spaced values tested within the range. More steps = finer curve, longer run."
+
+
+def range_help(p):
+    return f"Lowest and highest {p.label} to sweep. {p.help}".strip()
+
+
 def run_state(key, params):
     """Run button pattern: results stay visible across reruns until parameters change."""
     if st.button("Run experiment", key=f"btn_{key}", type="primary"):
@@ -60,9 +69,12 @@ with tabs[0]:
         "In low-profit markets decision errors dominate: profits fall as φ rises (**negative slope**).",
         "Flexibility is never harmful when free: the slope is **≥ 0 in every market**.")
     c1, c2 = st.columns(2)
-    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h1_lever")
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h1_lever",
+                         help=LEVER_HELP)
     dflt = {"desired_margin": "0, 2, 5, 10, 16", "c_max": "60, 80, 95", "delta": "3, 10, 25", "q_range": "1000, 1500, 3000"}[lever]
-    levels = parse(c2.text_input("Levels to test (comma-separated)", dflt, key=f"h1_levels_{lever}"), [0, 5, 16])
+    levels = parse(c2.text_input("Levels to test (comma-separated)", dflt, key=f"h1_levels_{lever}",
+                                help=f"Values of {PARAMS[lever].label} to simulate, e.g. `0, 5, 10`. Each level is one "
+                                     "market condition; flexibility costs a and b are set to 0."), [0, 5, 16])
     scn = base.copy()
     scn.firm_globals.flex_cost_slope = 0.0
     scn.firm_globals.fixed_cost = 0.0
@@ -105,12 +117,15 @@ with tabs[1]:
         "and crosses 0 at a **switch point**.",
         "Profitable markets can pay more for flexibility, but flexibility should never be *harmful* when free.")
     c1, c2, c3 = st.columns(3)
-    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h2_lever")
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h2_lever",
+                         help=LEVER_HELP)
     p = PARAMS[lever]
     rng_default = {"desired_margin": (0.0, 16.0), "c_max": (55.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
-    lo_hi = c2.slider("Range", float(p.lo), float(p.hi), rng_default, key=f"h2_rng_{lever}")
-    steps = c3.slider("Steps", 3, 20, 9, key="h2_steps")
+    lo_hi = c2.slider("Range", float(p.lo), float(p.hi), rng_default, key=f"h2_rng_{lever}", help=range_help(p))
+    steps = c3.slider("Steps", 3, 20, 9, key="h2_steps", help=STEPS_HELP)
     xaxis = st.radio("Plot against", ["avg_firm_profit", "avg_margin", lever], horizontal=True, key="h2_x",
+                     help="Horizontal axis of the chart: measured industry profitability (average firm profit or "
+                          "price − cost margin) or the lever value itself.",
                      format_func=lambda k: {"avg_firm_profit": "Average firm profit", "avg_margin": "Average margin P − c"}.get(k, p.label))
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     if run_state("h2", (lever, tuple(vals), R, H, cont, str(base))):
@@ -154,9 +169,12 @@ with tabs[2]:
         "Higher volatility widens the CD-gap, so reliability falls and **the slope decreases with volatility**.",
         "Volatility increases the need for, and benefit of, flexibility, so **the slope increases with volatility**.")
     c1, c2 = st.columns(2)
-    lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 30.0), key="h3_rng")
-    steps = c2.slider("Steps", 3, 20, 8, key="h3_steps")
+    lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 30.0), key="h3_rng",
+                      help="Lowest and highest cost volatility Δ (max raw-material cost change per period) to sweep.")
+    steps = c2.slider("Steps", 3, 20, 8, key="h3_steps", help=STEPS_HELP)
     xaxis = st.radio("Plot against", ["delta", "sc_cost", "cd_gap"], horizontal=True, key="h3_x",
+                     help="Horizontal axis: Δ itself, the paper's uncertainty proxy (serial correlation of cost; "
+                          "lower = more uncertain), or the measured CD-gap (RMSE of firms' cost perception).",
                      format_func=lambda k: {"delta": "Δ", "sc_cost": "Serial corr. of cost (paper's proxy)",
                                             "cd_gap": "Measured CD-gap (cost-perception RMSE)"}[k])
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
@@ -194,14 +212,19 @@ with tabs[3]:
         "up**.",
         "Decisions are made at the margin, so fixed costs have **no effect** on the switch point.")
     c1, c2, c3 = st.columns(3)
-    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h4_lever")
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h4_lever",
+                         help=LEVER_HELP)
     p = PARAMS[lever]
     rng_default = {"desired_margin": (0.0, 16.0), "c_max": (55.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
-    lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h4_rng_{lever}")
-    steps = c3.slider("Steps", 3, 15, 7, key="h4_steps")
+    lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h4_rng_{lever}", help=range_help(p))
+    steps = c3.slider("Steps", 3, 15, 7, key="h4_steps", help=STEPS_HELP)
     c1, c2 = st.columns(2)
-    fcs = parse(c1.text_input("Fixed-cost levels b", "0, 500, 1500", key="h4_fc"), [0, 500, 1500])
-    incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl")
+    fcs = parse(c1.text_input("Fixed-cost levels b", "0, 500, 1500", key="h4_fc",
+                                help="Comma-separated fixed costs per period, identical for every firm. One line "
+                                     "(and one switch point) per level."), [0, 500, 1500])
+    incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl",
+                     help="On = the paper's margin P − c − F/q, so fixed costs change decisions. Off = VBA "
+                          "margin P − c: the control, where fixed costs cannot change behaviour.")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     scn = base.copy()
     scn.firm_globals.margin_includes_fixed = incl
@@ -242,12 +265,15 @@ with tabs[4]:
         st.warning("Desired margin m* only affects Bertrand firms. Switch the base scenario to Bertrand.")
     else:
         c1, c2, c3 = st.columns(3)
-        lever = c1.selectbox("Profitability lever", ["c_max", "delta", "q_range"], format_func=lambda k: PARAMS[k].label, key="h5_lever")
+        lever = c1.selectbox("Profitability lever", ["c_max", "delta", "q_range"], format_func=lambda k: PARAMS[k].label,
+                             key="h5_lever", help="Parameter swept to move industry profitability at each m*.")
         p = PARAMS[lever]
         rng_default = {"c_max": (50.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
-        lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h5_rng_{lever}")
-        steps = c3.slider("Steps", 3, 15, 8, key="h5_steps")
-        ms = parse(st.text_input("Desired margins m* (competition intensities)", "1, 4, 8", key="h5_ms"), [1, 4, 8])
+        lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h5_rng_{lever}", help=range_help(p))
+        steps = c3.slider("Steps", 3, 15, 8, key="h5_steps", help=STEPS_HELP)
+        ms = parse(st.text_input("Desired margins m* (competition intensities)", "1, 4, 8", key="h5_ms",
+                                     help="Comma-separated Bertrand desired margins. Small m* = fierce competition, "
+                                          "large m* = gentlemanly. One line per value."), [1, 4, 8])
         vals = list(np.round(np.linspace(*lo_hi, steps), 3))
         if run_state("h5", (lever, tuple(vals), tuple(ms), R, H, cont, str(base))):
             firms, mk = run_sweep_ui(base, lever, vals, R, "desired_margin", ms, horizon=H, continuation=cont)
@@ -279,8 +305,10 @@ with tabs[5]:
         "with no collusion required.",
         "Industries converge to equilibrium; margins above it require collusion.")
     c1, c2 = st.columns(2)
-    lo_hi = c1.slider("Flexibility scale range (× every φ)", 0.05, 4.0, (0.1, 2.5), key="h6_rng")
-    steps = c2.slider("Steps", 3, 20, 10, key="h6_steps")
+    lo_hi = c1.slider("Flexibility scale range (× every φ)", 0.05, 4.0, (0.1, 2.5), key="h6_rng",
+                      help="Multiplier applied to every firm's φ. Low = sluggish industry, high = oscillating. "
+                           "Values are spaced geometrically.")
+    steps = c2.slider("Steps", 3, 20, 10, key="h6_steps", help=STEPS_HELP)
     vals = list(np.round(np.geomspace(*lo_hi, steps), 3))
     if run_state("h6", (tuple(vals), R, H, cont, str(base))):
         firms, mk = run_sweep_ui(base, "flex_scale", vals, R, horizon=H, continuation=cont)

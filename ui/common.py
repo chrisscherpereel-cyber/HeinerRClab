@@ -110,28 +110,44 @@ def render_sidebar():
     sb = st.sidebar
     sb.markdown("### Base scenario")
     sb.caption("Every page starts from this market. Experiments override only the parameters they sweep.")
-    sb.selectbox("Preset", list(PRESETS), key="preset_choice")
+    sb.selectbox("Preset", list(PRESETS), key="preset_choice",
+                 help="Ready-made scenarios from the paper and the VBA workbook. Pick one, then press **Apply preset** "
+                      "to load its values into every sidebar control; **Reset** restores the VBA 2006 defaults.")
     c1, c2 = sb.columns(2)
     c1.button("Apply preset", on_click=apply_preset, width="stretch")
     c2.button("Reset", on_click=reset_defaults, width="stretch")
 
     with sb.expander("Market", expanded=False):
-        st.number_input("Max price (demand intercept)", 20.0, 1000.0, key=K + "p_max", step=5.0)
-        st.number_input("Min price (floor & lower cost bound)", 0.0, 500.0, key=K + "p_min", step=1.0)
+        st.number_input("Max price (demand intercept)", 20.0, 1000.0, key=K + "p_max", step=5.0,
+                        help="Price at zero quantity on the linear demand curve P = max price − slope·Q. "
+                             "Never reached in practice because every firm produces at least the min production.")
+        st.number_input("Min price (floor & lower cost bound)", 0.0, 500.0, key=K + "p_min", step=1.0,
+                        help="Price floor of the hockey-stick demand curve, P = max(min price, …). Also the lower "
+                             "reflecting bound for the raw-material cost.")
         st.number_input("Quantity range (sets demand slope)", 100.0, 20000.0, key=K + "q_range", step=100.0,
                         help="Slope = (max price − min price) / quantity range. Steep demand destabilises the cobweb.")
-        st.number_input("Initial raw-material cost c₀", 0.0, 500.0, key=K + "c0", step=1.0)
+        st.number_input("Initial raw-material cost c₀", 0.0, 500.0, key=K + "c0", step=1.0,
+                        help="Raw-material cost in period 0; the cost random walk starts here. Must lie between "
+                             "min price and max raw-material cost.")
         st.number_input("Max raw-material cost", 1.0, 500.0, key=K + "c_max", step=1.0,
                         help="Upper reflecting bound; lowering it raises industry profitability.")
         st.slider("Cost volatility Δ (max change per period)", 0.0, 60.0, key=K + "delta", step=0.5,
                   help="Difficulty of the environment. c[t] = c[t−1] + Δ·U(−1,1), reflected at the bounds.")
 
     with sb.expander("Firms", expanded=True):
-        st.slider("Number of firms", 2, 12, key=K + "n_firms")
-        st.radio("Production rule", ["Bertrand", "Cournot"], key=K + "rule", horizontal=True)
+        st.slider("Number of firms", 2, 12, key=K + "n_firms",
+                  help="Firms in the market. Firm i gets flexibility φᵢ = intercept + slope·i, so firms are "
+                       "ordered from most rigid (firm 1) to most flexible.")
+        st.radio("Production rule", ["Bertrand", "Cournot"], key=K + "rule", horizontal=True,
+                 help="How a firm computes its recommended output q*. **Cournot** (model-based): move a fraction φ "
+                      "of the way toward the best reply on the believed demand curve (φ ≤ 1). **Bertrand** "
+                      "(model-free): q* = q + φ·(observed margin − m*), using only the last price.")
         c1, c2 = st.columns(2)
-        c1.number_input("Flex intercept", 0.0, 5.0, key=K + "flex_intercept", step=0.05)
-        c2.number_input("Flex slope", 0.0, 5.0, key=K + "flex_slope", step=0.05)
+        c1.number_input("Flex intercept", 0.0, 5.0, key=K + "flex_intercept", step=0.05,
+                         help="Constant part of each firm's flexibility: φᵢ = intercept + slope·i.")
+        c2.number_input("Flex slope", 0.0, 5.0, key=K + "flex_slope", step=0.05,
+                         help="Increase in flexibility from one firm to the next: φᵢ = intercept + slope·i. "
+                              "0 makes all firms equally flexible.")
         n = int(v("n_firms"))
         flexes = [v("flex_slope") * i + v("flex_intercept") for i in range(1, n + 1)]
         st.caption("φᵢ = intercept + slope·i → " + ", ".join(f"{x:.2f}" for x in flexes))
@@ -140,30 +156,45 @@ def render_sidebar():
         st.selectbox("Selection rule (deviate from 'keep q'?)", SELECTION_RULES, key=K + "selection",
                      help="\n\n".join(f"**{k}** – {t}" for k, t in SELECTION_HELP.items()))
         if v("selection") in ("Small", "Large"):
-            st.number_input("Threshold θ", 0.0, 500.0, key=K + "threshold", step=1.0)
+            st.number_input("Threshold θ", 0.0, 500.0, key=K + "threshold", step=1.0,
+                            help="Cut-off on the recommended change |q* − q|. Small (SR1) deviates only below θ; "
+                                 "Large (SR2) deviates only above θ.")
         if v("rule") == "Bertrand":
             st.slider("Desired margin m*", -5.0, 30.0, key=K + "desired_margin", step=0.5,
                       help="Intensity of competition. Small = fierce, large = gentlemanly.")
         st.slider("Competence κ (cost foresight)", 0.0, 1.0, key=K + "foresight", step=0.05,
                   help="Share of the coming cost change the firm anticipates. The paper's firms have κ = 0.")
-        st.slider("Perception noise σ", 0.0, 20.0, key=K + "noise", step=0.5)
+        st.slider("Perception noise σ", 0.0, 20.0, key=K + "noise", step=0.5,
+                  help="Standard deviation of random error in each firm's estimate of the coming cost. "
+                       "Widens the CD-gap (lower competence).")
         c1, c2 = st.columns(2)
-        c1.number_input("Initial production", 1.0, 5000.0, key=K + "q0", step=10.0)
-        c2.number_input("Min production", 1.0, 500.0, key=K + "q_min", step=1.0)
+        c1.number_input("Initial production", 1.0, 5000.0, key=K + "q0", step=10.0,
+                         help="Output q of every firm in period 0.")
+        c2.number_input("Min production", 1.0, 500.0, key=K + "q_min", step=1.0,
+                         help="Lowest output a firm can choose; recommendations below it are raised to it.")
 
     with sb.expander("Cost of flexibility", expanded=False):
         st.number_input("Flexibility cost slope a", 0.0, 10000.0, key=K + "flex_cost_slope", step=50.0,
                         help="Per-period cost Fᵢ = a·φᵢ + b. The paper's decisive test sets a = b = 0.")
-        st.number_input("Fixed cost per period b", 0.0, 10000.0, key=K + "fixed_cost", step=50.0)
+        st.number_input("Fixed cost per period b", 0.0, 10000.0, key=K + "fixed_cost", step=50.0,
+                        help="Intercept of the per-period cost Fᵢ = a·φᵢ + b, paid by every firm regardless of "
+                             "output. Only affects decisions if the margin includes F/q.")
         st.checkbox("Bertrand margin includes F/q (paper's formula)", key=K + "margin_includes_fixed",
                     help="Off = VBA behaviour (margin = P − c). On = margin = P − c − F/q, so fixed costs "
                          "change decisions, not just profit levels.")
 
     with sb.expander("Simulation & measurement", expanded=False):
-        st.number_input("Periods per run", 100, 20000, key=K + "periods", step=100)
-        st.number_input("Burn-in (discarded periods)", 0, 2000, key=K + "burn_in", step=5)
-        st.number_input("Replications per condition", 1, 200, key=K + "reps", step=1)
-        st.number_input("Random seed", 0, 10_000_000, key=K + "seed", step=1)
+        st.number_input("Periods per run", 100, 20000, key=K + "periods", step=100,
+                        help="Length of each simulated market. Longer runs give more precise estimates but take longer.")
+        st.number_input("Burn-in (discarded periods)", 0, 2000, key=K + "burn_in", step=5,
+                        help="Initial periods excluded from all statistics so the market can settle away from its "
+                             "starting values. The VBA workbook records after period 25.")
+        st.number_input("Replications per condition", 1, 200, key=K + "reps", step=1,
+                        help="Independent markets (different cost shocks) simulated for each experimental condition. "
+                             "More replications give narrower confidence intervals.")
+        st.number_input("Random seed", 0, 10_000_000, key=K + "seed", step=1,
+                        help="Starting point of the random-number streams. The same seed reproduces the same cost "
+                             "shocks and results exactly.")
         st.slider("Counterfactual horizon H", 1, 100, key=K + "horizon",
                   help="Periods over which a deviation from rule B is evaluated when measuring π, r, w, G, D. "
                        "H = 1 is the paper's one-period test, which ignores that production changes persist; "
@@ -172,23 +203,35 @@ def render_sidebar():
         st.radio("After the decision, in the counterfactual the firm…",
                  ["default", "rules"], key=K + "continuation",
                  format_func=lambda x: {"default": "returns to rule B (Heiner)",
-                                        "rules": "keeps using its own rules"}[x])
+                                        "rules": "keeps using its own rules"}[x],
+                 help="How the firm behaves in the counterfactual branch after the evaluated decision, for H > 1. "
+                      "**Rule B**: it then keeps its output fixed, isolating the value of this one decision "
+                      "(Heiner). **Own rules**: it continues with its production and selection rules.")
         st.slider("Discount γ within the horizon", 0.80, 1.0, key=K + "discount", step=0.01,
                   help="Weight γʰ on the h-th period after a decision when valuing it (dynamic RC).")
         st.slider("Estimation window (share of recorded periods)", 0.2, 0.8, key=K + "oos_split", step=0.05,
                   help="Out-of-sample tests estimate the RC in this first part of each run and predict "
                        "performance in the remaining part.")
-        st.slider("Adaptive agents' memory λ", 0.5, 0.999, key=K + "memory", step=0.005)
+        st.slider("Adaptive agents' memory λ", 0.5, 0.999, key=K + "memory", step=0.005,
+                  help="Forgetting factor of Adaptive firms' learned payoff to deviating: new estimate = "
+                       "λ·old + (1 − λ)·latest gain. Closer to 1 = longer memory, slower learning.")
 
     with sb.expander("Structural uncertainty (regime shifts)", expanded=bool(v("struct_on"))):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
                   help="Knightian uncertainty: the demand curve occasionally jumps to a new regime that "
                        "model-based (Cournot) firms don't know about until they update their model.")
         if v("struct_on"):
-            st.slider("Hazard λ (shift probability per period)", 0.0, 0.2, key=K + "hazard", step=0.005)
-            st.slider("Shift size: demand intercept s.d.", 0.0, 40.0, key=K + "intercept_sd", step=1.0)
-            st.slider("Shift size: log demand-slope s.d.", 0.0, 1.0, key=K + "slope_sd", step=0.05)
-            st.number_input("Model-updating lag L (periods, −1 = never)", -1, 500, key=K + "belief_lag", step=1)
+            st.slider("Hazard λ (shift probability per period)", 0.0, 0.2, key=K + "hazard", step=0.005,
+                      help="Probability that the demand curve jumps to a new regime in any period. "
+                           "Expected regime length is 1/λ periods.")
+            st.slider("Shift size: demand intercept s.d.", 0.0, 40.0, key=K + "intercept_sd", step=1.0,
+                      help="At a shift, max price = baseline + s.d.·z with z ~ N(0,1) (kept at least 10 above "
+                           "min price).")
+            st.slider("Shift size: log demand-slope s.d.", 0.0, 1.0, key=K + "slope_sd", step=0.05,
+                      help="At a shift, slope = baseline slope × e^(s.d.·z), z ~ N(0,1), clipped to 0.25–4× baseline.")
+            st.number_input("Model-updating lag L (periods, −1 = never)", -1, 500, key=K + "belief_lag", step=1,
+                            help="How many periods model-based (Cournot) firms keep using the old demand curve "
+                                 "after a shift. 0 = they learn it one period later; −1 = they never update.")
     sb.markdown("---")
     sb.caption("Heiner (1983) · Scherpereel & Summers, *The influence of mistakes in Cournot and Bertrand "
                "competition* (ABSEL 2011).")

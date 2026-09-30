@@ -31,19 +31,36 @@ with st.expander("Firms in this market (editable)", expanded=True):
     edited = st.data_editor(
         st.session_state["lab_firms"], num_rows="dynamic", width="stretch", key="lab_editor",
         column_config={
-            "label": st.column_config.TextColumn("Label"),
-            "rule": st.column_config.SelectboxColumn("Rule", options=list(RULE_TYPES), required=True),
+            "label": st.column_config.TextColumn("Label", help="Name shown for this firm in charts and tables."),
+            "rule": st.column_config.SelectboxColumn(
+                "Rule", options=list(RULE_TYPES), required=True,
+                help="Production rule that recommends q*: Cournot (model-based best reply) or Bertrand "
+                     "(model-free margin feedback)."),
             "flex": st.column_config.NumberColumn("Flexibility φ", min_value=0.0, max_value=10.0, step=0.05,
-                                                  format="%.2f"),
+                                                  format="%.2f",
+                                                  help="How strongly the firm reacts: Cournot = share of the way to "
+                                                       "the best reply (≤ 1); Bertrand = output change per unit of "
+                                                       "margin gap."),
             "selection": st.column_config.SelectboxColumn("Selection rule", options=list(SELECTION_RULES),
-                                                          required=True),
-            "threshold": st.column_config.NumberColumn("θ", min_value=0.0, step=1.0),
-            "desired_margin": st.column_config.NumberColumn("m*", step=0.5),
-            "foresight": st.column_config.NumberColumn("κ", min_value=0.0, max_value=1.0, step=0.05),
-            "noise": st.column_config.NumberColumn("σ", min_value=0.0, step=0.5),
+                                                          required=True,
+                                                          help="When the firm adopts q* instead of keeping q (rule B): "
+                                                               "Always, Never, Small (|q* − q| < θ), Large "
+                                                               "(|q* − q| > θ) or Adaptive (learned)."),
+            "threshold": st.column_config.NumberColumn("θ", min_value=0.0, step=1.0,
+                                                      help="Threshold θ on |q* − q| for Small and Large selection rules."),
+            "desired_margin": st.column_config.NumberColumn("m*", step=0.5,
+                                                           help="Desired margin (Bertrand only): small = fierce "
+                                                                "competition, large = gentlemanly."),
+            "foresight": st.column_config.NumberColumn("κ", min_value=0.0, max_value=1.0, step=0.05,
+                                                      help="Competence: share of the coming cost change the firm "
+                                                           "anticipates (0 = none, 1 = perfect foresight)."),
+            "noise": st.column_config.NumberColumn("σ", min_value=0.0, step=0.5,
+                                                  help="Perception noise: s.d. of the error in the firm's cost estimate."),
         })
     c1, c2, c3 = st.columns([1, 1, 2])
-    seed = c1.number_input("Seed for this run", 0, 10_000_000, int(base.seed), key="lab_seed")
+    seed = c1.number_input("Seed for this run", 0, 10_000_000, int(base.seed), key="lab_seed",
+                           help="Random seed for this market only. Change it to see another draw of cost shocks; "
+                                "the same seed reproduces the run exactly.")
     evolve = c2.toggle("Let firms evolve φ", value=False,
                        help="Imitate the most profitable rival's flexibility every 50 periods (see Endogenous flexibility).")
 
@@ -157,8 +174,10 @@ with tab_rc:
 
 with tab_dec:
     c1, c2 = st.columns([1, 3])
-    fi = c1.selectbox("Firm", range(N), format_func=lambda i: f"{labels[i]} · {firms[i].selection} · φ={firms[i].flex:.2f}")
-    lo, hi = c2.slider("Periods", 1, T - 1, (max(burn, 1), min(T - 1, burn + 150)))
+    fi = c1.selectbox("Firm", range(N), format_func=lambda i: f"{labels[i]} · {firms[i].selection} · φ={firms[i].flex:.2f}",
+                      help="Firm whose period-by-period decisions are shown below.")
+    lo, hi = c2.slider("Periods", 1, T - 1, (max(burn, 1), min(T - 1, burn + 150)),
+                       help="Window of periods to show in the decision log and chart.")
     idx = np.arange(lo, hi + 1)
     dev, opp = hist["deviate"][idx, fi], hist["opportunity"][idx, fi]
     gain = hist["profit_rule"][idx, fi] - hist["profit_default"][idx, fi]

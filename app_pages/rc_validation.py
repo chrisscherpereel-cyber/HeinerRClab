@@ -36,24 +36,39 @@ disc, split = measure_opts()
 with st.form("rcv"):
     st.markdown("**Environment sampling** (each environment draws its own parameters uniformly from these ranges)")
     c = st.columns(4)
-    n_env = c[0].number_input("Environments", 5, 400, 40, step=5)
-    n_reps = c[1].number_input("Replications per environment", 1, 20, 2)
-    env_seed = c[2].number_input("Sampling seed", 0, 10**6, 12345)
-    rules = c[3].multiselect("Production rules", ["Bertrand", "Cournot"], default=[base.firms[0].rule])
+    n_env = c[0].number_input("Environments", 5, 400, 40, step=5,
+                               help="Number of random market environments to draw from the ranges below.")
+    n_reps = c[1].number_input("Replications per environment", 1, 20, 2,
+                                help="Independent runs (different cost shocks) of each environment.")
+    env_seed = c[2].number_input("Sampling seed", 0, 10**6, 12345,
+                                  help="Seed for drawing the environments' parameters; the same seed gives the same set.")
+    rules = c[3].multiselect("Production rules", ["Bertrand", "Cournot"], default=[base.firms[0].rule],
+                             help="Production rules environments may use; each environment picks one at random.")
     c = st.columns(4)
-    delta = c[0].slider("Volatility Δ", 0.5, 40.0, (2.0, 30.0))
-    margin = c[1].slider("Desired margin m*", -2.0, 25.0, (0.0, 16.0))
-    cmax = c[2].slider("Max raw-material cost", 50.0, 99.0, (60.0, 95.0))
-    flex = c[3].slider("Flexibility φ", 0.0, 3.0, (0.1, 1.0))
+    delta = c[0].slider("Volatility Δ", 0.5, 40.0, (2.0, 30.0),
+                        help="Range for cost volatility Δ, the max raw-material cost change per period.")
+    margin = c[1].slider("Desired margin m*", -2.0, 25.0, (0.0, 16.0),
+                         help="Range for the Bertrand desired margin (competition intensity).")
+    cmax = c[2].slider("Max raw-material cost", 50.0, 99.0, (60.0, 95.0),
+                       help="Range for the upper cost bound; lower values make the industry more profitable.")
+    flex = c[3].slider("Flexibility φ", 0.0, 3.0, (0.1, 1.0),
+                       help="Range from which each firm's flexibility is drawn (Cournot values are capped at 1).")
     c = st.columns(4)
-    thr = c[0].slider("Threshold θ", 0.0, 100.0, (5.0, 40.0))
-    fore = c[1].slider("Competence κ", 0.0, 1.0, (0.0, 0.0))
+    thr = c[0].slider("Threshold θ", 0.0, 100.0, (5.0, 40.0),
+                      help="Range for the |q* − q| threshold used by Small and Large selection rules.")
+    fore = c[1].slider("Competence κ", 0.0, 1.0, (0.0, 0.0),
+                       help="Range for cost foresight κ (share of the coming cost change anticipated). "
+                            "The paper's firms have κ = 0.")
     hazard = c[2].slider("Regime-shift hazard λ (structural uncertainty)", 0.0, 0.15, (0.0, 0.0), step=0.005,
                          help="> 0 adds unannounced demand-regime shifts, so the regime can change between the "
                               "estimation and evaluation windows (a Knightian stress test for the RC).")
-    lag = c[3].slider("Model-updating lag L", 0, 100, (20, 20))
+    lag = c[3].slider("Model-updating lag L", 0, 100, (20, 20),
+                      help="Range for how many periods Cournot firms keep the old demand curve after a regime shift. "
+                           "Only matters when the hazard λ range is above 0.")
     sels = st.multiselect("Selection rules", [s for s in SELECTION_RULES if s != "Never"],
-                          default=["Always", "Small", "Large", "Adaptive"])
+                          default=["Always", "Small", "Large", "Adaptive"],
+                          help="Selection rules firms may be given. Never is excluded because it is the rigid twin "
+                               "every firm is compared with.")
     st.caption(f"Measurement: horizon **H = {H}**, discount γ = {disc:g}, estimation window = first "
                f"{split:.0%} of recorded periods (sidebar). Markets simulated = environments × replications × "
                f"(firms + 1) = {int(n_env) * int(n_reps) * (base.n_firms + 1):,}. Cost grows with H.")
@@ -123,9 +138,13 @@ st.dataframe(pt, hide_index=True, width="stretch", column_config={
 # ------------------------------------------------------------------ details for a chosen measure
 st.subheader("Look inside one measure")
 c1, c2 = st.columns(2)
-meas = c1.radio("RC measure", ["full", "persist", "static"], format_func=MEASURE_LABELS.get, horizontal=False)
+meas = c1.radio("RC measure", ["full", "persist", "static"], format_func=MEASURE_LABELS.get, horizontal=False,
+                help="Which version of the reliability condition to inspect: one-period (paper), H-period with "
+                     "rivals fixed, or H-period with rivals reacting.")
 mode = c2.radio("Test", ["oos", "ins"], format_func=lambda x: {"oos": "Out-of-sample (estimate → evaluate)",
-                                                                "ins": "In-sample (all periods)"}[x])
+                                                                "ins": "In-sample (all periods)"}[x],
+                help="Out-of-sample: RC estimated in the first window predicts the advantage in the second. "
+                     "In-sample: estimated and evaluated on the same periods (circular, shown for comparison).")
 rc_col, mg_col, y_col = ((f"rc_est_{meas}", f"margin_est_{meas}", "dyn_adv_eval") if mode == "oos"
                          else (f"rc_all_{meas}", f"margin_all_{meas}", "dyn_adv_all"))
 ok = df.dropna(subset=[rc_col]).copy()

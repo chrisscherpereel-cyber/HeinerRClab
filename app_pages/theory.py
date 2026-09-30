@@ -54,15 +54,28 @@ st.header("2 · Interactive reliability calculator", divider="gray")
 st.caption("Illustrative functional forms: r(U) = 1 − (1 − r∞)(1 − e^(−U/s)),  w(U) = w∞(1 − e^(−U/s)). "
            "Move the sliders to see where the reliability ratio drops below the tolerance limit.")
 cc = st.columns(4)
-pi = cc[0].slider("π (chance of a preferred exception)", 0.05, 0.95, 0.35, 0.01)
-G = cc[1].slider("G (gain from a correct deviation)", 1.0, 100.0, 30.0, 1.0)
-D = cc[2].slider("D (loss from a mistaken deviation)", 1.0, 100.0, 20.0, 1.0)
-U = cc[3].slider("Current uncertainty U (CD-gap)", 0.0, 10.0, 2.0, 0.1)
+pi = cc[0].slider("π (chance of a preferred exception)", 0.05, 0.95, 0.35, 0.01,
+                   help="Probability that, at a given decision, deviating from rule B would actually be better.")
+G = cc[1].slider("G (gain from a correct deviation)", 1.0, 100.0, 30.0, 1.0,
+                  help="Average payoff gained by deviating from B when a preferred exception exists.")
+D = cc[2].slider("D (loss from a mistaken deviation)", 1.0, 100.0, 20.0, 1.0,
+                  help="Average payoff lost by deviating from B when no preferred exception exists.")
+U = cc[3].slider("Current uncertainty U (CD-gap)", 0.0, 10.0, 2.0, 0.1,
+                  help="Gap between the difficulty of the problem and the agent's competence. U = 0 means a "
+                       "perfectly reliable agent (r = 1, w = 0).")
 cc = st.columns(4)
-r_inf = cc[0].slider("r∞ (right-deviation rate at extreme U)", 0.0, 1.0, 0.5, 0.01)
-w_inf = cc[1].slider("w∞ (wrong-deviation rate at extreme U)", 0.0, 1.0, 0.5, 0.01)
-s = cc[2].slider("s (how fast competence is overwhelmed)", 0.2, 10.0, 2.0, 0.1)
-cost_f = cc[3].slider("Cost of flexibility (adds to D, subtracts from G)", 0.0, 30.0, 0.0, 0.5)
+r_inf = cc[0].slider("r∞ (right-deviation rate at extreme U)", 0.0, 1.0, 0.5, 0.01,
+                      help="Limit of r(U), the probability of deviating when an exception exists, as U → ∞. "
+                           "r(U) falls from 1 toward r∞.")
+w_inf = cc[1].slider("w∞ (wrong-deviation rate at extreme U)", 0.0, 1.0, 0.5, 0.01,
+                      help="Limit of w(U), the probability of deviating when no exception exists, as U → ∞. "
+                           "w(U) rises from 0 toward w∞. r∞ = w∞ means pure guessing.")
+s = cc[2].slider("s (how fast competence is overwhelmed)", 0.2, 10.0, 2.0, 0.1,
+                  help="Scale of uncertainty in e^(−U/s). Small s: r and w reach their limits quickly as U rises; "
+                       "large s: the agent stays reliable longer.")
+cost_f = cc[3].slider("Cost of flexibility (adds to D, subtracts from G)", 0.0, 30.0, 0.0, 0.5,
+                       help="Price of being able to deviate. Heiner's point holds even at 0: flexibility can hurt "
+                            "when it is free.")
 
 Gf, Df = max(G - cost_f, 1e-6), D + cost_f
 us = np.linspace(0.0, 10.0, 401)

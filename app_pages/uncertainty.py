@@ -10,7 +10,7 @@ from ui.common import (CAT, base_scenario, cached_event, cached_uncertainty, dow
 
 st.title("Risk versus genuine (Knightian) uncertainty")
 hypothesis_card(
-    "Can the reliability condition handle the uncertainty that 'no theory can be formulated for'?",
+    "KNIGHT",
     "Knight separated **risk** (known probabilities) from **uncertainty** (the structure itself is unknown). Arrow "
     "and Lucas concluded that economic reasoning fails under the latter. Heiner claims the RC applies whatever "
     "the source of the CD-gap. This page compares two families of environments with rising unpredictability:\n\n"
@@ -20,12 +20,7 @@ hypothesis_card(
     "*Model-based* firms (Cournot best replies) keep using an outdated demand curve until they update it, "
     "L periods later. *Model-free* firms (Bertrand margin feedback) react only to observed prices.\n\n"
     "The two families are compared at **matched unpredictability** (the RMS period-to-period price change, or the "
-    "Cournot target error ξ).",
-    "The RC tracks whichever source widens the CD-gap. Under structural shifts, a firm whose flexibility runs "
-    "through a *misspecified model* should find flexibility harmful. A model-free firm need not, because its "
-    "decision errors don't come from the model. Heiner (1989, §6) also predicts **punctuated** adjustment around "
-    "shifts: slow, then quick, then slow.",
-    "Uncertainty of either kind raises the option value of flexibility; structural uncertainty even more so.")
+    "Cournot target error ξ).")
 
 base = base_scenario()
 if not show_errors(base):

@@ -14,8 +14,8 @@ st.markdown(
     "Heiner's 1983 condition treats every decision as a separate, one-shot bet. In a market, a production change "
     "**persists** (rule B keeps the new level) and **rivals react** to it. This page extends the RC to that setting, "
     "along three lines:\n"
-    "1. **Decomposition.** The value of each decision is split into its *immediate* effect (the paper's one-period "
-    "test), a *persistence* effect, and a *strategic feedback* effect.\n"
+    "1. **Decomposition.** The value of each decision is split into its *immediate* effect (Heiner's one-shot, one-period "
+    "comparison), a *persistence* effect, and a *strategic feedback* effect.\n"
     "2. **Heiner (1989).** A firm partially adjusting toward an imperfectly perceived target has a maximal "
     "reliable adjustment speed. The bound is computed from measured decision errors and compared with the "
     "profit-maximising flexibility.\n"
@@ -33,17 +33,14 @@ tabs = st.tabs(["① Decomposing a decision's value", "② Heiner (1989) partial
 # ================================================================================================ 1
 with tabs[0]:
     hypothesis_card(
-        "Which part of a decision's consequences does the one-period RC miss?",
+        "DRC",
         r"For every opportunity, the gain of following the rule instead of B is measured three ways over H periods "
         r"(discount γ):"
-        "\n\n* **Immediate** (H = 1, the paper): this period only, rivals' choices fixed.\n"
+        "\n\n* **Immediate** (H = 1, the one-shot RC): this period only, rivals' choices fixed.\n"
         "* **+ Persistence**: the firm keeps the new level for H periods; rivals follow their *actual* path and do "
         "not react.\n"
         "* **+ Strategic feedback**: the market is forked, so rivals *react* to the deviation.\n\n"
-        "Decomposition: full = immediate + (persist − immediate) + (full − persist).",
-        "When decisions persist and interact, the later terms dominate, so the one-period RC misjudges reliability. "
-        "This is what the out-of-sample validation shows (AUC ≈ 0.5 for the one-period RC).",
-        "Decisions are made at the margin, period by period, so the immediate effect is all that matters.")
+        "Decomposition: full = immediate + (persist − immediate) + (full − persist).")
     if H < 2:
         st.warning("Set the counterfactual horizon H ≥ 2 in the sidebar; with H = 1 all three measures coincide.", icon="⚠️")
     c = st.columns(3)
@@ -107,17 +104,14 @@ with tabs[0]:
 # ================================================================================================ 2
 with tabs[1]:
     hypothesis_card(
-        "Heiner (1989): an imperfect agent can only close in on a moving target by partially adjusting",
-        r"The paper's Cournot rule is Heiner's (1989) model: the firm moves a fraction φ (his β) of the way from last "
+        "BOUND",
+        r"The model's Cournot rule is Heiner's (1989) partial-adjustment model: the firm moves a fraction φ (his β) of the way from last "
         r"period's output toward its **perceived** best reply $\hat x_t = x^*_t + \xi_t$. The gap to the true target is "
         r"$d_t = (1-\beta)\Delta^*_t - \beta\,\xi_t$: adjusting slowly lags the target, adjusting fast imports the "
         r"error. Theorem 2 bounds the speed that still converges despite errors: "
         r"$\beta \le \beta_0 = \dfrac{1}{(1+K)(1-f')}$, where $K$ bounds the error-to-signal ratio $|\xi_t/\Delta^*_t|$ "
         r"and $f'$ is the slope of the target map. With $n$ symmetric Cournot firms, $f' = -(n-1)/2$, so "
-        r"$\beta_0 = 2/((1+K)(n+1))$. Without errors the market is stable only for $\beta < 4/(n+1)$ (Theocharis 1960).",
-        "Profit-maximising flexibility sits **at or below β₀** computed from the *measured* K, and falls as "
-        "difficulty rises (K ↑).",
-        "Full adjustment to the best reply (β = 1) is optimal; slower adjustment only wastes information.")
+        r"$\beta_0 = 2/((1+K)(n+1))$. Without errors the market is stable only for $\beta < 4/(n+1)$ (Theocharis 1960).")
     c = st.columns(4)
     diff = c[0].selectbox("Difficulty", ["delta", "hazard", "noise"], format_func=lambda k: PARAMS[k].label, key="hb_diff",
                           help="Source of the error ξ in firms' perceived best reply: cost volatility, demand-regime "
@@ -206,15 +200,12 @@ with tabs[1]:
 # ================================================================================================ 3
 with tabs[2]:
     hypothesis_card(
-        "Reliability as signal detection",
+        "SDT",
         "Treat the recommended change |q* − q| as a *signal* that a preferred exception exists. A selection rule "
         "that deviates when the signal exceeds θ (SR2, 'Large') has hit rate r(θ) and false-alarm rate w(θ). Sweeping θ "
         "traces the firm's **ROC curve**. Its area (AUC) is the firm's *discriminability*, a competence measure. "
         "Heiner's tolerance limit plays the role of the signal-detection optimal criterion: the best threshold "
-        "is where the curve's slope matches the value-weighted odds (1−π)D / (πG).",
-        "Discriminability (AUC) falls as the CD-gap widens; the value-maximising threshold rises, so firms "
-        "should deviate less often.",
-        "A perfectly competent agent (AUC = 1) should always deviate at preferred exceptions.")
+        "is where the curve's slope matches the value-weighted odds (1−π)D / (πG).")
     c = st.columns(3)
     meas = c[0].radio("Measure of a preferred exception", ["full", "persist", "static"], format_func=MEASURE_LABELS.get,
                       key="sdt_meas",

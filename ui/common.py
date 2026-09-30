@@ -17,6 +17,7 @@ from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, enco
                                    uncertainty_comparison)
 from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams, MarketParams,
                                SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
+from heiner_abm.literature import HYPOTHESIS_BY_ID, REFERENCES, Hypothesis, bibliography
 from heiner_abm.theories import run_tournament
 
 # ------------------------------------------------------------------------------------------------
@@ -66,7 +67,7 @@ DEFAULTS: Dict[str, object] = dict(
 )
 
 PRESETS: Dict[str, Dict[str, object]] = {
-    "VBA 2006 defaults (Bertrand, 4 firms)": {},
+    "Baseline (Bertrand, 4 firms)": {},
     "Cournot competition": dict(rule="Cournot"),
     "Low-profit Bertrand (fierce competition, m* = 0.5)": dict(desired_margin=0.5),
     "High-profit Bertrand (gentlemanly, m* = 14)": dict(desired_margin=14.0),
@@ -76,7 +77,7 @@ PRESETS: Dict[str, Dict[str, object]] = {
     "Reliability-learning (Adaptive) agents, H = 25": dict(selection="Adaptive", horizon=25),
     "Costly flexibility (a = 500, b = 100, in margin)": dict(flex_cost_slope=500.0, fixed_cost=100.0,
                                                              margin_includes_fixed=True),
-    "Ten firms (paper's larger market)": dict(n_firms=10, flex_slope=0.1, q0=80.0),
+    "Ten firms (larger market)": dict(n_firms=10, flex_slope=0.1, q0=80.0),
     "Knightian uncertainty: demand regime shifts (Cournot, φ ≤ 0.4)": dict(rule="Cournot", flex_slope=0.1,
                                                                               struct_on=True, delta=5.0),
     "Knightian uncertainty: demand regime shifts (Bertrand)": dict(struct_on=True, delta=5.0),
@@ -113,8 +114,8 @@ def render_sidebar():
     sb.markdown("### Base scenario")
     sb.caption("Every page starts from this market. Experiments override only the parameters they sweep.")
     sb.selectbox("Preset", list(PRESETS), key="preset_choice",
-                 help="Ready-made scenarios from the paper and the VBA workbook. Pick one, then press **Apply preset** "
-                      "to load its values into every sidebar control; **Reset** restores the VBA 2006 defaults.")
+                 help="Ready-made scenarios. Pick one, then press **Apply preset** to load its values into every sidebar "
+                      "control; **Reset** restores the baseline calibration.")
     c1, c2 = sb.columns(2)
     c1.button("Apply preset", on_click=apply_preset, width="stretch")
     c2.button("Reset", on_click=reset_defaults, width="stretch")
@@ -165,7 +166,7 @@ def render_sidebar():
             st.slider("Desired margin m*", -5.0, 30.0, key=K + "desired_margin", step=0.5,
                       help="Intensity of competition. Small = fierce, large = gentlemanly.")
         st.slider("Competence κ (cost foresight)", 0.0, 1.0, key=K + "foresight", step=0.05,
-                  help="Share of the coming cost change the firm anticipates. The paper's firms have κ = 0.")
+                  help="Share of the coming cost change the firm anticipates. Baseline firms have κ = 0.")
         st.slider("Perception noise σ", 0.0, 20.0, key=K + "noise", step=0.5,
                   help="Standard deviation of random error in each firm's estimate of the coming cost. "
                        "Widens the CD-gap (lower competence).")
@@ -177,12 +178,12 @@ def render_sidebar():
 
     with sb.expander("Cost of flexibility", expanded=False):
         st.number_input("Flexibility cost slope a", 0.0, 10000.0, key=K + "flex_cost_slope", step=50.0,
-                        help="Per-period cost Fᵢ = a·φᵢ + b. The paper's decisive test sets a = b = 0.")
+                        help="Per-period cost Fᵢ = a·φᵢ + b. The decisive test of free flexibility sets a = b = 0.")
         st.number_input("Fixed cost per period b", 0.0, 10000.0, key=K + "fixed_cost", step=50.0,
                         help="Intercept of the per-period cost Fᵢ = a·φᵢ + b, paid by every firm regardless of "
                              "output. Only affects decisions if the margin includes F/q.")
-        st.checkbox("Bertrand margin includes F/q (paper's formula)", key=K + "margin_includes_fixed",
-                    help="Off = VBA behaviour (margin = P − c). On = margin = P − c − F/q, so fixed costs "
+        st.checkbox("Bertrand margin includes F/q", key=K + "margin_includes_fixed",
+                    help="Off = baseline (margin = P − c). On = margin = P − c − F/q, so fixed costs "
                          "change decisions, not just profit levels.")
 
     with sb.expander("Simulation & measurement", expanded=False):
@@ -190,7 +191,7 @@ def render_sidebar():
                         help="Length of each simulated market. Longer runs give more precise estimates but take longer.")
         st.number_input("Burn-in (discarded periods)", 0, 2000, key=K + "burn_in", step=5,
                         help="Initial periods excluded from all statistics so the market can settle away from its "
-                             "starting values. The VBA workbook records after period 25.")
+                             "starting values. The baseline discards 25 periods.")
         st.number_input("Replications per condition", 1, 200, key=K + "reps", step=1,
                         help="Independent markets (different cost shocks) simulated for each experimental condition. "
                              "More replications give narrower confidence intervals.")
@@ -199,7 +200,7 @@ def render_sidebar():
                              "shocks and results exactly.")
         st.slider("Counterfactual horizon H", 1, 100, key=K + "horizon",
                   help="Periods over which a deviation from rule B is evaluated when measuring π, r, w, G, D. "
-                       "H = 1 is the paper's one-period test, which ignores that production changes persist; "
+                       "H = 1 is Heiner's one-shot comparison, which ignores that production changes persist; "
                        "H ≈ 20+ captures their consequences. Cost grows with H. Profit-only experiments skip it "
                        "unless Adaptive agents (who learn from it) are present.")
         st.radio("After the decision, in the counterfactual the firm…",
@@ -235,8 +236,8 @@ def render_sidebar():
                             help="How many periods model-based (Cournot) firms keep using the old demand curve "
                                  "after a shift. 0 = they learn it one period later; −1 = they never update.")
     sb.markdown("---")
-    sb.caption("Heiner (1983) · Scherpereel & Summers, *The influence of mistakes in Cournot and Bertrand "
-               "competition* (ABSEL 2011).")
+    sb.caption("Grounded in Heiner (1983, 1989) and rival theories of flexibility under uncertainty. "
+               "See *Research & contribution*.")
 
 
 def base_scenario() -> Scenario:
@@ -384,7 +385,13 @@ def cached_evolution(js: str, deltas: tuple, n_reps: int, horizon: int, continua
 # ------------------------------------------------------------------------------------------------
 # Reusable display blocks
 # ------------------------------------------------------------------------------------------------
-def hypothesis_card(title: str, statement: str, rc: str, trad: str):
+def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: Optional[str] = None,
+                    trad: Optional[str] = None):
+    """Hypothesis, the competing predictions, the research behind each, and the simulation's contribution.
+    Title and predictions come from the literature registry unless overridden."""
+    h = HYPOTHESIS_BY_ID[hid]
+    rc, trad = rc or h.rc_prediction, trad or h.alt_prediction
+    title = title or (f"{hid}: {h.title}" if hid.startswith("H") else h.title)
     st.markdown(f"#### {title}")
     st.markdown(statement)
     c1, c2 = st.columns(2)
@@ -392,8 +399,35 @@ def hypothesis_card(title: str, statement: str, rc: str, trad: str):
         st.markdown("**Heiner / reliability condition predicts**")
         st.markdown(rc)
     with c2.container(border=True):
-        st.markdown("**Traditional (optimising) view predicts**")
+        st.markdown(f"**Alternative ({h.alt_label.lower()}) predicts**")
         st.markdown(trad)
+    research_panel(h)
+
+
+def _evidence_md(items) -> str:
+    return "\n".join(f"* **{REFERENCES[k].cite}**: {note}" for k, note in items)
+
+
+def research_panel(h: Hypothesis, nested: bool = False):
+    """Supporting research for the RC prediction and for the alternative, plus the simulation's contribution.
+    nested=True draws a bordered box instead of an expander (Streamlit does not allow nested expanders)."""
+    label = (f"📚 Research basis · {len(h.support)} studies support the RC prediction, "
+             f"{len(h.alternative)} support the alternative")
+    box = st.container(border=True) if nested else st.expander(label)
+    with box:
+        if nested:
+            st.markdown(f"**{label}**")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Supporting research: reliability condition**")
+            st.markdown(_evidence_md(h.support))
+        with c2:
+            st.markdown(f"**Supporting research: alternative ({h.alt_label.lower()})**")
+            st.markdown(_evidence_md(h.alternative))
+        st.markdown("**References**")
+        keys = list(dict.fromkeys(k for k, _ in h.support + h.alternative))
+        st.markdown("\n".join(f"* {r.apa}" for r in bibliography(keys)))
+    st.caption(f"**Contribution:** {h.contribution}")
 
 
 def verdict(kind: str, text: str):

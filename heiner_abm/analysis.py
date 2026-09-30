@@ -20,7 +20,7 @@ def _div(a, b):
 
 
 def serial_corr(x: np.ndarray) -> np.ndarray:
-    """Lag-1 serial correlation along the last axis (the VBA SerialCorrel)."""
+    """Lag-1 serial correlation along the last axis (the predictability proxy)."""
     x = np.asarray(x, dtype=float)
     a, b = x[..., :-1], x[..., 1:]
     a = a - a.mean(-1, keepdims=True)
@@ -60,7 +60,7 @@ def heiner_bound(K, n_firms):
 def reliability_table(res: BatchResult, measure: str = "full", window: str = "all") -> pd.DataFrame:
     """One row per (market, firm): Heiner's pi, r, w, G, D, reliability ratio and tolerance limit.
 
-    measure: "static" (one period, the paper), "persist" (H periods, no rival reaction) or "full"
+    measure: "static" (one period, Heiner's one-shot form), "persist" (H periods, no rival reaction) or "full"
              (H periods in a forked market). window: "all", "est" or "eval" periods.
     """
     a = res.accs.get((measure, window), res.acc) if res.accs else res.acc

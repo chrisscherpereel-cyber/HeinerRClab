@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from heiner_abm.literature import CONTRIBUTIONS, HYPOTHESES, cite
 from ui.common import CAT, style
 
 st.title("Heiner's reliability condition")
@@ -10,8 +11,8 @@ st.markdown(
     "Heiner (1983) argued that **decision errors**, not optimisation, shape behaviour. When the difficulty "
     "of a problem exceeds an agent's competence, the agent faces genuine uncertainty. Its attempts to "
     "exploit flexibility then produce mistakes, and **constraining behaviour to a simple rule can "
-    "outperform flexible 'optimising' behaviour, even when flexibility is free.** This app turns the "
-    "paper's cobweb-market experiments into an agent-based laboratory for testing that claim.")
+    "outperform flexible 'optimising' behaviour, even when flexibility is free.** This app is an agent-based "
+    "laboratory, built on a cobweb oligopoly market, that tests that claim against its main rivals.")
 
 st.header("1 · The theory in five quantities", divider="gray")
 c1, c2 = st.columns([1.1, 1])
@@ -122,10 +123,10 @@ st.markdown(
     """
 | Heiner's concept | In the cobweb market |
 |---|---|
-| **Difficulty** | Raw-material cost volatility Δ: the cost moves by up to ±Δ per period and firms must commit to production *before* the new cost is known. The paper uses the serial correlation of cost as the uncertainty proxy. |
-| **Competence** | The firm's cost foresight κ (share of the coming change it anticipates) and perception noise σ. The paper's firms have κ = 0, σ = 0. |
+| **Difficulty** | Raw-material cost volatility Δ: the cost moves by up to ±Δ per period and firms must commit to production *before* the new cost is known. The serial correlation of cost is reported as an empirical predictability proxy. |
+| **Competence** | The firm's cost foresight κ (share of the coming change it anticipates) and perception noise σ. Baseline firms have κ = 0, σ = 0. |
 | **Measured CD-gap** | RMSE of each firm's cost perception, measured during the run. |
-| **Rule B** | *Keep producing last period's quantity* (the VBA "Never" rule). |
+| **Rule B** | *Keep producing last period's quantity* (the "Never" selection rule). |
 | **The flexible alternative** | The Cournot best reply (partial adjustment weight φ) or the Bertrand margin-feedback rule (sensitivity φ). |
 | **Behavioural flexibility** | φ (how far a firm moves) and the **selection rule** (when it is allowed to deviate from B: Always, SR1 *Small*, SR2 *Large*, or *Adaptive*). |
 | **Preferred exception** | A period in which adopting the recommendation earns more than following B, evaluated by forking the market (horizon H). |
@@ -133,62 +134,18 @@ st.markdown(
 | **Performance** | Average profit per period after burn-in, compared across firms of different flexibility, or against the firm's own rigid twin. |
 """)
 
-st.header("4 · Competing hypotheses", divider="gray")
-st.dataframe(pd.DataFrame([
-    ("Flexibility is free (a = b = 0)", "Flexibility can still hurt: errors limit its value",
-     "More flexibility never hurts (relaxing a constraint cannot lower the optimum)", "Hypothesis tests → H1"),
-    ("Industry profitability rises", "Mistakes become cheaper, so flexibility becomes favoured (a switch point)",
-     "Also compatible: larger rewards to flexibility", "H2"),
-    ("Volatility (difficulty) rises", "Reliability falls, so flexibility is punished more",
-     "More volatility raises the value of flexibility", "H3"),
-    ("Fixed costs rise, same marginal costs", "Gains shrink and losses grow, so the switch point moves up",
-     "No effect: decisions are made at the margin", "H4"),
-    ("Competition intensifies (m* ↓)", "The paper's observation: the switch happens at lower profit levels", "n/a", "H5"),
-    ("Competence rises (κ ↑)", "The CD-gap narrows: r ↑, w ↓, flexibility pays again", "Information always helps",
-     "H7 · CD-gap explorer"),
-    ("Perception noise rises (σ ↑)", "Competence falls, so flexibility pays less",
-     "No effect on the value of flexibility (real options: it rises)", "H8"),
-    ("Firms differ only in their selection rule", "As volatility rises, rule B and selective rules gain on 'Always'",
-     "'Always' is never beaten", "H9"),
-    ("Uncertainty rises for reliability-learning firms", "They deviate less often: behaviour becomes more predictable",
-     "They re-optimise more often", "H10"),
-    ("More rivals (n ↑)", "The target moves more, so the reliable adjustment speed falls", "n/a", "H11"),
-    ("Firms learn a new demand regime more slowly (L ↑)", "A persistent CD-gap makes model-based flexibility harmful",
-     "Option value of flexibility rises, or no effect", "H12"),
-    ("Firms can choose their own flexibility", "Volatile industries evolve toward rigidity",
-     "Volatile industries evolve toward flexibility", "Endogenous flexibility"),
-    ("Firms satisfying the RC", "…should beat their rigid selves; violators should not", "Flexibility always wins",
-     "Does the RC predict performance?"),
-], columns=["Situation", "Reliability condition (Heiner)", "Traditional / optimising view", "Where to test"]),
+st.header("4 · Hypotheses, alternatives and the research behind them", divider="gray")
+st.dataframe(pd.DataFrame([{
+    "ID": h.hid, "Hypothesis": h.title, "Reliability condition predicts": h.rc_prediction,
+    "Alternative predicts": f"{h.alt_label}: {h.alt_prediction}",
+    "Supporting research": cite(*[k for k, _ in h.support]),
+    "Alternative research": cite(*[k for k, _ in h.alternative]), "Where to test": h.where} for h in HYPOTHESES]),
     hide_index=True, width="stretch")
-st.caption("H1–H12 are on the *Hypothesis tests* page. The *Competing theories* page pits the reliability condition "
-           "against real options, cobweb stability, bias–variance, satisficing and structural-inertia theories in a "
-           "tournament of experiments and an out-of-sample forecasting horse race.")
+st.caption("H1–H12 are on the *Hypothesis tests* page; the other hypotheses have their own pages. Every hypothesis "
+           "card in the app opens its research basis. The *Competing theories* page pits the reliability condition "
+           "against its rivals in a tournament of experiments and an out-of-sample forecasting horse race, and the "
+           "*Research & contribution* page collects the full bibliography.")
 
-st.header("5 · Extending the theory", divider="gray")
-st.markdown(
-    r"""
-Three extensions turn the paper's test into a contribution to the uncertainty literature. Each has its own page.
-
-**A dynamic reliability condition** (*Dynamic RC* page). Heiner's 1983 condition values each deviation as a
-one-shot bet. In markets a decision **persists** and **provokes reactions**, so its value is
-$\text{immediate} + \text{persistence} + \text{strategic feedback}$, measured over a horizon $H$ with discount $\gamma$.
-The simulation shows the one-period RC, which is what the paper proposed, is uninformative about who benefits from
-flexibility, while the dynamic RC predicts it. Most of the missing value is strategic feedback.
-
-**Heiner (1989), partial adjustment toward an imperfectly perceived target.** The paper's Cournot rule is
-exactly Heiner's later model: move a fraction $\beta$ of the way toward the perceived best reply
-$\hat x_t = x^*_t + \xi_t$. The remaining gap is $d_t = (1-\beta)\Delta^*_t - \beta\xi_t$, a trade-off between lagging
-the target and importing errors. Theorem 2 gives the maximal reliable speed
-$\beta_0 = 1/[(1+K)(1-f')]$ from the error-to-signal ratio $K$. The simulation measures $K$ and finds the
-profit-maximising $\beta$ at or below $\beta_0$, with the market collapsing beyond the stability limit $4/(n+1)$.
-
-**Risk versus Knightian uncertainty** (*Risk vs Knightian uncertainty* page). Unannounced demand-regime
-shifts make model-based firms' demand model wrong, not just noisy. At matched unpredictability, flexibility becomes
-harmful for model-based (Cournot) firms but stays valuable for model-free (Bertrand) firms, and only the dynamic RC
-registers the change. Around each shift, firms show Heiner's *punctuated* slow–quick–slow adjustment.
-
-**Out-of-sample testing** (*Does the RC predict performance?* page). The RC is estimated in the first part of each
-run and used to predict flexible-vs-rigid performance in the second part, scored by AUC. This is the
-signal-detection statistic matching Heiner's reading of r and w as hit and false-alarm rates.
-""")
+st.header("5 · Contribution to the literature", divider="gray")
+for k, (title, text, keys) in enumerate(CONTRIBUTIONS, 1):
+    st.markdown(f"**C{k} · {title}.** {text} *({cite(*keys)})*")

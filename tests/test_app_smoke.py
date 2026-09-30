@@ -8,7 +8,7 @@ APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 PAGES = ["app_pages/theory.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
          "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/designer.py",
-         "app_pages/model_docs.py"]
+         "app_pages/literature.py", "app_pages/model_docs.py"]
 
 
 def _fast(at):

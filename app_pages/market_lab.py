@@ -94,7 +94,7 @@ m = st.columns(6)
 m[0].metric("Avg price", f"{M.avg_price:.2f}")
 m[1].metric("Avg raw-material cost", f"{M.avg_cost:.2f}")
 m[2].metric("Avg margin P − c", f"{M.avg_margin:.2f}")
-m[3].metric("Serial corr. of cost", f"{M.sc_cost:.3f}", help="The paper's uncertainty proxy: lower = more uncertain.")
+m[3].metric("Serial corr. of cost", f"{M.sc_cost:.3f}", help="Empirical predictability proxy: lower = less predictable.")
 m[4].metric("Serial corr. of price", f"{M.sc_price:.3f}")
 m[5].metric("Regime", M.regime.split(" (")[0], help=M.regime)
 
@@ -221,14 +221,14 @@ with tab_dist:
     fh.add_trace(go.Histogram(x=P[burn:], name="Price", marker_color=PRICE_C, opacity=0.75, nbinsx=40))
     fh.add_trace(go.Histogram(x=C[burn:], name="Raw-material cost", marker_color=COST_C, opacity=0.75, nbinsx=40))
     fh.update_layout(barmode="overlay"); fh.update_xaxes(title="Value"); fh.update_yaxes(title="Periods")
-    c1.plotly_chart(style(fh, 340, "Histogram of price & cost (VBA chart)"))
+    c1.plotly_chart(style(fh, 340, "Histogram of price & cost"))
     fs = go.Figure()
     fs.add_trace(go.Scatter(x=F["avg_abs_dq"], y=F["avg_profit"], mode="markers+text", text=labels,
                             textposition="top center", marker=dict(size=12, color=colors, line=dict(color="white", width=2)),
                             hovertemplate="%{text}<br>avg |Δq| %{x:.1f}<br>avg profit %{y:.1f}<extra></extra>",
                             showlegend=False))
     fs.update_xaxes(title="Realised flexibility: avg |Δq| per period"); fs.update_yaxes(title="Average profit")
-    c2.plotly_chart(style(fs, 340, "Profit vs realised flexibility (VBA scattergram)"))
+    c2.plotly_chart(style(fs, 340, "Profit vs realised flexibility"))
     ts = pd.DataFrame(dict(period=np.arange(T), price=P, cost=C, quantity=Q))
     for i in range(N):
         ts[f"q_{labels[i]}"] = hist["q"][:, i]

@@ -14,7 +14,7 @@ from ui.common import (CAT, base_scenario, cached_rc_validation, download, hypot
 
 st.title("Does the reliability condition predict who benefits from flexibility?")
 hypothesis_card(
-    "The paper's proposed test, made out-of-sample",
+    "RC",
     "We generate many random market environments with heterogeneous firms and selection rules. For **every firm** "
     "we run its market twice with identical shocks: once as specified, and once with that firm locked to rule B "
     "(*Never*, a rigid twin). The **advantage of flexibility** is the firm's profit minus its rigid twin's.\n\n"
@@ -22,10 +22,7 @@ hypothesis_card(
     "own decisions, and used to **predict the advantage in the second window**, which it has never seen. "
     "Predictions are scored with the **AUC** (area under the ROC curve): 0.5 = no better than a coin flip, "
     "1 = perfect. AUC is insensitive to how often flexibility pays in a given sample, and it is the "
-    "signal-detection statistic Heiner (1986) used for r (hit rate) and w (false-alarm rate).",
-    "A larger RC margin ln(r/w ÷ tolerance) → flexibility more likely to beat the rigid twin: **AUC > 0.5 out of "
-    "sample**.",
-    "Flexibility always pays, a constant prediction: **AUC = 0.5**, and the RC adds nothing.")
+    "signal-detection statistic Heiner (1986) used for r (hit rate) and w (false-alarm rate).")
 
 base = base_scenario()
 if not show_errors(base):
@@ -58,7 +55,7 @@ with st.form("rcv"):
                       help="Range for the |q* − q| threshold used by Small and Large selection rules.")
     fore = c[1].slider("Competence κ", 0.0, 1.0, (0.0, 0.0),
                        help="Range for cost foresight κ (share of the coming cost change anticipated). "
-                            "The paper's firms have κ = 0.")
+                            "Baseline firms have κ = 0.")
     hazard = c[2].slider("Regime-shift hazard λ (structural uncertainty)", 0.0, 0.15, (0.0, 0.0), step=0.005,
                          help="> 0 adds unannounced demand-regime shifts, so the regime can change between the "
                               "estimation and evaluation windows (a Knightian stress test for the RC).")
@@ -99,7 +96,7 @@ m = st.columns(4)
 m[0].metric("Firms evaluated", f"{len(df):,}")
 m[1].metric("Flexibility beat rigid twin (eval window)", f"{paid:.0%}")
 m[2].metric("Out-of-sample AUC, full dynamic RC", f"{full_oos.auc:.3f}", help=f"95% CI {full_oos.lo:.3f}–{full_oos.hi:.3f}")
-m[3].metric("Out-of-sample AUC, one-period RC (paper)", f"{static_oos.auc:.3f}",
+m[3].metric("Out-of-sample AUC, one-shot RC (H = 1)", f"{static_oos.auc:.3f}",
             help=f"95% CI {static_oos.lo:.3f}–{static_oos.hi:.3f}")
 
 if paid < 0.5:
@@ -112,7 +109,7 @@ else:
     verdict("warn", f"The dynamic RC's out-of-sample AUC ({full_oos.auc:.3f}, CI {full_oos.lo:.3f}–{full_oos.hi:.3f}) "
             "is not distinguishable from 0.5 here. Try more environments, a longer horizon H, or longer runs.")
 if static_oos.hi < full_oos.lo:
-    verdict("support", "The one-period RC proposed in the paper does significantly worse than the dynamic RC: "
+    verdict("support", "The one-shot, one-period RC does significantly worse than the dynamic RC: "
             "the value of a decision lies mostly in its later consequences.")
 
 fig = go.Figure()
@@ -139,7 +136,7 @@ st.dataframe(pt, hide_index=True, width="stretch", column_config={
 st.subheader("Look inside one measure")
 c1, c2 = st.columns(2)
 meas = c1.radio("RC measure", ["full", "persist", "static"], format_func=MEASURE_LABELS.get, horizontal=False,
-                help="Which version of the reliability condition to inspect: one-period (paper), H-period with "
+                help="Which version of the reliability condition to inspect: one-shot (one period), H-period with "
                      "rivals fixed, or H-period with rivals reacting.")
 mode = c2.radio("Test", ["oos", "ins"], format_func=lambda x: {"oos": "Out-of-sample (estimate → evaluate)",
                                                                 "ins": "In-sample (all periods)"}[x],

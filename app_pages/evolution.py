@@ -9,14 +9,12 @@ from ui.common import (CAT, base_scenario, behaviour_horizon, cached_evolution, 
 
 st.title("Endogenous flexibility: what do firms choose?")
 hypothesis_card(
-    "If firms could adjust their own flexibility, how flexible would industries become?",
-    "The paper's closing conjecture: if firms could choose their flexibility, decision errors would push them toward "
+    "EVO",
+    "If firms could choose their flexibility, the reliability argument implies that decision errors would push them toward "
     "constrained behaviour as uncertainty rises. They would compete less aggressively without colluding, and the "
     "industry would settle at positive margins suited to its uncertainty. Here, every *K* periods each firm imitates "
     "the most profitable rival's φ with some probability and then experiments (mutation). This is social learning, "
-    "with no optimisation.",
-    "Evolved flexibility **falls as volatility rises**. Volatile industries become rigid.",
-    "Volatility raises the value of flexibility, so evolved flexibility **rises** with volatility.")
+    "with no optimisation.")
 
 base = base_scenario()
 if not show_errors(base):

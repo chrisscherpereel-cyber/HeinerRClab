@@ -18,6 +18,7 @@ import pandas as pd
 
 from .analysis import flex_profit_by_market, instability_index, ols, summarize_slopes
 from .experiments import apply_param, evolution_runs, run_sweep
+from .literature import THEORY_SOURCES, cite
 from .params import Scenario
 
 
@@ -30,28 +31,26 @@ class Theory:
 
 
 THEORIES: List[Theory] = [
-    Theory("heiner", "Heiner: reliability condition", "Heiner (1983, 1989)",
+    Theory("heiner", "Heiner: reliability condition", cite(*THEORY_SOURCES["heiner"]),
            "Flexibility pays only if the agent's reliability r/w exceeds the tolerance limit (D/G)(1−π)/π. "
            "When the gap between difficulty and competence (the CD-gap) widens, rule-governed behaviour wins, "
            "even when flexibility is free."),
-    Theory("neo", "Neoclassical optimisation", "Le Chatelier principle (Samuelson 1947); Muth (1961)",
+    Theory("neo", "Neoclassical optimisation", cite(*THEORY_SOURCES["neo"]),
            "Relaxing a constraint cannot lower an optimiser's payoff, so free flexibility never hurts. Errors "
            "are unsystematic, and better information makes flexibility more valuable."),
-    Theory("options", "Real options / value of flexibility", "Stigler (1939); Kreps (1979); Dixit (1989); "
-           "Dixit & Pindyck (1994)",
+    Theory("options", "Real options / value of flexibility", cite(*THEORY_SOURCES["options"]),
            "Flexibility is an option whose value rises with uncertainty. With adjustment costs the zone of "
            "inaction widens as uncertainty grows (hysteresis)."),
-    Theory("cobweb", "Cobweb stability theory", "Ezekiel (1938); Nerlove (1958); Theocharis (1960)",
+    Theory("cobweb", "Cobweb stability theory", cite(*THEORY_SOURCES["cobweb"]),
            "Fast adjustment hurts only by destabilising the market. Stability depends on adjustment speed, "
            "demand slope and the number of firms, not on additive shocks such as cost volatility or noise."),
-    Theory("biasvar", "Bias–variance / ecological rationality", "Gigerenzer & Brighton (2009); Geman et al. "
-           "(1992)",
+    Theory("biasvar", "Bias–variance / ecological rationality", cite(*THEORY_SOURCES["biasvar"]),
            "Simple rules beat flexible ones when estimation noise is high relative to the signal. Only "
            "accuracy matters; the payoff asymmetry (stakes) does not enter."),
-    Theory("satisficing", "Satisficing / aspiration-level search", "Simon (1955); Cyert & March (1963)",
+    Theory("satisficing", "Satisficing / aspiration-level search", cite(*THEORY_SOURCES["satisficing"]),
            "Firms change behaviour when performance falls below aspiration. Worse or more volatile "
            "environments trigger more search and change."),
-    Theory("ecology", "Structural inertia (organisational ecology)", "Hannan & Freeman (1984)",
+    Theory("ecology", "Structural inertia (organisational ecology)", cite(*THEORY_SOURCES["ecology"]),
            "Selection favours reliable, inert organisations in any environment, so rigidity is selected "
            "regardless of how volatile the environment is."),
 ]
@@ -76,6 +75,7 @@ class Experiment:
     predictions: Dict[str, Optional[str]]   # theory key -> '+', '-', '0', '>=0' or None
     runner: Callable[..., Outcome]
     why: Dict[str, str]
+    hid: str = ""                           # hypothesis in the literature registry that this experiment tests
 
 
 def _sign(coef: float, p: float, alpha: float = 0.05) -> str:
@@ -200,7 +200,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="Relaxing a constraint cannot hurt.", options="An option is never worth less than zero.",
                     cobweb="Flexibility can only hurt in an unstable market; this one is stable.",
                     biasvar="Firms decide on last period's cost, so estimates are noisy: simple rules win.",
-                    ecology="Inert organisations are selected because they are reliable.")),
+                    ecology="Inert organisations are selected because they are reliable."), hid="H1"),
     Experiment("volatility", "E2 · Cost volatility Δ rises",
                "Δ = 2, 8, 16, 24, 32 (sidebar market otherwise).", "Coefficient of the slope on Δ",
                dict(heiner="-", neo="+", options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
@@ -209,7 +209,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="More change to respond to raises the value of responding.",
                     options="Option value rises with uncertainty.",
                     cobweb="Additive shocks do not change the stability of a linear cobweb.",
-                    biasvar="Noisier environment: the variance of flexible rules grows.")),
+                    biasvar="Noisier environment: the variance of flexible rules grows."), hid="H3"),
     Experiment("competence", "E3 · Competence κ (cost foresight) rises",
                "κ = 0, 0.25, 0.5, 0.75, 1.", "Coefficient of the slope on κ",
                dict(heiner="+", neo="+", options="-", cobweb="0", biasvar="+", satisficing=None, ecology=None),
@@ -218,7 +218,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="Better information complements flexibility.",
                     options="Less uncertainty about the future lowers the option value of flexibility.",
                     cobweb="Foresight shifts perceived cost but not the adjustment dynamics.",
-                    biasvar="Lower estimation error favours the flexible rule.")),
+                    biasvar="Lower estimation error favours the flexible rule."), hid="H7"),
     Experiment("noise", "E4 · Perception noise σ rises",
                "σ = 0, 5, 10, 15, 20.", "Coefficient of the slope on σ",
                dict(heiner="-", neo=None, options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
@@ -226,20 +226,20 @@ EXPERIMENTS: List[Experiment] = [
                dict(heiner="Noise lowers competence: the CD-gap widens.",
                     options="More uncertainty raises option value.",
                     cobweb="Additive noise does not change stability.",
-                    biasvar="Estimation variance punishes flexible rules.")),
+                    biasvar="Estimation variance punishes flexible rules."), hid="H8"),
     Experiment("stakes", "E5 · Fixed costs raise the stakes (Bertrand, margin includes F/q)",
                "b = 0, 500, 1000, 1500; marginal costs unchanged.", "Coefficient of the slope on b",
                dict(heiner="-", neo="0", options=None, cobweb=None, biasvar="0", satisficing=None, ecology=None),
                run_stakes,
                dict(heiner="Gains shrink and losses grow, so the tolerance limit rises.",
                     neo="Decisions are made at the margin; fixed costs are sunk.",
-                    biasvar="Accuracy is unchanged, so rules keep their ranking.")),
+                    biasvar="Accuracy is unchanged, so rules keep their ranking."), hid="H4"),
     Experiment("rivals", "E6 · More rivals (strategic difficulty)",
                "n = 2, 4, 6, 8, 12 firms, φ spread over the same range.", "Coefficient of the slope on n",
                dict(heiner="-", neo=None, options=None, cobweb="-", biasvar=None, satisficing=None, ecology=None),
                run_rivals,
                dict(heiner="The target moves more (f′ = −(n−1)/2), so the reliable speed β₀ falls.",
-                    cobweb="More firms shrink the stability region (φ < 4/(n+1)).")),
+                    cobweb="More firms shrink the stability region (φ < 4/(n+1))."), hid="H11"),
     Experiment("predictability", "E7 · Do reliability-learning agents become more predictable as Δ rises?",
                "Every firm uses the Adaptive selection rule; Δ = 2, 8, 16, 24, 32.",
                "Coefficient of the deviation rate on Δ",
@@ -248,17 +248,18 @@ EXPERIMENTS: List[Experiment] = [
                dict(heiner="Heiner's core 1983 claim: greater uncertainty makes behaviour more rule-governed.",
                     neo="Bigger shocks make re-optimising worthwhile more often.",
                     options="The zone of inaction widens with uncertainty (Dixit 1989).",
-                    satisficing="Volatility pushes results below aspiration more often, triggering change.")),
+                    satisficing="Volatility pushes results below aspiration more often, triggering change."), hid="H10"),
     Experiment("partial", "E8 · Best adjustment speed as errors grow (symmetric Cournot)",
                "Every firm uses the same φ from 0.05 to 1; perception noise σ = 0, 5, 10, 20.",
                "Coefficient of the profit-maximising φ on σ",
-               dict(heiner="-", neo="0", options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
+               dict(heiner="-", neo="-", options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
                run_partial_adjustment,
                dict(heiner="Heiner (1989) Theorem 2: β₀ = 1/((1+K)(1−f′)) falls as K rises.",
-                    neo="The full best reply (φ = 1) is optimal whatever the noise.",
+                    neo="An optimiser that accounts for noise attenuates its response (optimal filtering; "
+                        "Muth 1960, Kalman 1960, Brainard 1967). This prediction is shared with Heiner.",
                     options="More uncertainty favours keeping and using flexibility.",
                     cobweb="The best speed is set by the stability limit, which noise does not move.",
-                    biasvar="Shrink estimates toward the default as noise rises.")),
+                    biasvar="Shrink estimates toward the default as noise rises."), hid="BOUND"),
     Experiment("evolution", "E9 · Which flexibility do industries evolve at different volatilities?",
                "Firms imitate the most profitable rival's φ (plus mutation) for 3,000 periods; Δ = 3, 10, 20, 30.",
                "Coefficient of evolved φ on Δ",
@@ -268,7 +269,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="Volatility raises the value of flexibility, so it is selected.",
                     options="Option value rises with volatility.",
                     cobweb="Selection on stability does not depend on additive shocks.",
-                    ecology="Inertia is selected everywhere; no volatility gradient.")),
+                    ecology="Inertia is selected everywhere; no volatility gradient."), hid="EVO"),
 ]
 EXPERIMENT_BY_KEY = {e.key: e for e in EXPERIMENTS}
 

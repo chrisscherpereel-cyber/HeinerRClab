@@ -327,7 +327,7 @@ def rc_validation(envs: Sequence[Scenario], reps: int,
     return df[df["selection"] != "Never"].reset_index(drop=True)
 
 
-MEASURE_LABELS = {"static": "RC, one period (paper, H = 1)",
+MEASURE_LABELS = {"static": "RC, one-shot (one period, H = 1)",
                   "persist": "RC, persistence (H periods, rivals don't react)",
                   "full": "RC, full dynamic (H periods, rivals react)"}
 

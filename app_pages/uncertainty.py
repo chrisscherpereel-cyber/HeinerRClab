@@ -37,20 +37,31 @@ st.subheader("① Payoff to flexibility under risk vs structural uncertainty")
 with st.form("unc"):
     c = st.columns(4)
     kinds = c[0].multiselect("Firm types", ["Cournot (model-based)", "Bertrand (model-free)"],
-                             default=["Cournot (model-based)", "Bertrand (model-free)"])
-    deltas = [float(x) for x in c[1].text_input("Risk family: Δ levels", "2, 5, 10, 15, 20, 30").split(",") if x.strip()]
-    hazards = [float(x) for x in c[2].text_input("Structural family: hazard λ levels", "0, 0.01, 0.02, 0.04, 0.07, 0.1")
+                             default=["Cournot (model-based)", "Bertrand (model-free)"],
+                             help="Industries to compare. Cournot firms use a demand model that can become outdated; "
+                                  "Bertrand firms react only to observed prices.")
+    deltas = [float(x) for x in c[1].text_input("Risk family: Δ levels", "2, 5, 10, 15, 20, 30",
+                                                help="Comma-separated cost volatilities for the risk family (no regime shifts).").split(",") if x.strip()]
+    hazards = [float(x) for x in c[2].text_input("Structural family: hazard λ levels", "0, 0.01, 0.02, 0.04, 0.07, 0.1",
+                                                 help="Comma-separated per-period probabilities of an unannounced "
+                                                      "demand-regime shift for the structural family.")
                .split(",") if x.strip()]
-    n_reps = c[3].number_input("Replications", 2, 50, max(4, min(reps(), 10)))
+    n_reps = c[3].number_input("Replications", 2, 50, max(4, min(reps(), 10)),
+                               help="Independent markets per level and firm type.")
     c = st.columns(4)
-    base_delta = c[0].number_input("Structural family: base Δ", 0.0, 40.0, 5.0, 0.5)
-    isd = c[1].number_input("Shift size: intercept s.d.", 0.0, 40.0, float(base.structural.intercept_sd), 1.0)
-    ssd = c[2].number_input("Shift size: log-slope s.d.", 0.0, 1.0, float(base.structural.slope_sd), 0.05)
-    lag = c[3].number_input("Model-updating lag L (−1 = never)", -1, 500, int(base.structural.belief_lag))
+    base_delta = c[0].number_input("Structural family: base Δ", 0.0, 40.0, 5.0, 0.5,
+                                    help="Cost volatility held fixed while the hazard λ varies.")
+    isd = c[1].number_input("Shift size: intercept s.d.", 0.0, 40.0, float(base.structural.intercept_sd), 1.0,
+                             help="S.d. of the jump in max price (demand intercept) at each regime shift.")
+    ssd = c[2].number_input("Shift size: log-slope s.d.", 0.0, 1.0, float(base.structural.slope_sd), 0.05,
+                             help="S.d. of the log change in demand slope at each regime shift.")
+    lag = c[3].number_input("Model-updating lag L (−1 = never)", -1, 500, int(base.structural.belief_lag),
+                             help="Periods Cournot firms keep using the old demand curve after a shift (−1 = never update).")
     c = st.columns(2)
     cphi = c[0].slider("Cournot φ range (φᵢ spread evenly)", 0.05, 1.0, (0.1, 0.4), 0.05,
                        help="Keep Cournot φ below the Heiner / Theocharis stability limit (see Dynamic RC page).")
-    bphi = c[1].slider("Bertrand φ range", 0.05, 3.0, (0.25, 1.0), 0.05)
+    bphi = c[1].slider("Bertrand φ range", 0.05, 3.0, (0.25, 1.0), 0.05,
+                       help="Lowest and highest Bertrand flexibility; firms' φᵢ are spread evenly across it.")
     st.caption(f"Measurement horizon H = {H}, γ = {disc:g} (sidebar). Firms use the sidebar selection rule "
                f"(**{base.firms[0].selection}**) and number of firms ({base.n_firms}).")
     run = st.form_submit_button("Run comparison", type="primary")
@@ -61,6 +72,8 @@ if run:
     st.session_state["unc_key"] = key
 if st.session_state.get("unc_key") == key and kinds:
     xopt = st.radio("Match unpredictability by", ["price_change_rms", "xi_rms", "intensity"], horizontal=True,
+                    help="Horizontal axis used to line up the two families: a common measure of how unpredictable "
+                         "the market is, or each family's own intensity (Δ or λ).",
                     format_func=lambda k: {"price_change_rms": "RMS price change (agent-independent)",
                                            "xi_rms": "Cournot target error ξ (Heiner 1989)",
                                            "intensity": "Raw intensity (Δ or λ, separate scales)"}[k])
@@ -136,12 +149,19 @@ st.markdown(
     "normal level (1.0 = normal).")
 with st.form("evt"):
     c = st.columns(5)
-    ev_rule = c[0].radio("Firms", ["Cournot", "Bertrand"], horizontal=True)
-    mixed = c[1].toggle("One firm per selection rule", True, help="Always, Small, Large, Adaptive side by side.")
-    ev_hazard = c[2].number_input("Hazard λ", 0.001, 0.1, 0.01, 0.001, format="%.3f")
-    ev_lag = c[3].number_input("Model-updating lag L", 0, 200, int(max(base.structural.belief_lag, 0)))
-    ev_reps = c[4].number_input("Replications (runs of 3,000 periods)", 2, 40, 10)
-    post = st.slider("Periods shown after the shift", 10, 150, max(40, int(ev_lag) + 20))
+    ev_rule = c[0].radio("Firms", ["Cournot", "Bertrand"], horizontal=True,
+                         help="Production rule of the firms in the event study.")
+    mixed = c[1].toggle("One firm per selection rule", True,
+                        help="On: four firms (Always, Small, Large, Adaptive) side by side. Off: the sidebar's firms, "
+                             "switched to the chosen rule (Cournot φ capped at 0.4).")
+    ev_hazard = c[2].number_input("Hazard λ", 0.001, 0.1, 0.01, 0.001, format="%.3f",
+                                   help="Per-period probability of a demand-regime shift. Low values keep shifts apart.")
+    ev_lag = c[3].number_input("Model-updating lag L", 0, 200, int(max(base.structural.belief_lag, 0)),
+                                help="Periods Cournot firms keep using the old demand curve after a shift.")
+    ev_reps = c[4].number_input("Replications (runs of 3,000 periods)", 2, 40, 10,
+                                 help="Independent runs; every shift in every run is one event in the average.")
+    post = st.slider("Periods shown after the shift", 10, 150, max(40, int(ev_lag) + 20),
+                     help="Length of the window after each shift (k = 0) in the event-study charts.")
     run_ev = st.form_submit_button("Run event study", type="primary")
 ev = base.copy(periods=3000)
 ev.market.delta = min(ev.market.delta, 5.0)

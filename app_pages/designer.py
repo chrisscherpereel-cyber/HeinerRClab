@@ -16,18 +16,23 @@ H, cont = measurement()
 keys = list(PARAMS)
 
 c = st.columns(4)
-p1 = c[0].selectbox("Parameter 1 (x-axis)", keys, index=keys.index("delta"), format_func=lambda k: PARAMS[k].label)
+p1 = c[0].selectbox("Parameter 1 (x-axis)", keys, index=keys.index("delta"), format_func=lambda k: PARAMS[k].label,
+                    help="Main parameter to sweep; it forms the chart's horizontal axis.")
 P1 = PARAMS[p1]
-r1 = c[1].slider("Range", float(P1.lo), float(P1.hi), (float(P1.lo), float(P1.hi)), key=f"d_r1_{p1}")
-n1 = c[2].slider("Steps", 2, 25, 8, key="d_n1")
-use2 = c[3].toggle("Add parameter 2 (lines)")
+r1 = c[1].slider("Range", float(P1.lo), float(P1.hi), (float(P1.lo), float(P1.hi)), key=f"d_r1_{p1}",
+                  help=f"Lowest and highest {P1.label} to sweep. {P1.help}".strip())
+n1 = c[2].slider("Steps", 2, 25, 8, key="d_n1", help="Number of evenly spaced values of parameter 1.")
+use2 = c[3].toggle("Add parameter 2 (lines)",
+                   help="Cross parameter 1 with a second parameter; each value of parameter 2 becomes one line.")
 p2 = vals2 = None
 if use2:
     c = st.columns(4)
-    p2 = c[0].selectbox("Parameter 2", [k for k in keys if k != p1], format_func=lambda k: PARAMS[k].label)
+    p2 = c[0].selectbox("Parameter 2", [k for k in keys if k != p1], format_func=lambda k: PARAMS[k].label,
+                        help="Second parameter to sweep; one line per value.")
     P2 = PARAMS[p2]
-    r2 = c[1].slider("Range 2", float(P2.lo), float(P2.hi), (float(P2.lo), float(P2.hi)), key=f"d_r2_{p2}")
-    n2 = c[2].slider("Steps 2", 2, 6, 3, key="d_n2")
+    r2 = c[1].slider("Range 2", float(P2.lo), float(P2.hi), (float(P2.lo), float(P2.hi)), key=f"d_r2_{p2}",
+                      help=f"Lowest and highest {P2.label} to sweep. {P2.help}".strip())
+    n2 = c[2].slider("Steps 2", 2, 6, 3, key="d_n2", help="Number of evenly spaced values of parameter 2 (lines).")
     vals2 = list(np.round(np.linspace(*r2, n2), 3))
 vals1 = list(np.round(np.linspace(*r1, n1), 3))
 if "n_firms" in (p1, p2):
@@ -43,7 +48,9 @@ OUTCOMES = {
     "log_rc_margin": "Median RC margin ln(ratio ÷ tolerance)", "rc_share": "Share of firms satisfying the RC",
     "cd_gap": "Measured CD-gap", "sc_cost": "Serial corr. of cost", "sc_price": "Serial corr. of price",
 }
-outcome = st.selectbox("Outcome", list(OUTCOMES), format_func=OUTCOMES.get)
+outcome = st.selectbox("Outcome", list(OUTCOMES), format_func=OUTCOMES.get,
+                       help="Statistic plotted on the vertical axis, averaged over replications. Reliability outcomes "
+                            "(π, r, w, G, D, ratio, tolerance, RC) need the counterfactual horizon H and run slower.")
 RC_OUTCOMES = {"pi", "r", "w", "G", "D", "ratio", "tolerance", "log_rc_margin", "rc_share"}
 if outcome not in RC_OUTCOMES:
     H = behaviour_horizon(base)      # profit outcomes don't need counterfactual forks

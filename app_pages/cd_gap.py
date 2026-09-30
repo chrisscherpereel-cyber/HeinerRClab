@@ -26,19 +26,24 @@ H, cont = measurement()
 
 c = st.columns(4)
 difficulty = c[0].selectbox("Difficulty axis", ["delta", "noise"],
-                            format_func=lambda k: {"delta": "Cost volatility Δ", "noise": "Perception noise σ"}[k])
+                            format_func=lambda k: {"delta": "Cost volatility Δ", "noise": "Perception noise σ"}[k],
+                            help="What raises difficulty along the grid's horizontal axis: bigger cost shocks (Δ) or "
+                                 "noisier cost perception (σ).")
 d_rng = c[1].slider("Difficulty range", 0.0, 40.0, (2.0, 30.0) if difficulty == "delta" else (0.0, 12.0),
-                    key=f"cd_rng_{difficulty}")
-d_steps = c[2].slider("Difficulty steps", 2, 10, 5)
-k_steps = c[3].slider("Competence steps (κ from 0 to 1)", 2, 6, 3)
+                    key=f"cd_rng_{difficulty}", help="Lowest and highest difficulty value in the grid.")
+d_steps = c[2].slider("Difficulty steps", 2, 10, 5, help="Number of evenly spaced difficulty values (grid columns).")
+k_steps = c[3].slider("Competence steps (κ from 0 to 1)", 2, 6, 3,
+                      help="Number of evenly spaced foresight values κ between 0 and 1 (grid rows).")
 c = st.columns(3)
 sel_default = base.firms[0].selection if base.firms[0].selection not in ("Always", "Never") else "Adaptive"
 sel = c[0].selectbox("Selection rule for all firms", [s for s in SELECTION_RULES if s != "Never"],
                      index=[s for s in SELECTION_RULES if s != "Never"].index(sel_default),
                      help="With 'Always', r = w = 1 by construction and only π, G and D can move. "
                           "Adaptive or Large rules let r and w respond to uncertainty.")
-n_reps = c[1].number_input("Replications per cell", 1, 100, max(4, min(reps(), 10)))
-periods = c[2].number_input("Periods per run", 200, 5000, min(base.periods, 800), step=100)
+n_reps = c[1].number_input("Replications per cell", 1, 100, max(4, min(reps(), 10)),
+                            help="Independent markets simulated for each difficulty × competence combination.")
+periods = c[2].number_input("Periods per run", 200, 5000, min(base.periods, 800), step=100,
+                             help="Length of each simulated market in this grid (overrides the sidebar).")
 
 scn = base.copy(periods=int(periods))
 for f in scn.firms:

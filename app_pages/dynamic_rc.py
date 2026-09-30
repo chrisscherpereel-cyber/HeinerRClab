@@ -48,12 +48,15 @@ with tabs[0]:
         st.warning("Set the counterfactual horizon H ≥ 2 in the sidebar; with H = 1 all three measures coincide.", icon="⚠️")
     c = st.columns(3)
     keys = ["delta", "desired_margin", "hazard", "q_range", "n_firms", "foresight"]
-    lever = c[0].selectbox("Vary", keys, format_func=lambda k: PARAMS[k].label, key="drc_lever")
+    lever = c[0].selectbox("Vary", keys, format_func=lambda k: PARAMS[k].label, key="drc_lever",
+                           help="Parameter swept to see how the three components of a decision's value change.")
     P = PARAMS[lever]
     dflt = {"delta": (2.0, 30.0), "desired_margin": (0.0, 16.0), "hazard": (0.0, 0.1), "q_range": (600.0, 4000.0),
             "n_firms": (2.0, 10.0), "foresight": (0.0, 1.0)}[lever]
-    rng = c[1].slider("Range", float(P.lo), float(P.hi), dflt, key=f"drc_rng_{lever}")
-    steps = c[2].slider("Steps", 3, 12, 6, key="drc_steps")
+    rng = c[1].slider("Range", float(P.lo), float(P.hi), dflt, key=f"drc_rng_{lever}",
+                      help=f"Lowest and highest {P.label} to sweep. {P.help}".strip())
+    steps = c[2].slider("Steps", 3, 12, 6, key="drc_steps",
+                        help="Number of evenly spaced values within the range.")
     vals = np.round(np.linspace(*rng, steps), 3)
     if lever == "n_firms":
         vals = sorted(set(int(round(x)) for x in vals))
@@ -116,11 +119,17 @@ with tabs[1]:
         "difficulty rises (K ↑).",
         "Full adjustment to the best reply (β = 1) is optimal; slower adjustment only wastes information.")
     c = st.columns(4)
-    diff = c[0].selectbox("Difficulty", ["delta", "hazard", "noise"], format_func=lambda k: PARAMS[k].label, key="hb_diff")
+    diff = c[0].selectbox("Difficulty", ["delta", "hazard", "noise"], format_func=lambda k: PARAMS[k].label, key="hb_diff",
+                          help="Source of the error ξ in firms' perceived best reply: cost volatility, demand-regime "
+                               "shifts, or cost-perception noise.")
     lv_default = {"delta": "2, 10, 20, 30", "hazard": "0, 0.02, 0.05, 0.1", "noise": "0, 5, 10, 20"}[diff]
-    levels = [float(x) for x in c[1].text_input("Levels", lv_default, key=f"hb_lv_{diff}").split(",") if x.strip()]
-    phi_hi = c[2].slider("φ grid up to", 0.2, 1.0, 1.0, 0.05, key="hb_phimax")
-    npts = c[3].slider("Grid points", 8, 40, 20, key="hb_n")
+    levels = [float(x) for x in c[1].text_input("Levels", lv_default, key=f"hb_lv_{diff}",
+                                                      help="Comma-separated difficulty values; one profit-vs-φ curve "
+                                                           "per level.").split(",") if x.strip()]
+    phi_hi = c[2].slider("φ grid up to", 0.2, 1.0, 1.0, 0.05, key="hb_phimax",
+                         help="Largest common adjustment speed φ (Heiner's β) tested; the grid starts at 0.05.")
+    npts = c[3].slider("Grid points", 8, 40, 20, key="hb_n",
+                       help="Number of φ values between 0.05 and the upper limit.")
     phis = tuple(np.round(np.linspace(0.05, phi_hi, npts), 3))
     R2 = max(3, min(reps(), 15))
     scn = base.copy()
@@ -208,10 +217,13 @@ with tabs[2]:
         "A perfectly competent agent (AUC = 1) should always deviate at preferred exceptions.")
     c = st.columns(3)
     meas = c[0].radio("Measure of a preferred exception", ["full", "persist", "static"], format_func=MEASURE_LABELS.get,
-                      key="sdt_meas")
+                      key="sdt_meas",
+                      help="How a deviation's payoff is judged when deciding whether it was a preferred exception: "
+                           "this period only, over H periods with rivals fixed, or over H periods with rivals reacting.")
     scope = c[1].radio("Firms", ["pool", "one"], format_func=lambda x: {"pool": "Pool all firms", "one": "One firm"}[x],
-                       key="sdt_scope")
-    fi = c[2].number_input("Firm (when one)", 1, base.n_firms, 1, key="sdt_firm") - 1
+                       key="sdt_scope", help="Trace the ROC curve from every firm's decisions together, or from one firm.")
+    fi = c[2].number_input("Firm (when one)", 1, base.n_firms, 1, key="sdt_firm",
+                           help="Firm number (1 = most rigid) used when Firms = One firm.") - 1
     out = cached_single(to_json(base), H, cont, disc, split)
     h = out["hist"]
     burn = base.burn_in

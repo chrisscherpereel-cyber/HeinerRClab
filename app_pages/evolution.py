@@ -26,14 +26,21 @@ H = behaviour_horizon(base)
 
 with st.form("evo"):
     c = st.columns(4)
-    deltas_txt = c[0].text_input("Volatility levels Δ", "3, 10, 20, 30")
-    periods = c[1].number_input("Periods", 500, 50000, max(base.periods, 5000), step=500)
-    every = c[2].number_input("Revise every K periods", 5, 1000, 50)
-    n_reps = c[3].number_input("Replications", 1, 100, max(reps() // 2, 6))
+    deltas_txt = c[0].text_input("Volatility levels Δ", "3, 10, 20, 30",
+                                 help="Comma-separated cost volatilities; flexibility evolves separately at each level.")
+    periods = c[1].number_input("Periods", 500, 50000, max(base.periods, 5000), step=500,
+                                help="Length of each run. Evolution needs many revision rounds, so runs are long.")
+    every = c[2].number_input("Revise every K periods", 5, 1000, 50,
+                              help="Periods between flexibility revisions. Profits are compared over each K-period window.")
+    n_reps = c[3].number_input("Replications", 1, 100, max(reps() // 2, 6),
+                               help="Independent runs per volatility level.")
     c = st.columns(4)
-    imit = c[0].slider("Imitation probability", 0.0, 1.0, 0.5)
-    mut = c[1].slider("Mutation s.d.", 0.0, 0.3, 0.03, 0.005)
-    fmax = c[2].number_input("Max φ", 0.1, 10.0, 2.0 if base.firms[0].rule == "Bertrand" else 1.0, step=0.1)
+    imit = c[0].slider("Imitation probability", 0.0, 1.0, 0.5,
+                       help="Chance that, at each revision, a firm copies the φ of the most profitable firm.")
+    mut = c[1].slider("Mutation s.d.", 0.0, 0.3, 0.03, 0.005,
+                      help="Standard deviation of the random experiment added to every firm's φ at each revision.")
+    fmax = c[2].number_input("Max φ", 0.1, 10.0, 2.0 if base.firms[0].rule == "Bertrand" else 1.0, step=0.1,
+                             help="Upper limit on evolved flexibility (Cournot is always capped at 1); the lower limit is 0.")
     start_same = c[3].toggle("All firms start at the same φ", False,
                              help="Off = firms start at the sidebar's φ ladder. On = everyone starts at its mean.")
     run = st.form_submit_button("Run evolution", type="primary")

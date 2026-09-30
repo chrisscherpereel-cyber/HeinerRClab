@@ -16,7 +16,7 @@ cost. The Industry schedules one round:
     5. every firm books profit (P[t]-c[t])*q - F and evaluates the counterfactual:
        what it would have earned over the next H periods (discount gamma) had it made the
        other choice. The market is forked and every agent keeps following its rules.
-       With H = 1 this is the paper's one-period comparison with rivals held fixed.
+       With H = 1 this is Heiner's one-shot comparison with rivals held fixed.
        This is how Heiner's quantities pi, r, w, G and D are measured.
 
 `heiner_abm.engine` is a vectorised twin of this module used for Monte-Carlo
@@ -76,7 +76,7 @@ def belief_index(scn: Scenario) -> np.ndarray:
 
 
 def reflect(value: float, lo: float, hi: float) -> float:
-    """VBA 'reflexive boundary': overshoot beyond a bound is mirrored back inside."""
+    """Reflecting boundary: overshoot beyond a bound is mirrored back inside."""
     if value <= lo:
         return lo + (lo - value)
     if value >= hi:

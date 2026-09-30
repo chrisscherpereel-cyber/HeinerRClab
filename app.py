@@ -29,6 +29,7 @@ pages = {
         st.Page("app_pages/designer.py", title="Experiment designer", icon="🛠️"),
     ],
     "Reference": [
+        st.Page("app_pages/literature.py", title="Research & contribution", icon="📚"),
         st.Page("app_pages/model_docs.py", title="Model & methods", icon="📐"),
     ],
 }

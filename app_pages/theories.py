@@ -7,9 +7,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges
+from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, fmt_p, measure_opts,
-                       measurement, reps, show_errors, style, to_json, verdict)
+                       measurement, reps, research_panel, show_errors, style, to_json, verdict)
 
 st.title("Competing theories: is Heiner's model superior?")
 st.caption("Heiner's reliability condition is one of several theories about when behavioural flexibility pays under "
@@ -31,6 +32,10 @@ MARK = {"match": "✅", "contradicted": "❌", "inconclusive": "➖", None: ""}
 st.header("1 · The contenders", divider="gray")
 st.dataframe(pd.DataFrame([dict(Theory=t.name, Sources=t.sources, **{"Core claim": t.claim}) for t in THEORIES]),
              hide_index=True, width="stretch")
+with st.expander("📚 Research behind each theory"):
+    for t in THEORIES:
+        st.markdown(f"**{t.name}**")
+        st.markdown("\n".join(f"* {r.apa}" for r in bibliography(THEORY_SOURCES[t.key])))
 
 st.header("2 · What each theory predicts", divider="gray")
 st.caption("Each experiment reports one statistic; a theory predicts its sign. For E1 the statistic is the payoff "
@@ -42,7 +47,8 @@ pred = pd.DataFrame([{"Experiment": e.title, "Statistic": e.statistic,
 st.dataframe(pred, hide_index=True, width="stretch")
 with st.expander("Why each theory predicts what it does"):
     for e in EXPERIMENTS:
-        st.markdown(f"**{e.title}** · {e.manipulation}")
+        st.markdown(f"**{e.title}** · {e.manipulation} Tests hypothesis **{e.hid}** "
+                    f"({HYPOTHESIS_BY_ID[e.hid].where}).")
         st.markdown("\n".join(f"* *{THEORY_NAMES[k]}* ({SYM[e.predictions.get(k)]}): {txt}" for k, txt in e.why.items()))
 
 # ------------------------------------------------------------------------------------------------ tournament
@@ -96,6 +102,9 @@ if outcomes:
         with st.expander(f"Details · {e.title}"):
             st.markdown(f"*{e.manipulation}* Statistic: {e.statistic.lower()}. {outcomes[e.key].summary}.")
             st.dataframe(outcomes[e.key].detail, hide_index=True, width="stretch")
+            h = HYPOTHESIS_BY_ID[e.hid]
+            st.markdown(f"**Hypothesis {h.hid}: {h.title}**")
+            research_panel(h, nested=True)
     top = sb.iloc[0]
     h = sb[sb["theory"].str.startswith("Heiner")].iloc[0]
     tied = sb[(sb["net"] == top["net"]) & (sb["matches"] == top["matches"])]["theory"].tolist()
@@ -131,7 +140,7 @@ st.markdown(
     "* **Neoclassical:** flexibility always pays, the same forecast for everyone (AUC = 0.5 by construction).")
 if H < 2:
     st.warning("Set the counterfactual horizon H ≥ 2 in the sidebar. With H = 1 the reliability quantities use the "
-               "paper's one-period measure, which is known to be uninformative.", icon="⚠️")
+               "one-shot, one-period measure, which is uninformative here.", icon="⚠️")
 with st.form("race"):
     c = st.columns(4)
     n_env = c[0].number_input("Environments", 10, 400, 60, step=10,
@@ -141,7 +150,7 @@ with st.form("race"):
     rules = c[2].multiselect("Production rules", ["Bertrand", "Cournot"], default=["Bertrand", "Cournot"],
                              help="Production rules the environments may use; each firm draws one at random.")
     meas = c[3].radio("Reliability measure", ["full", "static"], format_func=MEASURE_LABELS.get,
-                      help="Full dynamic RC (H periods, rivals react) or the paper's one-period RC.")
+                      help="Full dynamic RC (H periods, rivals react) or the one-shot, one-period RC.")
     env_seed = st.number_input("Sampling seed", 0, 10**6, 12345, help="Seed for drawing the environments.")
     st.caption(f"Markets simulated ≈ environments × replications × (firms + 1) = "
                f"{int(n_env) * int(n_reps) * (base.n_firms + 1):,} at H = {H}.")
@@ -233,7 +242,7 @@ see the README), "superior" holds in one sense and not the other:
 * **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
   contradicted). Its miss was perception noise in Bertrand markets, which *raised* the payoff to flexibility.
 * **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.61) but was far behind a
-  firm's own track record (AUC ≈ 0.86), and added nothing once the rival forecasts were combined. The paper's
+  firm's own track record (AUC ≈ 0.86), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
 
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual

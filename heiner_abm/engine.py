@@ -14,7 +14,7 @@ Heiner's reliability bookkeeping (per firm):
     Reliability condition:  r/w  >  (D/G) * (1-pi)/pi
 
 Three *measures* of the gain from following the rule instead of B (the dynamic RC):
-    "static"  : one period, rivals' choices held fixed (the paper's proposal; H = 1)
+    "static"  : one period, rivals' choices held fixed (Heiner's one-shot comparison; H = 1)
     "persist" : H periods, the firm keeps the chosen level (rule B afterwards), rivals follow
                 their *actual* path (no reaction to the deviation) -> adds persistence
     "full"    : H periods in a forked market where rivals react (continuation "default"), or

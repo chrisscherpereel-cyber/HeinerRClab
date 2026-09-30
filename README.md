@@ -1,8 +1,9 @@
 # Heiner_RC_Lab: agent-based tests of Heiner's reliability condition
 
-A Streamlit application that turns *The influence of mistakes in Cournot and Bertrand competition: a test of
-Heiner's reliability condition* (Scherpereel & Summers) and its 2006 VBA workbook (`HeinerIOExp.xls`) into an
-agent-based simulation laboratory.
+A Streamlit agent-based simulation laboratory that tests Heiner's (1983, 1989) reliability condition in a cobweb
+oligopoly and confronts it with rival theories of flexibility under uncertainty: neoclassical optimisation, real
+options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. Every
+hypothesis, and every alternative to it, is grounded in published research (see *Research basis* below).
 
 ## Run locally
 
@@ -11,7 +12,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Tests (agent/engine equivalence, VBA parity checks, RC accounting identity, headless smoke test of every page):
+Tests (agent/engine equivalence, RC accounting identity, literature-registry integrity, headless smoke test of every page):
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -38,9 +39,9 @@ many replications. For heavy research runs, use a local installation.
 
 | Page | What it does |
 |---|---|
-| Heiner's reliability condition | The theory (CD-gap, r, w, π, G, D, tolerance limit), an interactive RC calculator, and the competing hypotheses |
+| Heiner's reliability condition | The theory (CD-gap, r, w, π, G, D, tolerance limit), an interactive RC calculator, every hypothesis with its alternative and research, and the contribution to the literature |
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
-| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behaviour · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the traditional prediction and gives a verdict |
+| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behaviour · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
 | Does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
 | Dynamic RC (Heiner 1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximising flexibility. Signal-detection ROC of each firm's decisions |
 | Risk vs Knightian uncertainty | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot) and model-free (Bertrand) firms. Event study of punctuated slow–quick–slow adjustment |
@@ -48,7 +49,8 @@ many replications. For heavy research runs, use a local installation.
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
 | Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
-| Model & methods | Equations, schedule, measurement, statistics, parity table against the VBA code |
+| Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
+| Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
 
 ## Competing theories: reference results
 
@@ -61,37 +63,41 @@ Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
 | Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
 | Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
 | Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
-| Neoclassical optimisation | 1/5/1 and 0/5/2 | 2/2/3 and 2/3/2 |
+| Neoclassical optimisation | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
 
 Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
 perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
-tested low-profit level. Evolved flexibility showed no volatility gradient in any run.
+tested low-profit level. Evolved flexibility showed no volatility gradient in any run. The best adjustment speed
+fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 1960) predicts the same, so that test
+does not discriminate between them.
 
 Out-of-sample forecasting (100 random environments × 2 replications, 800 firms, both production rules): the dynamic
 RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.61, 95% CI 0.56–0.66), ahead of
 cobweb stability (0.58), stakes only (0.56), Heiner's K (0.56), accuracy only (0.54) and real options (0.47). A firm's
 own track record in the first half of the run was far better (AUC 0.86), and adding the RC to all rival forecasts
-combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). The paper's one-period RC scored only 0.55.
+combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). Heiner's one-shot (one-period) RC scored only 0.55.
 
 ## Code layout
 
 ```
-heiner_abm/params.py       scenario dataclasses (defaults = VBA SetUpForm)
+heiner_abm/params.py       scenario dataclasses and the baseline calibration
 heiner_abm/agents.py       readable agent implementation: Firm, Market, Industry
 heiner_abm/engine.py       vectorised batch engine (same model, same random streams) for Monte Carlo
 heiner_abm/analysis.py     reliability metrics, market statistics, regressions
 heiner_abm/experiments.py  sweeps with common random numbers, rigid-twin RC validation, evolution, horse race
 heiner_abm/theories.py     rival theories, their predictions, the tournament experiments and scoring
+heiner_abm/literature.py   references, research behind every hypothesis and alternative, contributions
 ui/common.py               sidebar base scenario, presets, caching, chart helpers
 app_pages/*.py             the Streamlit pages
 ```
 
 ## Modelling notes
 
-* The market, cost process, Cournot/Bertrand rules, selection rules, rounding and profit accounting match the VBA
-  exactly (see the parity table in the app).
-* **Extensions beyond the VBA:**
-  * per-firm reliability measurement (the paper's planned extension);
+* The core model is a cobweb oligopoly: firms commit to output before a random raw-material cost is realised, using
+  a Cournot best-reply rule (model-based) or a Bertrand margin-feedback rule (model-free), and a selection rule that
+  decides when to deviate from rule B (keep last period's output).
+* **Features:**
+  * per-firm, per-decision reliability measurement (π, r, w, G, D);
   * competence (cost foresight κ, perception noise σ), which makes the CD-gap explicit and measurable;
   * an Adaptive selection rule that learns when deviating pays;
   * evolution of flexibility;
@@ -100,8 +106,18 @@ app_pages/*.py             the Streamlit pages
   * three measures of decision value (one-period, persistence, full strategic feedback) with discounting;
   * Heiner's (1989) error-to-signal ratio K and partial-adjustment bound;
   * unannounced demand-regime shifts with a model-updating lag (structural / Knightian uncertainty).
-* **Counterfactual horizon H.** The paper proposed judging each deviation from rule B by one period of profit.
+* **Counterfactual horizon H.** Heiner's condition treats each deviation from rule B as a one-shot bet, judged here
+  by one period of profit.
   Because production changes persist and rivals react, that measure says "deviate" almost always and does not
   predict flexible-vs-rigid performance. The model therefore forks the market at each decision and compares the
   two branches over H periods. By default the firm returns to rule B afterwards, which is Heiner's "deviate at this
-  instance, otherwise follow B". H = 1 reproduces the paper's measure. The default is H = 20.
+  instance, otherwise follow B". H = 1 gives the one-shot measure. The default is H = 20.
+
+## Research basis
+
+`heiner_abm/literature.py` is the single source for the research behind the simulation. Each hypothesis records its
+reliability-condition prediction, its alternative prediction and the rival theory it comes from, the studies that
+support each side (with a note on how each bears on the hypothesis), and the contribution the test makes. The app
+shows this on every hypothesis card and on the *Research & contribution* page, which also exports the bibliography
+as BibTeX and APA and the evidence matrix as CSV. A test checks that every cited work exists in the registry, that
+every hypothesis has research on both sides, and that the app text cites research only through the registry.

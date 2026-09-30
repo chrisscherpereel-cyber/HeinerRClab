@@ -1,10 +1,10 @@
 """Parameter containers for the Heiner cobweb agent-based model.
 
-Defaults reproduce the 2006 VBA workbook (HeinerIOExp.xls, SetUpForm defaults):
-    MaxPrice 100, MinPrice 10, QuantityRange 1500, InitRawMatCost 45,
-    MaxRawMatCost 80, MaxRawMatCostChange 10, InitProduction 200,
-    MinProduction 15, FlexSlope 0.25, FlexIntercept 0, DesiredProfit 5,
-    Threshold 25, four firms, record after period 25.
+Baseline calibration:
+    max price 100, min price 10, quantity range 1500, initial raw-material cost 45,
+    max raw-material cost 80, max cost change 10, initial production 200,
+    min production 15, flexibility slope 0.25, intercept 0, desired margin 5,
+    threshold 25, four firms, 25 burn-in periods.
 """
 from __future__ import annotations
 
@@ -69,8 +69,8 @@ class GlobalFirmParams:
     q0: float = 200.0             # initial production of every firm
     q_min: float = 15.0           # minimum production
     flex_cost_slope: float = 0.0  # a: per-period flexibility cost = a*phi + b
-    fixed_cost: float = 0.0       # b: per-period fixed cost (VBA FlexCostIntercept)
-    margin_includes_fixed: bool = False  # Bertrand margin uses P - c - F/q (paper) vs P - c (VBA)
+    fixed_cost: float = 0.0       # b: per-period fixed cost
+    margin_includes_fixed: bool = False  # Bertrand margin uses P - c - F/q (on) vs P - c (off)
 
 
 @dataclass
@@ -165,7 +165,7 @@ def linear_flex_firms(n: int = 4, slope: float = 0.25, intercept: float = 0.0,
                       rule: str = "Bertrand", selection: str = "Always",
                       threshold: float = 25.0, desired_margin: float = 5.0,
                       foresight: float = 0.0, noise: float = 0.0) -> List[FirmSpec]:
-    """Firms with flexibility phi_i = slope*i + intercept (the VBA convention, i = 1..n)."""
+    """Firms with flexibility phi_i = slope*i + intercept (i = 1..n, most rigid first)."""
     return [FirmSpec(rule=rule, flex=slope * i + intercept, selection=selection,
                      threshold=threshold, desired_margin=desired_margin,
                      foresight=foresight, noise=noise) for i in range(1, n + 1)]

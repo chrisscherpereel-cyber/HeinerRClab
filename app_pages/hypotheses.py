@@ -104,12 +104,10 @@ rule = base.firms[0].rule
 # ------------------------------------------------------------------------------------------------ H1
 with tabs[0]:
     hypothesis_card(
-        "H1: Firms with less decision flexibility can perform better, even when flexibility is free",
-        "The paper's decisive test: set the cost of flexibility to zero (a = b = 0). Then relaxing the constraint "
-        "on behaviour can only help an optimiser, so any market in which rigid firms beat flexible ones "
-        "contradicts the traditional hypothesis.",
-        "In low-profit markets decision errors dominate: profits fall as φ rises (**negative slope**).",
-        "Flexibility is never harmful when free: the slope is **≥ 0 in every market**.")
+        "H1",
+        "The decisive test sets the cost of flexibility to zero (a = b = 0). Relaxing a constraint on behaviour can then "
+        "only help an optimiser, so any market in which rigid firms out-earn flexible ones contradicts the optimising "
+        "view. The statistic is the within-market slope of profit on φ.")
     c1, c2 = st.columns(2)
     lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h1_lever",
                          help=LEVER_HELP)
@@ -145,19 +143,16 @@ with tabs[0]:
             verdict("neutral", "No condition shows a significantly negative slope, so these levels do not reject the traditional "
                     "hypothesis. Try a less profitable market (lower m*, higher max cost) or more volatility.")
         if len(pos) and len(neg):
-            st.caption("Both signs appear. The profit ranking reverses with profitability, which is the paper's central observation.")
+            st.caption("Both signs appear: the profit ranking reverses with profitability.")
         download(firms, "H1_firms.csv")
 
 # ------------------------------------------------------------------------------------------------ H2
 with tabs[1]:
     hypothesis_card(
-        "H2: The flexibility–profit relationship switches as industry profitability rises",
-        "The paper found that rigid firms win in low-profit industries, flexible firms win in profitable ones, with a "
-        "U-shaped transition in between. Both theories can explain the switch, so this experiment locates it; H1 and H4 "
-        "discriminate between them.",
-        "Mistakes are cheaper in profitable markets, so the RC is easier to satisfy: the slope rises with profitability "
-        "and crosses 0 at a **switch point**.",
-        "Profitable markets can pay more for flexibility, but flexibility should never be *harmful* when free.")
+        "H2",
+        "Industry profitability is varied with one lever (desired margin, maximum raw-material cost, volatility or demand "
+        "slope). The experiment locates the profitability at which the profit–flexibility slope changes sign, the "
+        "**switch point**. H1 and H4 discriminate between explanations of the switch.")
     c1, c2, c3 = st.columns(3)
     lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h2_lever",
                          help=LEVER_HELP)
@@ -196,7 +191,7 @@ with tabs[1]:
         c2.plotly_chart(style(fs, 320, "Is profit ordered by flexibility?"))
         if sp is not None:
             verdict("support", f"Switch point found at **{xt} ≈ {sp:.3g}**. Below it rigid firms earn more; above it flexible "
-                    "firms do. This matches the paper's pattern, and the RC explains it as cheaper mistakes in profitable markets.")
+                    "firms do. The RC explains this as mistakes becoming cheaper in profitable markets.")
         else:
             s = "positive" if (summ["slope"] > 0).all() else "negative" if (summ["slope"] < 0).all() else "mixed"
             verdict("neutral", f"No sign change in this range (slopes are {s}). Widen the range or change the lever.")
@@ -205,19 +200,17 @@ with tabs[1]:
 # ------------------------------------------------------------------------------------------------ H3
 with tabs[2]:
     hypothesis_card(
-        "H3: Flexibility hampers performance as volatility rises",
-        "Volatility of raw-material cost is the *difficulty* side of the CD-gap. The paper measures it by the serial "
-        "correlation of cost (lower = more uncertain).",
-        "Higher volatility widens the CD-gap, so reliability falls and **the slope decreases with volatility**.",
-        "Volatility increases the need for, and benefit of, flexibility, so **the slope increases with volatility**.")
+        "H3",
+        "Volatility of the raw-material cost is the *difficulty* side of the CD-gap. It is also reported as the serial "
+        "correlation of cost (lower = less predictable), a common empirical proxy for predictability.")
     c1, c2 = st.columns(2)
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 30.0), key="h3_rng",
                       help="Lowest and highest cost volatility Δ (max raw-material cost change per period) to sweep.")
     steps = c2.slider("Steps", 3, 20, 8, key="h3_steps", help=STEPS_HELP)
     xaxis = st.radio("Plot against", ["delta", "sc_cost", "cd_gap"], horizontal=True, key="h3_x",
-                     help="Horizontal axis: Δ itself, the paper's uncertainty proxy (serial correlation of cost; "
+                     help="Horizontal axis: Δ itself, an empirical predictability proxy (serial correlation of cost; "
                           "lower = more uncertain), or the measured CD-gap (RMSE of firms' cost perception).",
-                     format_func=lambda k: {"delta": "Δ", "sc_cost": "Serial corr. of cost (paper's proxy)",
+                     format_func=lambda k: {"delta": "Δ", "sc_cost": "Serial corr. of cost (predictability proxy)",
                                             "cd_gap": "Measured CD-gap (cost-perception RMSE)"}[k])
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     if run_state("h3", (tuple(vals), R, H, cont, str(base))):
@@ -246,13 +239,11 @@ with tabs[2]:
 # ------------------------------------------------------------------------------------------------ H4
 with tabs[3]:
     hypothesis_card(
-        "H4: Higher fixed costs raise the profitability at which flexibility starts to pay",
-        "Add a fixed cost per period that is identical for all firms. Marginal costs are unchanged. "
-        "**Control:** if the firms' decision margin ignores fixed costs (VBA behaviour), decisions and therefore "
-        "slopes cannot change. The meaningful test turns on *margin includes F/q* (the paper's margin formula).",
-        "Fixed costs shrink the gains from good decisions and enlarge the losses from bad ones, so the **switch point moves "
-        "up**.",
-        "Decisions are made at the margin, so fixed costs have **no effect** on the switch point.")
+        "H4",
+        "A fixed cost per period, identical for all firms, is added; marginal costs are unchanged. **Control:** if the "
+        "firms' decision margin ignores fixed costs (margin = P − c), decisions and therefore slopes cannot change. The "
+        "substantive test uses a margin that includes fixed cost per unit (P − c − F/q), so fixed costs raise the stakes "
+        "of each decision.")
     c1, c2, c3 = st.columns(3)
     lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h4_lever",
                          help=LEVER_HELP)
@@ -265,7 +256,7 @@ with tabs[3]:
                                 help="Comma-separated fixed costs per period, identical for every firm. One line "
                                      "(and one switch point) per level."), [0, 500, 1500])
     incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl",
-                     help="On = the paper's margin P − c − F/q, so fixed costs change decisions. Off = VBA "
+                     help="On = margin P − c − F/q, so fixed costs change decisions. Off = baseline "
                           "margin P − c: the control, where fixed costs cannot change behaviour.")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     scn = base.copy()
@@ -297,12 +288,10 @@ with tabs[3]:
 # ------------------------------------------------------------------------------------------------ H5
 with tabs[4]:
     hypothesis_card(
-        "H5: As competition intensifies, flexibility is favoured at lower profit levels",
-        "The paper reports this as a surprising observation: in more competitive markets (smaller desired margin m*), "
-        "the switch to favouring flexible firms happens at a *lower* level of industry profit. This experiment sweeps "
-        "a profitability lever at several competition intensities.",
-        "Not derived in the paper. It is reported as an empirical regularity that confirms managers' intuition.",
-        "No specific prediction.")
+        "H5",
+        "Exploratory. In more competitive markets (smaller desired margin m*), does the switch to favouring flexible "
+        "firms happen at a *lower* level of industry profit? A profitability lever is swept at several competition "
+        "intensities.")
     if rule != "Bertrand":
         st.warning("Desired margin m* only affects Bertrand firms. Switch the base scenario to Bertrand.")
     else:
@@ -329,9 +318,9 @@ with tabs[4]:
             ok = spd.dropna()
             if len(ok) >= 2 and np.all(np.diff(ok.sort_values("m")["switch_profit"]) > 0):
                 verdict("support", "More intense competition (lower m*) switches to favouring flexibility at **lower** profit "
-                        "levels, reproducing the paper's observation.")
+                        "levels, as H5 predicts.")
             elif len(ok) >= 2:
-                verdict("warn", "Switch points found, but the ordering differs from the paper's observation.")
+                verdict("warn", "Switch points found, but the ordering differs from H5.")
             else:
                 verdict("neutral", "Not enough switch points in range. Try another lever or range.")
             download(summ, "H5_summary.csv")
@@ -339,13 +328,11 @@ with tabs[4]:
 # ------------------------------------------------------------------------------------------------ H6
 with tabs[5]:
     hypothesis_card(
-        "H6: Industry-wide rigidity keeps markets away from equilibrium, and keeps them profitable",
+        "H6",
         "Scaling every firm's φ moves the industry between three regimes: **sluggish** (prices smoother than cost, "
         "serial corr. of price > cost), **tracking** (prices follow cost), and **oscillating** (prices overshoot). "
-        "The paper argues that inflexible industries stay far from the neoclassical equilibrium and earn higher profits.",
-        "When errors are punishing, rigid behaviour is individually rational and **raises industry profits**, "
-        "with no collusion required.",
-        "Industries converge to equilibrium; margins above it require collusion.")
+        "The question is whether inflexible industries stay away from the competitive equilibrium and earn higher "
+        "profits without any coordination.")
     c1, c2 = st.columns(2)
     lo_hi = c1.slider("Flexibility scale range (× every φ)", 0.05, 4.0, (0.1, 2.5), key="h6_rng",
                       help="Multiplier applied to every firm's φ. Low = sluggish industry, high = oscillating. "
@@ -379,7 +366,7 @@ with tabs[5]:
         rho = np.corrcoef(np.log(g["flex_scale"]), g["industry_profit"])[0, 1]
         if rho < -0.5:
             verdict("support", f"Industry profit **falls** as the whole industry becomes more flexible (ρ = {rho:.2f}). "
-                    "Rigid industries stay further from equilibrium and earn more, as the paper argues.")
+                    "Rigid industries stay further from equilibrium and earn more, as H6 predicts.")
         elif rho > 0.5:
             verdict("reject", f"Industry profit **rises** with industry flexibility here (ρ = {rho:.2f}).")
         else:
@@ -389,37 +376,28 @@ with tabs[5]:
 # ------------------------------------------------------------------------------------------------ H7
 with tabs[6]:
     hypothesis_card(
-        "H7: Competence restores the value of flexibility",
+        "H7",
         "Competence is the other side of the CD-gap. Raising cost foresight κ lets firms anticipate part of the coming "
-        "cost change, so their recommendations are right more often.",
-        "The CD-gap narrows: r rises, w falls, and **the payoff to flexibility rises with κ**.",
-        "Optimisation: better information complements flexibility (also a rise). Real options: less uncertainty "
-        "means **less** option value, so the payoff to flexibility **falls** with κ.")
+        "cost change, so their recommendations are right more often.")
     trend_test("h7", base, "foresight", "competence κ", (0.0, 1.0), (0.0, 1.0), 5, "+",
                rng_help="Lowest and highest cost foresight κ: the share of the coming cost change firms anticipate.")
 
 # ------------------------------------------------------------------------------------------------ H8
 with tabs[7]:
     hypothesis_card(
-        "H8: Perception errors make flexibility harmful",
+        "H8",
         "Perception noise σ adds a random error to every firm's estimate of the coming cost. It widens the CD-gap from "
-        "the agent's side without changing the environment (Δ stays fixed).",
-        "Less competence means lower reliability, so **the payoff to flexibility falls with σ**.",
-        "Real options: more uncertainty raises option value (a rise). Cobweb theory: additive noise leaves "
-        "stability unchanged (no effect).")
+        "the agent's side without changing the environment (Δ stays fixed).")
     trend_test("h8", base, "noise", "perception noise σ", (0.0, 20.0), (0.0, 20.0), 5, "-",
                rng_help="Lowest and highest standard deviation of the error in firms' cost estimates.")
 
 # ------------------------------------------------------------------------------------------------ H9
 with tabs[8]:
     hypothesis_card(
-        "H9: When uncertainty rises, rules that deviate less often (or only on clear signals) win",
+        "H9",
         "Every firm has the same flexibility φ but a different **selection rule**: Always (fully flexible), "
         "Never (rule B, rigid), Small (SR1, deviate only on changes below θ) and Large (SR2, deviate only on changes "
-        "above θ, 'big imbalances send clear signals'). They compete in the same market on the same shocks.",
-        "As volatility rises, the fully flexible rule loses ground to the rigid and the selective rules. "
-        "**Always − Never profit falls with Δ.**",
-        "Flexibility is never harmful, so **Always earns at least as much as every other rule at every Δ**.")
+        "above θ, 'big imbalances send clear signals'). They compete in the same market on the same shocks.")
     c1, c2, c3 = st.columns(3)
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h9_rng",
                       help="Lowest and highest cost volatility Δ to sweep.")
@@ -475,15 +453,11 @@ with tabs[8]:
 # ------------------------------------------------------------------------------------------------ H10
 with tabs[9]:
     hypothesis_card(
-        "H10: Greater uncertainty makes behaviour more predictable",
+        "H10",
         "Heiner's (1983) central claim, 'The origin of predictable behavior': imperfect agents facing more uncertainty "
         "restrict themselves to fewer, more rule-governed actions. Here every firm uses the **Adaptive** selection "
         "rule, which learns from counterfactual payoffs when deviating from rule B pays. No rule is imposed on how "
-        "often to deviate.",
-        "As volatility rises, reliability-learning firms **deviate less often**: their behaviour becomes more "
-        "rule-governed.",
-        "Optimisation: bigger shocks make re-optimising worthwhile more often, so deviations **rise**. Satisficing: "
-        "performance falls below aspiration more often, so search and change **rise**.")
+        "often to deviate.")
     c1, c2 = st.columns(2)
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h10_rng",
                       help="Lowest and highest cost volatility Δ to sweep.")
@@ -535,27 +509,21 @@ with tabs[9]:
 # ------------------------------------------------------------------------------------------------ H11
 with tabs[10]:
     hypothesis_card(
-        "H11: More rivals make flexibility less valuable",
+        "H11",
         "With more firms the target each firm aims at moves more with its rivals' choices. In Heiner (1989) the slope "
         "of the target map is f′ = −(n−1)/2 in symmetric Cournot, so the reliable adjustment speed "
         "β₀ = 1/((1+K)(1−f′)) falls as n rises. Flexibility ranges stay the same; total initial output is held "
-        "comparable.",
-        "Strategic difficulty rises, so **the payoff to flexibility falls with n**.",
-        "Optimisation: no prediction. Cobweb theory also predicts a fall, but only through instability "
-        "(φ above 4/(n+1)), not through errors.")
+        "comparable.")
     trend_test("h11", base, "n_firms", "number of firms n", (2.0, 12.0), (2.0, 12.0), 6, "-",
                rng_help="Smallest and largest number of firms; each market spreads φ over the sidebar's range.")
 
 # ------------------------------------------------------------------------------------------------ H12
 with tabs[11]:
     hypothesis_card(
-        "H12: The slower firms learn a new regime, the more flexibility hurts model-based firms",
+        "H12",
         "Unannounced demand-regime shifts (hazard λ from the sidebar, or 0.02 if off) make the demand model that "
         "Cournot firms use for their best replies wrong until they update it, L periods later. The test sweeps L for "
-        "a Cournot industry (sidebar φ if already Cournot, otherwise φ from 0.1 to 0.4, below the stability limit).",
-        "A longer lag means a larger, more persistent CD-gap, so **the payoff to flexibility falls with L**.",
-        "Knightian uncertainty raises the option value of flexibility (a rise), or the lag is irrelevant when agents "
-        "optimise on average (no effect).")
+        "a Cournot industry (sidebar φ if already Cournot, otherwise φ from 0.1 to 0.4, below the stability limit).")
     scn = base.copy()
     if base.firms[0].rule != "Cournot":
         for f, phi in zip(scn.firms, np.linspace(0.1, 0.4, scn.n_firms)):

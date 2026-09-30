@@ -11,13 +11,10 @@ from ui.common import (CAT, DIVERGING, SEQUENTIAL, base_scenario, download, fmt_
 
 st.title("CD-gap explorer: difficulty versus competence")
 hypothesis_card(
-    "Uncertainty is the gap between difficulty and competence",
+    "CDGAP",
     "Difficulty is raised by cost volatility Δ (or perception noise σ). Competence is raised by cost foresight κ, the "
     "share of the coming cost change a firm anticipates. Each firm's **measured CD-gap** is the RMSE of its cost "
-    "perception. The grid below crosses the two and records Heiner's quantities for every firm.",
-    "As the CD-gap widens, **r(U) falls and w(U) rises**, so the reliability ratio falls, the RC fails more often, "
-    "and the payoff to flexibility shrinks. Raising competence restores it.",
-    "Information and flexibility are both valuable; there is no systematic trade-off between them.")
+    "perception. The grid below crosses the two and records Heiner's quantities for every firm.")
 
 base = base_scenario()
 if not show_errors(base):

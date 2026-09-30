@@ -67,8 +67,8 @@ def test_batch_equals_individual_runs():
         np.testing.assert_allclose(together.acc["sum_profit"][i], alone.acc["sum_profit"][0])
 
 
-def test_reflecting_boundary_matches_vba_example():
-    # paper: cost 75, +15 change, upper bound 80 -> 5 up to the bound, 10 back down = 70
+def test_reflecting_boundary_example():
+    # cost 75, +15 change, upper bound 80 -> 5 up to the bound, 10 back down = 70
     assert reflect(90.0, 10.0, 80.0) == 70.0
     assert reflect(5.0, 10.0, 80.0) == 15.0
     assert reflect(50.0, 10.0, 80.0) == 50.0

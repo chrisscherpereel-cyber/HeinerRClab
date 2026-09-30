@@ -7,14 +7,15 @@ condition, so conditions are compared on identical raw-material cost shocks.
 """
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
-from .analysis import (auc_ci, event_study, flex_profit_by_market, market_table, reliability_table,
-                       summarize_slopes)
+from .analysis import (auc, auc_ci, event_study, flex_profit_by_market, instability_index, logistic_fit,
+                       logistic_predict, market_table, reliability_table, summarize_slopes)
 from .engine import MEASURES, run_batch
 from .params import FirmSpec, Scenario, linear_flex_firms
 
@@ -170,28 +171,30 @@ def slope_summary(firms: pd.DataFrame, markets: pd.DataFrame, by: Sequence[str],
                   flex_col: str = "flex") -> pd.DataFrame:
     """Per condition: mean within-market profit~flexibility slope with 95% CI, plus market descriptors."""
     rows = []
-    for key, g in firms.groupby(list(by)):
-        sl = flex_profit_by_market(g, flex_col)
-        s = summarize_slopes(sl)
-        mk = markets[markets["market"].isin(g["market"].unique())]
-        key = key if isinstance(key, tuple) else (key,)
-        rows.append({**dict(zip(by, key)), **s,
-                     "avg_margin": mk["avg_margin"].mean(), "avg_firm_profit": g["avg_profit"].mean(),
-                     "sc_cost": mk["sc_cost"].mean(), "sc_price": mk["sc_price"].mean(),
-                     "pi": g["pi"].mean(), "r": g["r"].mean(), "w": g["w"].mean(),
-                     "G": g["G"].mean(), "D": g["D"].mean(),
-                     "rc_share": g["rc_holds"].mean(), "cd_gap": g["cd_gap"].mean(),
-                     "ratio": g["reliability_ratio"].replace(np.inf, np.nan).median(),
-                     "tolerance": g["tolerance_limit"].median(),
-                     "log_rc_margin": g["log_rc_margin"].replace([np.inf, -np.inf], np.nan).median(),
-                     "K": g["K"].median(), "xi_rms": g["xi_rms"].median(),
-                     "heiner_bound": g["heiner_bound"].median(),
-                     "industry_profit": mk["industry_profit"].mean(),
-                     "price_change_rms": mk["price_change_rms"].mean(),
-                     **{f"rc_share_{m}": g[f"rc_holds_{m}"].mean() for m in ("static", "persist")
-                        if f"rc_holds_{m}" in g},
-                     **{f"log_rc_margin_{m}": g[f"log_rc_margin_{m}"].replace([np.inf, -np.inf], np.nan).median()
-                        for m in ("static", "persist") if f"log_rc_margin_{m}" in g}})
+    with warnings.catch_warnings():     # medians of all-NaN columns (e.g. a collapsed market) are simply NaN
+        warnings.simplefilter("ignore", RuntimeWarning)
+        for key, g in firms.groupby(list(by)):
+            sl = flex_profit_by_market(g, flex_col)
+            s = summarize_slopes(sl)
+            mk = markets[markets["market"].isin(g["market"].unique())]
+            key = key if isinstance(key, tuple) else (key,)
+            rows.append({**dict(zip(by, key)), **s,
+                         "avg_margin": mk["avg_margin"].mean(), "avg_firm_profit": g["avg_profit"].mean(),
+                         "sc_cost": mk["sc_cost"].mean(), "sc_price": mk["sc_price"].mean(),
+                         "pi": g["pi"].mean(), "r": g["r"].mean(), "w": g["w"].mean(),
+                         "G": g["G"].mean(), "D": g["D"].mean(),
+                         "rc_share": g["rc_holds"].mean(), "cd_gap": g["cd_gap"].mean(),
+                         "ratio": g["reliability_ratio"].replace(np.inf, np.nan).median(),
+                         "tolerance": g["tolerance_limit"].median(),
+                         "log_rc_margin": g["log_rc_margin"].replace([np.inf, -np.inf], np.nan).median(),
+                         "K": g["K"].median(), "xi_rms": g["xi_rms"].median(),
+                         "heiner_bound": g["heiner_bound"].median(),
+                         "industry_profit": mk["industry_profit"].mean(),
+                         "price_change_rms": mk["price_change_rms"].mean(),
+                         **{f"rc_share_{m}": g[f"rc_holds_{m}"].mean() for m in ("static", "persist")
+                            if f"rc_holds_{m}" in g},
+                         **{f"log_rc_margin_{m}": g[f"log_rc_margin_{m}"].replace([np.inf, -np.inf], np.nan).median()
+                            for m in ("static", "persist") if f"log_rc_margin_{m}" in g}})
     return pd.DataFrame(rows)
 
 
@@ -302,7 +305,12 @@ def rc_validation(envs: Sequence[Scenario], reps: int,
                         row[f"rc_{w}_{m}"] = tr["rc_holds"]
                         row[f"margin_{w}_{m}"] = tr["log_rc_margin"]
                         row[f"inst_adv_{w}_{m}"] = tr["realized_adv_per_period"]
+                        row[f"ratio_{w}_{m}"] = tr["reliability_ratio"]
+                        row[f"tol_{w}_{m}"] = tr["tolerance_limit"]
+                    row["K_est"] = tabs[("full", "est")].iloc[k * n + fi]["K"]
+                    row["cd_gap_est"] = tabs[("full", "est")].iloc[k * n + fi]["cd_gap"]
                     row.update(env=e, rep=r, delta=envs[e].market.delta, c_max=envs[e].market.c_max,
+                               instability=instability_index(envs[e]), n_firms=n,
                                hazard=envs[e].structural.hazard if envs[e].structural.enabled else 0.0,
                                n_shifts=mt.loc[k, "n_shifts"],
                                avg_margin=mt.loc[k, "avg_margin"], sc_cost=mt.loc[k, "sc_cost"],
@@ -451,3 +459,111 @@ def evolution_runs(base: Scenario, deltas: Sequence[float], reps: int,
                              margin_last_q=margin[k, -q:].mean(),
                              sc_cost=float(np.corrcoef(res.cost[k, 1:], res.cost[k, :-1])[0, 1])))
     return pd.DataFrame(paths), pd.DataFrame(summ)
+
+
+# ---------------------------------------------------------------------------------------------
+# Horse race: Heiner's RC against the predictors implied by rival theories (out of sample)
+# ---------------------------------------------------------------------------------------------
+
+def _log_clip(x):
+    x = np.asarray(x, float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.clip(np.log(np.clip(x, 1e-9, None)), -10.0, 10.0)
+
+
+def theory_predictors(df: pd.DataFrame, measure: str = "full") -> Dict[str, Tuple[str, np.ndarray]]:
+    """Each rival theory's forecast that a firm's flexibility will beat its rigid twin, as a score (higher =
+    flexibility more likely to pay). Firm-specific scores use only the estimation window, so every score is
+    known before the evaluation window it predicts. Returns {key: (theory, score)}."""
+    ratio = _log_clip(df[f"ratio_est_{measure}"].replace(np.inf, 1e9))
+    tol = _log_clip(df[f"tol_est_{measure}"])
+    return {
+        "rc": ("Heiner (1983): reliability condition, ln(r/w) − ln(tolerance)", ratio - tol),
+        "K": ("Heiner (1989): low error-to-signal ratio, −K", -df["K_est"].to_numpy(float)),
+        "accuracy": ("Bias–variance / ecological rationality: accuracy only, ln(r/w)", ratio),
+        "stakes": ("Stakes only: low tolerance limit, −ln(tolerance)", -tol),
+        "options": ("Real options: high volatility, +Δ", df["delta"].to_numpy(float)),
+        "cobweb": ("Cobweb stability: stable market, −ρ(J)", -df["instability"].to_numpy(float)),
+        "past": ("Reinforcement learning: flexibility paid in the estimation window",
+                 df["dyn_adv_est"].to_numpy(float)),
+    }
+
+
+def horse_race(df: pd.DataFrame, measure: str = "full", n_boot: int = 300) -> pd.DataFrame:
+    """Out-of-sample AUC of every theory's predictor for 'flexibility beat the rigid twin in the evaluation
+    window', with environment-clustered bootstrap CIs. The neoclassical view (flexibility never hurts)
+    makes the same forecast for every firm, so its AUC is 0.5 by construction."""
+    y = df["dyn_adv_eval"].to_numpy(float) > 0
+    env = df["env"].to_numpy()
+    rows = [dict(key="neoclassical", theory="Neoclassical optimisation: flexibility always pays (constant)",
+                 auc=0.5, lo=np.nan, hi=np.nan, n=len(df))]
+    for key, (lab, score) in theory_predictors(df, measure).items():
+        ok = ~np.isnan(score)
+        if ok.sum() < 10 or y[ok].all() or not y[ok].any():
+            continue
+        a, lo, hi = auc_ci(score[ok], y[ok], env[ok], n_boot=n_boot)
+        rows.append(dict(key=key, theory=lab, auc=a, lo=lo, hi=hi, n=int(ok.sum())))
+    return pd.DataFrame(rows).sort_values("auc", ascending=False, ignore_index=True)
+
+
+RIVALS = ("K", "accuracy", "options", "cobweb", "past")
+
+
+def encompassing_test(df: pd.DataFrame, measure: str = "full", folds: int = 5, n_boot: int = 300,
+                      seed: int = 0) -> Tuple[pd.DataFrame, Dict]:
+    """Does the RC add out-of-sample information once every rival predictor is known?
+
+    Logistic models of 'flexibility beat the rigid twin (evaluation window)' are fitted on estimation-window
+    features and scored by environment-grouped K-fold cross-validation (no environment is in both the
+    training and the test fold). Compares (a) all rival predictors, (b) rivals + the RC's extra ingredient,
+    the tolerance limit, which turns ln(r/w) into the RC margin, and (c) the RC margin alone.
+    Returns (table of cross-validated AUCs, dict with the AUC gain of (b) over (a) and its bootstrap CI)."""
+    pr = theory_predictors(df, measure)
+    X_all = {k: v[1] for k, v in pr.items()}
+    y = df["dyn_adv_eval"].to_numpy(float) > 0
+    env = df["env"].to_numpy()
+    cols = list(RIVALS) + ["stakes", "rc"]
+    ok = np.all([~np.isnan(X_all[c]) for c in cols], axis=0)
+    y, env = y[ok], env[ok]
+    X = {c: X_all[c][ok] for c in cols}
+    models = {"Rival theories combined": list(RIVALS), "Rivals + tolerance limit (= rivals + RC)":
+              list(RIVALS) + ["stakes"], "RC margin alone": ["rc"]}
+    uniq = np.unique(env)
+    if len(uniq) < folds or y.all() or not y.any():
+        return pd.DataFrame(), {}
+    rng = np.random.default_rng(seed)
+    fold_of = dict(zip(rng.permutation(uniq), np.arange(len(uniq)) % folds))
+    fid = np.array([fold_of[e] for e in env])
+    oof = {name: np.full(len(y), np.nan) for name in models}
+    for name, feats in models.items():
+        M = np.column_stack([X[c] for c in feats])
+        for f in range(folds):
+            tr, te = fid != f, fid == f
+            if y[tr].all() or not y[tr].any():
+                continue
+            mu, sd = M[tr].mean(0), M[tr].std(0) + 1e-9
+            beta = logistic_fit((M[tr] - mu) / sd, y[tr])
+            oof[name][te] = logistic_predict((M[te] - mu) / sd, beta)
+    def cv_auc(pred, idx):
+        # AUC within each test fold, averaged (weighted by fold size). Pooling folds would mix in each
+        # fold's intercept, which tracks the training base rate and so is biased against the test fold.
+        vals, wts = [], []
+        for f in range(folds):
+            j = idx[fid[idx] == f]
+            a_f = auc(pred[j], y[j])
+            if not np.isnan(a_f):
+                vals.append(a_f)
+                wts.append(len(j))
+        return float(np.average(vals, weights=wts)) if vals else np.nan
+
+    all_idx = np.arange(len(y))
+    rows = [dict(model=name, features=", ".join(models[name]), cv_auc=cv_auc(oof[name], all_idx)) for name in models]
+    a, b = "Rival theories combined", "Rivals + tolerance limit (= rivals + RC)"
+    groups = [np.flatnonzero(env == e) for e in uniq]
+    boots = []
+    for _ in range(n_boot):
+        idx = np.concatenate([groups[i] for i in rng.integers(0, len(groups), len(groups))])
+        boots.append(cv_auc(oof[b], idx) - cv_auc(oof[a], idx))
+    lo, hi = np.nanpercentile(boots, [2.5, 97.5])
+    return pd.DataFrame(rows), dict(gain=cv_auc(oof[b], all_idx) - cv_auc(oof[a], all_idx), lo=lo, hi=hi,
+                                    n=int(len(y)))

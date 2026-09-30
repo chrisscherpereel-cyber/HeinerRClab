@@ -12,10 +12,12 @@ import streamlit as st
 
 from heiner_abm.analysis import market_table, reliability_table
 from heiner_abm.engine import run_batch
-from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, evolution_runs, random_environments,
-                                   rc_validation, regime_event_study, run_sweep, uncertainty_comparison)
+from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, encompassing_test, evolution_runs,
+                                   horse_race, random_environments, rc_validation, regime_event_study, run_sweep,
+                                   uncertainty_comparison)
 from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams, MarketParams,
                                SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
+from heiner_abm.theories import run_tournament
 
 # ------------------------------------------------------------------------------------------------
 # Colours (reference palette): firms are ordered by flexibility -> one-hue sequential ramp
@@ -342,6 +344,19 @@ def cached_rc_validation(js: str, n_env: int, n_reps: int, ranges_js: str, horiz
     envs = random_environments(from_json(js), n_env, ranges, seed=env_seed)
     return rc_validation(envs, n_reps, horizon=horizon, continuation=continuation, discount=discount,
                          oos_split=oos_split)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def cached_tournament(js: str, n_reps: int, horizon: int):
+    return run_tournament(from_json(js), n_reps, horizon=horizon)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def cached_horse_race(js: str, n_env: int, n_reps: int, ranges_js: str, horizon: int, continuation: str,
+                      env_seed: int, discount: float, oos_split: float, measure: str):
+    df = cached_rc_validation(js, n_env, n_reps, ranges_js, horizon, continuation, env_seed, discount, oos_split)
+    enc, gain = encompassing_test(df, measure)
+    return horse_race(df, measure), enc, gain, float((df["dyn_adv_eval"] > 0).mean()), len(df)
 
 
 @st.cache_data(show_spinner=False, max_entries=16)

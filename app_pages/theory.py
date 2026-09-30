@@ -145,13 +145,25 @@ st.dataframe(pd.DataFrame([
      "No effect: decisions are made at the margin", "H4"),
     ("Competition intensifies (m* ↓)", "The paper's observation: the switch happens at lower profit levels", "n/a", "H5"),
     ("Competence rises (κ ↑)", "The CD-gap narrows: r ↑, w ↓, flexibility pays again", "Information always helps",
-     "CD-gap explorer"),
+     "H7 · CD-gap explorer"),
+    ("Perception noise rises (σ ↑)", "Competence falls, so flexibility pays less",
+     "No effect on the value of flexibility (real options: it rises)", "H8"),
+    ("Firms differ only in their selection rule", "As volatility rises, rule B and selective rules gain on 'Always'",
+     "'Always' is never beaten", "H9"),
+    ("Uncertainty rises for reliability-learning firms", "They deviate less often: behaviour becomes more predictable",
+     "They re-optimise more often", "H10"),
+    ("More rivals (n ↑)", "The target moves more, so the reliable adjustment speed falls", "n/a", "H11"),
+    ("Firms learn a new demand regime more slowly (L ↑)", "A persistent CD-gap makes model-based flexibility harmful",
+     "Option value of flexibility rises, or no effect", "H12"),
     ("Firms can choose their own flexibility", "Volatile industries evolve toward rigidity",
      "Volatile industries evolve toward flexibility", "Endogenous flexibility"),
     ("Firms satisfying the RC", "…should beat their rigid selves; violators should not", "Flexibility always wins",
      "Does the RC predict performance?"),
 ], columns=["Situation", "Reliability condition (Heiner)", "Traditional / optimising view", "Where to test"]),
     hide_index=True, width="stretch")
+st.caption("H1–H12 are on the *Hypothesis tests* page. The *Competing theories* page pits the reliability condition "
+           "against real options, cobweb stability, bias–variance, satisficing and structural-inertia theories in a "
+           "tournament of experiments and an out-of-sample forecasting horse race.")
 
 st.header("5 · Extending the theory", divider="gray")
 st.markdown(

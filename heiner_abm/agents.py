@@ -7,14 +7,15 @@ cost. The Industry schedules one round:
 
     1. each firm observes last period's price P[t-1], market quantity Q[t-1] and
        (its perception of) the raw-material cost;
-    2. its production rule (Cournot / Bertrand) recommends q*;
+    2. its production rule (Cournot / Bertrand) recommends q*. Cournot firms use their
+       *believed* demand curve, which may be out of date after a regime shift;
     3. its selection rule decides whether to deviate from the default rule B
        ("keep producing q") and adopt q*;
-    4. the market clears at P[t] = max(Pmin, Pmax - s*Q[t]) and the new cost c[t]
-       is realised (firms decided before seeing it - this is the CD-gap);
+    4. the market clears on the *true* demand curve, P[t] = max(Pmin, Pmax[t] - s[t]*Q[t]),
+       and the new cost c[t] is realised (firms decided before seeing it: the CD-gap);
     5. every firm books profit (P[t]-c[t])*q - F and evaluates the counterfactual:
-       what it would have earned over the next H periods had it made the other
-       choice (the market is forked and every agent keeps following its rules).
+       what it would have earned over the next H periods (discount gamma) had it made the
+       other choice. The market is forked and every agent keeps following its rules.
        With H = 1 this is the paper's one-period comparison with rivals held fixed.
        This is how Heiner's quantities pi, r, w, G and D are measured.
 
@@ -25,7 +26,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -38,6 +39,40 @@ def make_streams(seed: int, n_firms: int, periods: int):
     u = np.random.default_rng(cost_ss).uniform(-1.0, 1.0, size=periods)
     eps = np.random.default_rng(noise_ss).standard_normal((periods, n_firms))
     return u, eps, np.random.default_rng(evo_ss)
+
+
+def regime_draws(seed: int, periods: int) -> np.ndarray:
+    """Separate stream for structural shocks (4th child), so enabling them leaves other streams intact."""
+    ss = np.random.SeedSequence(seed).spawn(4)[3]
+    rng = np.random.default_rng(ss)
+    return np.stack([rng.random(periods), rng.standard_normal(periods), rng.standard_normal(periods)])
+
+
+def demand_path(scn: Scenario) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """True demand parameters per period (p_max[t], slope[t]) and regime-shift indicator."""
+    m, sp, T = scn.market, scn.structural, scn.periods
+    pmax = np.full(T, m.p_max)
+    slope = np.full(T, m.slope)
+    shift = np.zeros(T, dtype=bool)
+    if sp.enabled and sp.hazard > 0:
+        u, z1, z2 = regime_draws(scn.seed, T)
+        for t in range(1, T):
+            if u[t] < sp.hazard:
+                shift[t] = True
+                pmax[t] = max(m.p_min + 10.0, m.p_max + sp.intercept_sd * z1[t])
+                slope[t] = m.slope * float(np.clip(np.exp(sp.slope_sd * z2[t]), 0.25, 4.0))
+            else:
+                pmax[t], slope[t] = pmax[t - 1], slope[t - 1]
+    return pmax, slope, shift
+
+
+def belief_index(scn: Scenario) -> np.ndarray:
+    """Index of the regime a firm's demand model reflects when deciding in period t (-1 = baseline)."""
+    T, sp = scn.periods, scn.structural
+    t = np.arange(T)
+    if not sp.enabled or sp.belief_lag < 0:
+        return np.full(T, -1)
+    return np.maximum(t - 1 - sp.belief_lag, 0)
 
 
 def reflect(value: float, lo: float, hi: float) -> float:
@@ -61,17 +96,20 @@ def cost_path(scn: Scenario, u: np.ndarray) -> np.ndarray:
 class Market:
     def __init__(self, scn: Scenario, u: np.ndarray):
         self.p = scn.market
-        self.slope = scn.market.slope
         self.costs = cost_path(scn, u)
+        self.p_max, self.slope, self.shift = demand_path(scn)
+        bi = belief_index(scn)
+        self.belief_p_max = np.where(bi < 0, scn.market.p_max, self.p_max[np.maximum(bi, 0)])
+        self.belief_slope = np.where(bi < 0, scn.market.slope, self.slope[np.maximum(bi, 0)])
         self.price = 0.0
         self.quantity = 0.0
 
-    def clearing_price(self, quantity: float) -> float:
-        return max(self.p.p_min, self.p.p_max - self.slope * quantity)
+    def clearing_price(self, quantity: float, t: int) -> float:
+        return max(self.p.p_min, self.p_max[t] - self.slope[t] * quantity)
 
-    def clear(self, quantity: float) -> float:
+    def clear(self, quantity: float, t: int) -> float:
         self.quantity = quantity
-        self.price = self.clearing_price(quantity)
+        self.price = self.clearing_price(quantity, t)
         return self.price
 
 
@@ -82,6 +120,7 @@ class Decision:
     deviate: bool
     chosen: float
     c_hat: float
+    best_reply: float     # Cournot perceived best reply (Heiner's perceived target), before partial adjustment
 
 
 class Firm:
@@ -107,15 +146,17 @@ class Firm:
         return c_prev + s.foresight * (c_next - c_prev) + s.noise * eps
 
     # --- production rule: recommendation q* ------------------------------------
-    def recommend(self, market: Market, prev_price: float, prev_quantity: float, c_hat: float) -> float:
+    def recommend(self, market: Market, t: int, prev_price: float, prev_quantity: float,
+                  c_hat: float) -> Tuple[float, float]:
         s, q = self.spec, self.q
+        pm, sl = market.belief_p_max[t], market.belief_slope[t]
+        best = (pm - sl * (prev_quantity - q) - c_hat) / (2.0 * sl)
         if s.rule == "Cournot":
-            best = (market.p.p_max - market.slope * (prev_quantity - q) - c_hat) / (2.0 * market.slope)
             rec = self.flex * best + (1.0 - self.flex) * q
-        else:  # Bertrand margin feedback
+        else:  # Bertrand margin feedback (model-free: uses the observed price only)
             margin = prev_price - c_hat - (self.fixed / q if self.g.margin_includes_fixed else 0.0)
             rec = q + self.flex * (margin - s.desired_margin)
-        return max(self.g.q_min, float(np.rint(rec)))
+        return max(self.g.q_min, float(np.rint(rec))), best
 
     # --- selection rule: deviate from default rule B? -------------------------
     def _bin(self, change: float) -> int:
@@ -136,11 +177,11 @@ class Firm:
             return change > 0 and self.learned_gain[self._bin(change)] >= 0.0
         raise ValueError(rule)
 
-    def decide(self, market: Market, prev_price, prev_quantity, c_prev, c_next, eps) -> Decision:
-        c_hat = self.perceive_cost(c_prev, c_next, eps)
-        rec = self.recommend(market, prev_price, prev_quantity, c_hat)
+    def decide(self, market: Market, t: int, prev_price, prev_quantity, eps) -> Decision:
+        c_hat = self.perceive_cost(market.costs[t - 1], market.costs[t], eps)
+        rec, best = self.recommend(market, t, prev_price, prev_quantity, c_hat)
         dev = self.select(rec)
-        self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat)
+        self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat, best)
         return self.last
 
     # --- learning from counterfactual payoffs ---------------------------------
@@ -155,20 +196,21 @@ class Firm:
 class Industry:
     """Runs one market populated by heterogeneous firm agents and records everything."""
 
-    def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default"):
+    def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default", discount: float = 1.0):
         errs = scn.validate()
         if errs:
             raise ValueError("; ".join(errs))
         self.scn = scn
         self.horizon = max(1, int(horizon))
         self.continuation = continuation
+        self.discount = float(discount)
         n, T = scn.n_firms, scn.periods
         self.u, self.eps, self.evo_rng = make_streams(scn.seed, n, T)
         self.market = Market(scn, self.u)
         self.firms = [Firm(i, f, scn) for i, f in enumerate(scn.firms)]
         shape = (T, n)
         self.h = {k: np.zeros(shape) for k in
-                  ("q", "rec", "profit", "profit_rule", "profit_default", "c_hat", "flex")}
+                  ("q", "rec", "profit", "profit_rule", "profit_default", "c_hat", "flex", "best_reply")}
         self.h["deviate"] = np.zeros(shape, dtype=bool)
         self.h["opportunity"] = np.zeros(shape, dtype=bool)
         self.price = np.zeros(T)
@@ -180,7 +222,7 @@ class Industry:
         costs = mk.costs
         # period 0: initial production and cost are given
         Q = sum(f.q for f in firms)
-        P = mk.clear(Q)
+        P = mk.clear(Q, 0)
         self.price[0], self.quantity[0] = P, Q
         for i, f in enumerate(firms):
             self.h["q"][0, i] = f.q
@@ -188,12 +230,11 @@ class Industry:
             self.h["flex"][0, i] = f.flex
 
         for t in range(1, scn.periods):
-            decisions = [f.decide(mk, P, Q, costs[t - 1], costs[t], self.eps[t, i])
-                         for i, f in enumerate(firms)]
+            decisions = [f.decide(mk, t, P, Q, self.eps[t, i]) for i, f in enumerate(firms)]
             for f, d in zip(firms, decisions):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)
-            P = mk.clear(Q)
+            P = mk.clear(Q, t)
             c = costs[t]
             self.price[t], self.quantity[t] = P, Q
             chosen = [d.chosen for d in decisions]
@@ -206,7 +247,7 @@ class Industry:
                 profit = (P - c) * d.chosen - f.fixed
                 alt = d.current if d.deviate else d.recommended
                 if self.horizon == 1:
-                    p_alt = mk.clearing_price(Q - d.chosen + alt)
+                    p_alt = mk.clearing_price(Q - d.chosen + alt, t)
                     own, profit_alt = profit, (p_alt - c) * alt - f.fixed
                 elif hold:   # firm i follows rule B after this decision in both branches
                     own = self._branch(t, chosen, hold_firm=i)[i]
@@ -226,6 +267,7 @@ class Industry:
                 h["deviate"][t, i] = d.deviate
                 h["opportunity"][t, i] = d.recommended != d.current
                 h["flex"][t, i] = f.flex
+                h["best_reply"][t, i] = d.best_reply
                 self.window_profit[i] += profit
             ev = scn.evolution
             if ev.enabled and t % ev.every == 0:
@@ -235,7 +277,7 @@ class Industry:
     def _branch(self, t: int, first_choices: List[float], hold_firm: Optional[int] = None) -> List[float]:
         """Fork the market at period t with the given production choices and let every agent follow
         its rules for the rest of the horizon (learning and evolution frozen); `hold_firm`, if given,
-        follows the default rule B instead. Returns each firm's cumulative profit over the horizon."""
+        follows the default rule B instead. Returns each firm's discounted cumulative profit."""
         mk, costs, T = self.market, self.market.costs, self.scn.periods
         firms = copy.deepcopy(self.firms)
         if hold_firm is not None:
@@ -243,16 +285,18 @@ class Industry:
         for f, qc in zip(firms, first_choices):
             f.q = qc
         Q = sum(f.q for f in firms)
-        P = mk.clearing_price(Q)
+        P = mk.clearing_price(Q, t)
         cum = [(P - costs[t]) * f.q - f.fixed for f in firms]
+        w = 1.0
         for tt in range(t + 1, min(t + self.horizon, T)):
-            ds = [f.decide(mk, P, Q, costs[tt - 1], costs[tt], self.eps[tt, i]) for i, f in enumerate(firms)]
+            w *= self.discount
+            ds = [f.decide(mk, tt, P, Q, self.eps[tt, i]) for i, f in enumerate(firms)]
             for f, d in zip(firms, ds):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)
-            P = mk.clearing_price(Q)
+            P = mk.clearing_price(Q, tt)
             for i, f in enumerate(firms):
-                cum[i] += (P - costs[tt]) * f.q - f.fixed
+                cum[i] += w * ((P - costs[tt]) * f.q - f.fixed)
         return cum
 
     def _evolve(self):

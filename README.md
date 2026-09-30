@@ -1,4 +1,4 @@
-# Heiner RC Lab: agent-based tests of Heiner's reliability condition
+# Heiner_RC_Lab: agent-based tests of Heiner's reliability condition
 
 A Streamlit application that turns *The influence of mistakes in Cournot and Bertrand competition: a test of
 Heiner's reliability condition* (Scherpereel & Summers) and its 2006 VBA workbook (`HeinerIOExp.xls`) into an
@@ -41,7 +41,9 @@ many replications. For heavy research runs, use a local installation.
 | Heiner's reliability condition | The theory (CD-gap, r, w, π, G, D, tolerance limit), an interactive RC calculator, and the competing hypotheses |
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
 | Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium. Each shows the RC prediction next to the traditional prediction and gives a verdict |
-| Does the RC predict performance? | Random environments. Each firm is compared with its own rigid twin (same shocks), and the RC classification is scored against that outcome |
+| Does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
+| Dynamic RC (Heiner 1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximising flexibility. Signal-detection ROC of each firm's decisions |
+| Risk vs Knightian uncertainty | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot) and model-free (Bertrand) firms. Event study of punctuated slow–quick–slow adjustment |
 | CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
@@ -68,7 +70,11 @@ app_pages/*.py             the Streamlit pages
   * competence (cost foresight κ, perception noise σ), which makes the CD-gap explicit and measurable;
   * an Adaptive selection rule that learns when deviating pays;
   * evolution of flexibility;
-  * 2–12 firms.
+  * 2–12 firms;
+  * out-of-sample RC tests (estimation and evaluation windows);
+  * three measures of decision value (one-period, persistence, full strategic feedback) with discounting;
+  * Heiner's (1989) error-to-signal ratio K and partial-adjustment bound;
+  * unannounced demand-regime shifts with a model-updating lag (structural / Knightian uncertainty).
 * **Counterfactual horizon H.** The paper proposed judging each deviation from rule B by one period of profit.
   Because production changes persist and rivals react, that measure says "deviate" almost always and does not
   predict flexible-vs-rigid performance. The model therefore forks the market at each decision and compares the

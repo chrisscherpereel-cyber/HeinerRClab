@@ -139,3 +139,31 @@ st.dataframe(pd.DataFrame([
      "Does the RC predict performance?"),
 ], columns=["Situation", "Reliability condition (Heiner)", "Traditional / optimising view", "Where to test"]),
     hide_index=True, width="stretch")
+
+st.header("5 · Extending the theory", divider="gray")
+st.markdown(
+    r"""
+Three extensions turn the paper's test into a contribution to the uncertainty literature. Each has its own page.
+
+**A dynamic reliability condition** (*Dynamic RC* page). Heiner's 1983 condition values each deviation as a
+one-shot bet. In markets a decision **persists** and **provokes reactions**, so its value is
+$\text{immediate} + \text{persistence} + \text{strategic feedback}$, measured over a horizon $H$ with discount $\gamma$.
+The simulation shows the one-period RC, which is what the paper proposed, is uninformative about who benefits from
+flexibility, while the dynamic RC predicts it. Most of the missing value is strategic feedback.
+
+**Heiner (1989), partial adjustment toward an imperfectly perceived target.** The paper's Cournot rule is
+exactly Heiner's later model: move a fraction $\beta$ of the way toward the perceived best reply
+$\hat x_t = x^*_t + \xi_t$. The remaining gap is $d_t = (1-\beta)\Delta^*_t - \beta\xi_t$, a trade-off between lagging
+the target and importing errors. Theorem 2 gives the maximal reliable speed
+$\beta_0 = 1/[(1+K)(1-f')]$ from the error-to-signal ratio $K$. The simulation measures $K$ and finds the
+profit-maximising $\beta$ at or below $\beta_0$, with the market collapsing beyond the stability limit $4/(n+1)$.
+
+**Risk versus Knightian uncertainty** (*Risk vs Knightian uncertainty* page). Unannounced demand-regime
+shifts make model-based firms' demand model wrong, not just noisy. At matched unpredictability, flexibility becomes
+harmful for model-based (Cournot) firms but stays valuable for model-free (Bertrand) firms, and only the dynamic RC
+registers the change. Around each shift, firms show Heiner's *punctuated* slow–quick–slow adjustment.
+
+**Out-of-sample testing** (*Does the RC predict performance?* page). The RC is estimated in the first part of each
+run and used to predict flexible-vs-rigid performance in the second part, scored by AUC. This is the
+signal-detection statistic matching Heiner's reading of r and w as hit and false-alarm rates.
+""")

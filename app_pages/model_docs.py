@@ -81,6 +81,44 @@ $\sum$ wrong-deviation losses. The RC is exactly the condition that this sum is 
 verifies the identity.
 """)
 
+st.header("Dynamic, out-of-sample and structural extensions", divider="gray")
+st.markdown(
+    r"""
+**Three measures of a decision's value.** For each opportunity, the gain of following the rule instead of B is
+computed three ways (all with discount $\gamma$ over horizon $H$; all equal when $H = 1$):
+
+| Measure | Firm after the decision | Rivals | Captures |
+|---|---|---|---|
+| *static* | (one period only) | choices fixed | the paper's one-period test |
+| *persist* | keeps the chosen level (rule B) | follow their **actual** path, no reaction | + persistence of the decision |
+| *full* | rule B (or its own rules) | **react** in a forked market | + strategic feedback |
+
+Decomposition: full = static + (persist − static) + (full − persist). The *persist* measure is computed after the
+run from recorded paths; the *full* measure forks the market 2N times per period.
+
+**Out-of-sample windows.** Recorded periods are split at a chosen share (default 50%) into an *estimation* and an
+*evaluation* window. π, r, w, G, D are computed separately in each window, so the RC estimated in the first
+window can be tested against flexible-vs-rigid profits in the second. Predictions are scored by AUC (the
+Mann–Whitney probability that a random winner scores higher than a random loser), with 95% CIs from a bootstrap
+that resamples whole environments.
+
+**Heiner (1989) error-to-signal ratio.** For each firm and period, the perceived target is the Cournot best reply
+computed with the firm's cost estimate and believed demand, $\hat x_t$. The true target $x^*_t$ is the ex-post best
+reply to rivals' actual output, the realised cost and the true demand. $\xi_t = \hat x_t - x^*_t$ and
+$\Delta^*_t = x^*_t - q_{t-1}$. The reported $K = \mathrm{RMS}(\xi)/\mathrm{RMS}(\Delta^*)$ is a robust version of
+the theorem's bound on $|\xi/\Delta^*|$. The bound is $\beta_0 = 1/((1+K)(1-f'))$ with $f' = -(n-1)/2$.
+
+**Structural (Knightian) uncertainty.** With hazard λ per period a new demand regime is drawn around the baseline:
+$P_{max}' = P_{max} + s_1 z_1$ and $s' = s\,e^{s_2 z_2}$ (clipped). Markets clear on the true curve. Cournot firms
+compute best replies with the regime of $L$ periods earlier ($L = -1$: never updated). Bertrand firms use only
+observed prices. Regime draws come from a separate random stream, so switching them off reproduces the baseline
+exactly.
+
+**Signal-detection ROC.** For the decision signal $|q^* - q|$ and preferred-exception labels, sweeping a threshold θ
+gives $(w(\theta), r(\theta))$. The signal's AUC is the firm's discriminability, and the value-maximising θ is the
+optimal SR2 threshold.
+""")
+
 st.header("Experimental design & statistics", divider="gray")
 st.markdown(
     """
@@ -125,7 +163,9 @@ st.markdown(
 The model exists twice: a readable object-oriented agent implementation (`heiner_abm/agents.py`: `Firm`, `Market`,
 `Industry`) and a vectorised batch engine (`heiner_abm/engine.py`) for Monte Carlo work. The test suite
 (`pytest tests`) checks that they produce **identical** trajectories and counterfactuals for Bertrand, Cournot and
-mixed markets, with and without forks and evolution. It also checks the reflecting-boundary example from the paper
+mixed markets, with and without forks, evolution, discounting and demand-regime shifts. The persistence
+measure is checked against a brute-force loop, and the estimation and evaluation windows are checked to partition
+the recorded periods. It also checks the reflecting-boundary example from the paper
 (75 + 15 with bound 80 → 70), the cost bounds, the rigid 'Never' rule, and the RC accounting identity.
 """)
 
@@ -135,6 +175,17 @@ st.markdown(
 * Heiner, R. A. (1983). The origin of predictable behavior. *American Economic Review*, 73(4), 560–595.
 * Scherpereel, C. M. & Summers, G. (2011). The influence of mistakes in Cournot and Bertrand competition: a simulation
   test of Heiner's reliability condition. *ABSEL*, Pensacola, FL.
+* Heiner, R. A. (1986). Uncertainty, signal-detection experiments, and modeling behavior. In R. Langlois (ed.),
+  *Economics as a Process: Essays in the New Institutional Economics*. Cambridge University Press.
+* Heiner, R. A. (1988). The necessity of delaying economic adjustment. *Journal of Economic Behavior &
+  Organization*, 10(3), 255–286.
+* Heiner, R. A. (1989). The origin of predictable dynamic behavior. *Journal of Economic Behavior & Organization*,
+  12(2), 233–257.
+* Carlson, J. A. (1967). The stability of an experimental market with a supply-response lag. *Southern Economic
+  Journal*, 33, 305–321.
 * Carlson, J. A. (1968). An invariably stable cobweb model. *Review of Economic Studies*, 35(3), 360–362.
+* Theocharis, R. D. (1960). On the stability of the Cournot solution on the oligopoly problem. *Review of Economic
+  Studies*, 27(2), 133–134.
+* Knight, F. H. (1921). *Risk, Uncertainty and Profit*. Houghton Mifflin.
 * Kampmann, C. & Sterman, J. (1998). Feedback complexity, bounded rationality, and market dynamics. MIT working paper.
 """)

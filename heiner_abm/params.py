@@ -90,12 +90,32 @@ class EvolutionParams:
 
 
 @dataclass
+class StructuralParams:
+    """Knightian (structural) uncertainty: unannounced regime shifts in the demand curve.
+
+    With probability `hazard` per period a new demand regime is drawn around the baseline:
+        p_max = base p_max + intercept_sd * z1        (clipped to >= p_min + 10)
+        slope = base slope * exp(slope_sd * z2)        (clipped to [0.25, 4] x base)
+    Regimes persist until the next shift. Model-based (Cournot) firms compute best replies with
+    *believed* demand parameters: the regime of `belief_lag` periods before their information set
+    (belief_lag = 0: they learn a regime one period after it starts; belief_lag < 0: they never
+    update and keep the baseline model). Model-free (Bertrand) firms only use observed prices.
+    """
+    enabled: bool = False
+    hazard: float = 0.02
+    intercept_sd: float = 10.0
+    slope_sd: float = 0.3
+    belief_lag: int = 20
+
+
+@dataclass
 class Scenario:
     market: MarketParams = field(default_factory=MarketParams)
     firms: List[FirmSpec] = field(default_factory=list)
     firm_globals: GlobalFirmParams = field(default_factory=GlobalFirmParams)
     adaptive: AdaptiveParams = field(default_factory=AdaptiveParams)
     evolution: EvolutionParams = field(default_factory=EvolutionParams)
+    structural: StructuralParams = field(default_factory=StructuralParams)
     periods: int = 1000
     burn_in: int = 25
     seed: int = 0
@@ -133,6 +153,7 @@ class Scenario:
             firm_globals=replace(self.firm_globals),
             adaptive=replace(self.adaptive),
             evolution=replace(self.evolution),
+            structural=replace(self.structural),
         )
         return replace(s, **changes) if changes else s
 

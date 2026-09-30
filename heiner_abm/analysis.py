@@ -29,9 +29,8 @@ def serial_corr(x: np.ndarray) -> np.ndarray:
     return _div((a * b).sum(-1), den)
 
 
-def reliability_table(res: BatchResult) -> pd.DataFrame:
-    """One row per (market, firm): Heiner's pi, r, w, G, D, reliability ratio and tolerance limit."""
-    a = res.acc
+def rc_arrays(a: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    """Heiner's quantities from one accumulator set (arrays of shape (B, N))."""
     n_opp, n_pe = a["n_opp"], a["n_pe"]
     n_npe = n_opp - n_pe
     pi = _div(n_pe, n_opp)
@@ -44,28 +43,54 @@ def reliability_table(res: BatchResult) -> pd.DataFrame:
     ratio = np.where(w > 0, _div(r, w), np.where(r > 0, np.inf, np.nan))
     tol = _div(D * (1 - pi), G * pi)
     rc_holds = np.where(np.isnan(ratio) | np.isnan(tol), np.nan, (ratio > tol).astype(float))
-    exp_net = pi * r * G - (1 - pi) * w * D          # expected net gain per opportunity
+    with np.errstate(divide="ignore", invalid="ignore"):
+        margin = np.log(np.clip(np.where(np.isnan(ratio), np.nan, ratio), 1e-9, None)) -             np.log(np.clip(tol, 1e-9, None))
+    gain_opp = _div(a["sum_gain_pe"] - a["sum_loss_npe"], n_opp)   # mean value of following the rule vs B
+    return dict(pi=pi, r=r, w=w, G=G, D=D, ratio=ratio, tol=tol, rc_holds=rc_holds, gain_per_opp=gain_opp,
+                exp_net=pi * r * G - (1 - pi) * w * D, log_margin=margin)
+
+
+def heiner_bound(K, n_firms):
+    """Heiner (1989, Theorem 2) maximal stabilising partial-adjustment coefficient, symmetric Cournot:
+    beta0 = 1 / ((1 + K)(1 - f')),  with f' = -(n - 1)/2 the slope of the best-reply target map."""
+    fprime = -(np.asarray(n_firms, float) - 1) / 2.0
+    return 1.0 / ((1.0 + np.asarray(K, float)) * (1.0 - fprime))
+
+
+def reliability_table(res: BatchResult, measure: str = "full", window: str = "all") -> pd.DataFrame:
+    """One row per (market, firm): Heiner's pi, r, w, G, D, reliability ratio and tolerance limit.
+
+    measure: "static" (one period, the paper), "persist" (H periods, no rival reaction) or "full"
+             (H periods in a forked market). window: "all", "est" or "eval" periods.
+    """
+    a = res.accs.get((measure, window), res.acc) if res.accs else res.acc
+    q = rc_arrays(a)
+    # Heiner (1989): error-to-signal ratio K = RMS(decision error xi) / RMS(true optimal adjustment)
+    K = np.sqrt(_div(a["sum_brerr2"], a["sum_brsig2"]))
+    xi = np.sqrt(_div(a["sum_brerr2"], a["n_br"]))
     rows = []
     for b, scn in enumerate(res.scenarios):
+        n = scn.n_firms
         for i, f in enumerate(scn.firms):
+            nr = a["n_rec"][b, i]
             rows.append(dict(
                 market=b, firm=i + 1, label=f.label or f"Firm {i + 1}", rule=f.rule, selection=f.selection,
                 flex=f.flex, flex_final=res.flex_final[b, i], threshold=f.threshold,
                 desired_margin=f.desired_margin, foresight=f.foresight, noise=f.noise,
-                avg_profit=a["sum_profit"][b, i] / a["n_rec"][b, i],
-                avg_q=a["sum_q"][b, i] / a["n_rec"][b, i],
-                avg_abs_dq=a["sum_absdq"][b, i] / a["n_rec"][b, i],
-                opportunities=int(n_opp[b, i]), deviations=int(a["n_dev"][b, i]),
-                pi=pi[b, i], r=r[b, i], w=w[b, i], type1=1 - r[b, i] if not np.isnan(r[b, i]) else np.nan,
-                type2=w[b, i], G=G[b, i], D=D[b, i], reliability_ratio=ratio[b, i], tolerance_limit=tol[b, i],
-                rc_holds=rc_holds[b, i], expected_net_per_opp=exp_net[b, i],
-                realized_adv_per_period=a["sum_realized_adv"][b, i] / a["n_rec"][b, i],
-                cd_gap=float(np.sqrt(a["sum_cerr2"][b, i] / a["n_rec"][b, i])),
+                avg_profit=a["sum_profit"][b, i] / nr if nr else np.nan,
+                avg_q=a["sum_q"][b, i] / nr if nr else np.nan,
+                avg_abs_dq=a["sum_absdq"][b, i] / nr if nr else np.nan,
+                opportunities=int(a["n_opp"][b, i]), deviations=int(a["n_dev"][b, i]),
+                pi=q["pi"][b, i], r=q["r"][b, i], w=q["w"][b, i],
+                type1=1 - q["r"][b, i] if not np.isnan(q["r"][b, i]) else np.nan,
+                type2=q["w"][b, i], G=q["G"][b, i], D=q["D"][b, i], reliability_ratio=q["ratio"][b, i],
+                tolerance_limit=q["tol"][b, i], rc_holds=q["rc_holds"][b, i], log_rc_margin=q["log_margin"][b, i],
+                expected_net_per_opp=q["exp_net"][b, i], gain_per_opp=q["gain_per_opp"][b, i],
+                realized_adv_per_period=a["sum_realized_adv"][b, i] / nr if nr else np.nan,
+                cd_gap=float(np.sqrt(a["sum_cerr2"][b, i] / nr)) if nr else np.nan,
+                xi_rms=xi[b, i], K=K[b, i], heiner_bound=float(heiner_bound(K[b, i], n)),
             ))
-    df = pd.DataFrame(rows)
-    df["log_rc_margin"] = np.log(df["reliability_ratio"].astype(float).clip(lower=1e-9)) - \
-        np.log(df["tolerance_limit"].astype(float).clip(lower=1e-9))
-    return df
+    return pd.DataFrame(rows)
 
 
 def market_table(res: BatchResult) -> pd.DataFrame:
@@ -82,6 +107,10 @@ def market_table(res: BatchResult) -> pd.DataFrame:
         sc_price=sc_p, sc_cost=sc_c, corr_price_cost=corr, regime=regime,
         industry_profit=res.acc["sum_profit"].sum(1) / res.acc["n_rec"][:, 0],
         avg_flex_final=res.flex_final.mean(1),
+        n_shifts=(res.shifts[:, burn:].sum(1) if res.shifts is not None else np.zeros(res.B)),
+        xi_rms=np.sqrt(_div(res.acc["sum_brerr2"].sum(1), res.acc["n_br"].sum(1))),
+        K=np.sqrt(_div(res.acc["sum_brerr2"].sum(1), res.acc["sum_brsig2"].sum(1))),
+        price_change_rms=np.sqrt((np.diff(P, axis=1) ** 2).mean(1)),
     ))
 
 
@@ -156,3 +185,103 @@ def confusion(pred: np.ndarray, actual: np.ndarray) -> pd.DataFrame:
     return pd.DataFrame(
         [[np.sum(pred & actual), np.sum(pred & ~actual)], [np.sum(~pred & actual), np.sum(~pred & ~actual)]],
         index=["RC satisfied", "RC violated"], columns=["Flexibility paid off", "Flexibility hurt"])
+
+
+# ------------------------------------------------------------------------------------------------
+# Prediction quality: AUC (signal-detection area under the ROC curve) with clustered bootstrap
+# ------------------------------------------------------------------------------------------------
+def auc(score, label) -> float:
+    """P(score of a random positive > score of a random negative), ties count 1/2 (Mann-Whitney)."""
+    score = np.asarray(score, float)
+    label = np.asarray(label, bool)
+    ok = ~np.isnan(score)
+    score, label = score[ok], label[ok]
+    npos, nneg = label.sum(), (~label).sum()
+    if npos == 0 or nneg == 0:
+        return np.nan
+    ranks = stats.rankdata(score)
+    return float((ranks[label].sum() - npos * (npos + 1) / 2) / (npos * nneg))
+
+
+def auc_ci(score, label, cluster, n_boot: int = 300, seed: int = 0, conf: float = 0.95):
+    """AUC with a cluster bootstrap CI (resample whole environments, not single firms)."""
+    df = pd.DataFrame(dict(s=np.asarray(score, float), y=np.asarray(label, bool), c=np.asarray(cluster)))
+    point = auc(df["s"], df["y"])
+    groups = [g for _, g in df.groupby("c")]
+    if len(groups) < 3:
+        return point, np.nan, np.nan
+    rng = np.random.default_rng(seed)
+    boots = []
+    for _ in range(n_boot):
+        pick = rng.integers(0, len(groups), len(groups))
+        d = pd.concat([groups[i] for i in pick])
+        boots.append(auc(d["s"], d["y"]))
+    lo, hi = np.nanpercentile(boots, [50 * (1 - conf), 100 - 50 * (1 - conf)])
+    return point, lo, hi
+
+
+# ------------------------------------------------------------------------------------------------
+# Signal-detection view of the RC (Heiner 1986): r = hit rate, w = false-alarm rate
+# ------------------------------------------------------------------------------------------------
+def sdt_roc(signal, gain, n_thresholds: int = 60) -> pd.DataFrame:
+    """ROC of the decision 'deviate when the signal |q* - q| exceeds theta' (selection rule SR2).
+
+    For every threshold: r(theta) = P(deviate | exception), w(theta) = P(deviate | no exception),
+    the RC quantities, and the expected net gain per opportunity. The value-maximising threshold is
+    where the ROC's local slope equals the tolerance limit (the signal-detection optimal criterion)."""
+    signal = np.asarray(signal, float)
+    gain = np.asarray(gain, float)
+    pe = gain > 0
+    n, npe = len(gain), pe.sum()
+    if n == 0 or npe == 0 or npe == n:
+        return pd.DataFrame()
+    pi = npe / n
+    thetas = np.unique(np.quantile(signal, np.linspace(0, 1, n_thresholds)))
+    thetas = np.r_[-np.inf, thetas]
+    rows = []
+    for th in thetas:
+        d = signal > th
+        r = (d & pe).sum() / npe
+        w = (d & ~pe).sum() / (n - npe)
+        G = gain[d & pe].mean() if (d & pe).any() else np.nan
+        Dl = -gain[d & ~pe].mean() if (d & ~pe).any() else np.nan
+        tol = (Dl / G) * (1 - pi) / pi if G and not np.isnan(G) and not np.isnan(Dl) else np.nan
+        rows.append(dict(theta=th, r=r, w=w, G=G, D=Dl, ratio=r / w if w > 0 else np.inf, tolerance=tol,
+                         net_per_opp=np.where(d, gain, 0.0).mean(), deviate_share=d.mean()))
+    return pd.DataFrame(rows)
+
+
+# ------------------------------------------------------------------------------------------------
+# Event study around regime shifts (Heiner 1989, section 6: punctuated adjustment)
+# ------------------------------------------------------------------------------------------------
+def event_study(res: BatchResult, pre: int = 10, post: int = 40, group: str = "selection") -> pd.DataFrame:
+    """Average behaviour of firms around demand-regime shifts, relative to the shift period (k = 0).
+
+    Needs keep_steps=True. Reports deviation rate, |dq| relative to the firm's mean |dq|, the
+    decision error |xi| (perceived vs true best reply), and profit relative to the firm's mean."""
+    if res.steps is None or res.shifts is None:
+        return pd.DataFrame()
+    st = res.steps
+    B, T, N = st["q"].shape
+    burn = res.burn_in
+    absdq = np.abs(st["q"] - st["q_prev"]).astype(float)
+    xi = np.abs(st["br_perc"] - st["br_true"]).astype(float)
+    base_dq = absdq[:, burn:].mean(1, keepdims=True) + 1e-9
+    base_pr = np.abs(st["profit"][:, burn:]).mean(1, keepdims=True) + 1e-9
+    base_xi = xi[:, burn:].mean(1, keepdims=True) + 1e-9
+    rows = []
+    for b in range(B):
+        labels = [getattr(f, group) if group != "firm" else f"Firm {i + 1}" for i, f in enumerate(res.scenarios[b].firms)]
+        for t0 in np.flatnonzero(res.shifts[b]):
+            if t0 - pre < burn or t0 + post >= T:
+                continue
+            for k in range(-pre, post + 1):
+                t = t0 + k
+                for i in range(N):
+                    rows.append((labels[i], k, float(st["dev"][b, t, i] & st["opp"][b, t, i]),
+                                 absdq[b, t, i] / base_dq[b, 0, i], xi[b, t, i] / base_xi[b, 0, i],
+                                 st["profit"][b, t, i] / base_pr[b, 0, i]))
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows, columns=[group, "k", "deviate", "rel_absdq", "rel_xi", "rel_profit"])
+    return df.groupby([group, "k"]).mean().reset_index()

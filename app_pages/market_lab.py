@@ -8,7 +8,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from heiner_abm.params import FirmSpec, RULE_TYPES, SELECTION_RULES
-from ui.common import (CAT, COST_C, PRICE_C, base_scenario, cached_single, download, firm_colors, measurement,
+from ui.common import (CAT, COST_C, PRICE_C, base_scenario, cached_single, download, firm_colors, measure_opts, measurement,
                        show_errors, style, to_json)
 
 st.title("Market lab: one market, every decision")
@@ -62,7 +62,7 @@ if not show_errors(scn):
     st.stop()
 H, cont = measurement()
 with st.spinner("Running the market…"):
-    out = cached_single(to_json(scn), H, cont)
+    out = cached_single(to_json(scn), H, cont, *measure_opts())
 F, M = out["firms"], out["market"].iloc[0]
 hist, P, C, Q = out["hist"], out["price"], out["cost"], out["quantity"]
 burn, T, N = scn.burn_in, scn.periods, len(firms)
@@ -90,6 +90,11 @@ with tab_ts:
     fig.add_trace(go.Scatter(x=t, y=C, name="Raw-material cost c", line=dict(color=COST_C, width=1.5)))
     fig.add_trace(go.Scatter(x=t, y=P, name="Market price P", line=dict(color=PRICE_C, width=2)))
     fig.add_vrect(x0=0, x1=burn, fillcolor="rgba(128,128,128,0.12)", line_width=0)
+    for ts in np.flatnonzero(out["shifts"]):
+        fig.add_vline(x=int(ts), line=dict(color="rgba(74,58,167,0.45)", width=1, dash="dot"))
+    if out["shifts"].any():
+        st.caption(f"{int(out['shifts'].sum())} unannounced demand-regime shifts (dotted lines). Cournot firms use an "
+                   f"outdated demand model for L = {scn.structural.belief_lag} periods after each shift.")
     fig.update_xaxes(title="Period", rangeslider=dict(visible=True, thickness=0.06))
     fig.update_yaxes(title="Price / cost")
     fig.update_layout(hovermode="x unified")
@@ -164,6 +169,7 @@ with tab_dec:
     log = pd.DataFrame(dict(period=idx, cost_prev=C[idx - 1], cost_perceived=hist["c_hat"][idx, fi], cost_actual=C[idx],
                             price=P[idx], q_before=hist["q"][idx - 1, fi], q_recommended=hist["rec"][idx, fi],
                             deviated=dev, q_chosen=hist["q"][idx, fi], gain_rule_vs_B=gain, outcome=outcome,
+                            gain_one_period=hist["gain_static"][idx, fi], gain_persistence=hist["gain_persist"][idx, fi],
                             profit=hist["profit"][idx, fi]))
     counts = pd.Series(outcome).value_counts()
     k = st.columns(4)

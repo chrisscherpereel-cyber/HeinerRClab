@@ -114,3 +114,77 @@ def test_evolution_equivalence_with_horizon():
     res = run_batch([scn], record_firm_history=True, horizon=3, continuation="rules")
     np.testing.assert_allclose(res.flex_path[0], ind.h["flex"])
     np.testing.assert_allclose(res.firm_hist["profit_rule"][0, 1:], ind.h["profit_rule"][1:])
+
+
+# ---------------------------------------------------------------------------------------------
+# Dynamic RC, out-of-sample windows and structural uncertainty
+# ---------------------------------------------------------------------------------------------
+from heiner_abm.params import StructuralParams  # noqa: E402
+from heiner_abm.engine import MEASURES, WINDOWS  # noqa: E402
+
+
+def _structural(belief_lag=5, rule="Cournot"):
+    s = default_scenario(periods=150, seed=21)
+    s.firms = [FirmSpec(rule, f, sel) for f, sel in ((0.3, "Always"), (0.6, "Large"), (0.9, "Adaptive"))]
+    s.firms[1].threshold = 10
+    s.structural = StructuralParams(enabled=True, hazard=0.08, intercept_sd=15, slope_sd=0.4, belief_lag=belief_lag)
+    return s
+
+
+@pytest.mark.parametrize("lag", [0, 5, -1])
+@pytest.mark.parametrize("cont", ["default", "rules"])
+def test_structural_and_discount_equivalence(lag, cont):
+    scn = _structural(lag)
+    ind = Industry(scn, horizon=4, continuation=cont, discount=0.9).run()
+    res = run_batch([scn], record_firm_history=True, horizon=4, continuation=cont, discount=0.9)
+    assert res.shifts[0].any()
+    np.testing.assert_allclose(res.price[0], ind.price)
+    for k in ("q", "rec", "profit", "profit_rule", "profit_default"):
+        np.testing.assert_allclose(res.firm_hist[k][0, 1:], ind.h[k][1:], err_msg=k)
+    np.testing.assert_allclose(res.firm_hist["best_reply"][0, 1:], ind.h["best_reply"][1:], rtol=1e-5)
+
+
+def test_structural_disabled_is_baseline():
+    s = default_scenario(periods=200, seed=3)
+    a = run_batch([s])
+    s2 = s.copy()
+    s2.structural = StructuralParams(enabled=True, hazard=0.0)
+    b = run_batch([s2])
+    np.testing.assert_allclose(a.price, b.price)
+
+
+def test_measures_coincide_at_horizon_one():
+    r = run_batch([_mixed()], horizon=1)
+    for k in ("n_pe", "sum_gain_pe", "sum_loss_npe"):
+        for w in WINDOWS:
+            np.testing.assert_allclose(r.accs[("static", w)][k], r.accs[("persist", w)][k])
+            np.testing.assert_allclose(r.accs[("static", w)][k], r.accs[("full", w)][k])
+
+
+def test_windows_partition_recorded_periods():
+    r = run_batch([_mixed()], horizon=3)
+    for m in MEASURES:
+        for k in ("n_opp", "n_pe", "n_dev_pe", "sum_profit", "sum_gain_pe"):
+            np.testing.assert_allclose(r.accs[(m, "est")][k] + r.accs[(m, "eval")][k], r.accs[(m, "all")][k],
+                                       err_msg=f"{m} {k}")
+
+
+def test_persistence_gain_brute_force():
+    """g_persist[t,i] = sum_h gamma^h [profit(hold q*) - profit(hold q_prev)], rivals on their actual path."""
+    s = _structural(3)
+    H, gam = 5, 0.95
+    r = run_batch([s], record_firm_history=True, horizon=H, discount=gam)
+    h, Q, c = r.firm_hist, r.quantity[0], r.cost[0]
+    pm, sl, pmin = r.p_max_path[0], r.slope_path[0], s.market.p_min
+    T = s.periods
+    for t in (10, 57, T - 3):
+        for i in range(s.n_firms):
+            qa, qb, tot = h["rec"][0, t, i], h["q"][0, t - 1, i], 0.0
+            for k in range(H):
+                if t + k >= T:
+                    break
+                riv = Q[t + k] - h["q"][0, t + k, i]
+                pa = max(pmin, pm[t + k] - sl[t + k] * (riv + qa))
+                pb = max(pmin, pm[t + k] - sl[t + k] * (riv + qb))
+                tot += gam ** k * ((pa - c[t + k]) * qa - (pb - c[t + k]) * qb)
+            assert np.isclose(h["gain_persist"][0, t, i], tot), (t, i)

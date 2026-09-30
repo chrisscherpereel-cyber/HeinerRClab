@@ -12,9 +12,10 @@ import streamlit as st
 
 from heiner_abm.analysis import market_table, reliability_table
 from heiner_abm.engine import run_batch
-from heiner_abm.experiments import (EnvRanges, evolution_runs, random_environments, rc_validation, run_sweep)
+from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, evolution_runs, random_environments,
+                                   rc_validation, regime_event_study, run_sweep, uncertainty_comparison)
 from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams, MarketParams,
-                               SELECTION_HELP, SELECTION_RULES, Scenario, linear_flex_firms)
+                               SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
 
 # ------------------------------------------------------------------------------------------------
 # Colours (reference palette): firms are ordered by flexibility -> one-hue sequential ramp
@@ -36,8 +37,9 @@ def firm_colors(n: int) -> List[str]:
 
 
 def style(fig: go.Figure, height: int = 380, title: Optional[str] = None, **kw) -> go.Figure:
-    fig.update_layout(height=height, margin=dict(l=10, r=10, t=70 if title else 30, b=10),
-                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), **kw)
+    # legend below the plot area so multi-row legends never collide with the title or the toolbar
+    fig.update_layout(height=height + 40, margin=dict(l=10, r=10, t=50 if title else 30, b=10),
+                      legend=dict(orientation="h", yanchor="top", y=-0.22, x=0), **kw)
     if title:
         fig.update_layout(title=dict(text=title, y=0.98, yanchor="top"))
     if fig.layout.hovermode is None:
@@ -57,6 +59,8 @@ DEFAULTS: Dict[str, object] = dict(
     desired_margin=5.0, foresight=0.0, noise=0.0, q0=200.0, q_min=15.0,
     flex_cost_slope=0.0, fixed_cost=0.0, margin_includes_fixed=False,
     periods=1000, burn_in=25, reps=20, seed=1, horizon=20, continuation="default", memory=0.97,
+    discount=1.0, oos_split=0.5,
+    struct_on=False, hazard=0.02, intercept_sd=15.0, slope_sd=0.4, belief_lag=20,
 )
 
 PRESETS: Dict[str, Dict[str, object]] = {
@@ -71,6 +75,9 @@ PRESETS: Dict[str, Dict[str, object]] = {
     "Costly flexibility (a = 500, b = 100, in margin)": dict(flex_cost_slope=500.0, fixed_cost=100.0,
                                                              margin_includes_fixed=True),
     "Ten firms (paper's larger market)": dict(n_firms=10, flex_slope=0.1, q0=80.0),
+    "Knightian uncertainty: demand regime shifts (Cournot, φ ≤ 0.4)": dict(rule="Cournot", flex_slope=0.1,
+                                                                              struct_on=True, delta=5.0),
+    "Knightian uncertainty: demand regime shifts (Bertrand)": dict(struct_on=True, delta=5.0),
 }
 
 K = "cfg_"
@@ -166,7 +173,22 @@ def render_sidebar():
                  ["default", "rules"], key=K + "continuation",
                  format_func=lambda x: {"default": "returns to rule B (Heiner)",
                                         "rules": "keeps using its own rules"}[x])
+        st.slider("Discount γ within the horizon", 0.80, 1.0, key=K + "discount", step=0.01,
+                  help="Weight γʰ on the h-th period after a decision when valuing it (dynamic RC).")
+        st.slider("Estimation window (share of recorded periods)", 0.2, 0.8, key=K + "oos_split", step=0.05,
+                  help="Out-of-sample tests estimate the RC in this first part of each run and predict "
+                       "performance in the remaining part.")
         st.slider("Adaptive agents' memory λ", 0.5, 0.999, key=K + "memory", step=0.005)
+
+    with sb.expander("Structural uncertainty (regime shifts)", expanded=bool(v("struct_on"))):
+        st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
+                  help="Knightian uncertainty: the demand curve occasionally jumps to a new regime that "
+                       "model-based (Cournot) firms don't know about until they update their model.")
+        if v("struct_on"):
+            st.slider("Hazard λ (shift probability per period)", 0.0, 0.2, key=K + "hazard", step=0.005)
+            st.slider("Shift size: demand intercept s.d.", 0.0, 40.0, key=K + "intercept_sd", step=1.0)
+            st.slider("Shift size: log demand-slope s.d.", 0.0, 1.0, key=K + "slope_sd", step=0.05)
+            st.number_input("Model-updating lag L (periods, −1 = never)", -1, 500, key=K + "belief_lag", step=1)
     sb.markdown("---")
     sb.caption("Heiner (1983) · Scherpereel & Summers, *The influence of mistakes in Cournot and Bertrand "
                "competition* (ABSEL 2011).")
@@ -191,11 +213,19 @@ def base_scenario() -> Scenario:
                                       fixed_cost=float(v("fixed_cost")),
                                       margin_includes_fixed=bool(v("margin_includes_fixed"))),
         adaptive=AdaptiveParams(memory=float(v("memory"))),
+        structural=StructuralParams(enabled=bool(v("struct_on")), hazard=float(v("hazard")),
+                                    intercept_sd=float(v("intercept_sd")), slope_sd=float(v("slope_sd")),
+                                    belief_lag=int(v("belief_lag"))),
         periods=int(v("periods")), burn_in=int(v("burn_in")), seed=int(v("seed")))
 
 
 def measurement():
     return int(v("horizon")), str(v("continuation"))
+
+
+def measure_opts():
+    """Discount and estimation-window split used by the dynamic and out-of-sample RC measures."""
+    return float(v("discount")), float(v("oos_split"))
 
 
 def behaviour_horizon(scn: Scenario) -> int:
@@ -227,40 +257,65 @@ def from_json(js: str) -> Scenario:
     return Scenario(market=MarketParams(**d["market"]), firms=[FirmSpec(**f) for f in d["firms"]],
                     firm_globals=GlobalFirmParams(**d["firm_globals"]),
                     adaptive=AdaptiveParams(**{**d["adaptive"], "bin_edges": tuple(d["adaptive"]["bin_edges"])}),
-                    evolution=EvolutionParams(**d["evolution"]), periods=d["periods"], burn_in=d["burn_in"],
-                    seed=d["seed"])
+                    evolution=EvolutionParams(**d["evolution"]),
+                    structural=StructuralParams(**d.get("structural", {})),
+                    periods=d["periods"], burn_in=d["burn_in"], seed=d["seed"])
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
-def cached_single(js: str, horizon: int, continuation: str):
+def cached_single(js: str, horizon: int, continuation: str, discount: float = 1.0, oos_split: float = 0.5):
     scn = from_json(js)
-    res = run_batch([scn], record_firm_history=True, horizon=horizon, continuation=continuation)
-    return dict(firms=reliability_table(res), market=market_table(res), price=res.price[0], cost=res.cost[0],
-                quantity=res.quantity[0], hist={k: v[0] for k, v in res.firm_hist.items()},
-                flex_path=res.flex_path[0])
+    res = run_batch([scn], record_firm_history=True, horizon=horizon, continuation=continuation,
+                    discount=discount, oos_split=oos_split)
+    tables = {(m, w): reliability_table(res, m, w) for m in ("static", "persist", "full")
+              for w in ("all", "est", "eval")}
+    return dict(firms=reliability_table(res), tables=tables, market=market_table(res), price=res.price[0],
+                cost=res.cost[0], quantity=res.quantity[0], hist={k: v[0] for k, v in res.firm_hist.items()},
+                flex_path=res.flex_path[0], shifts=res.shifts[0], p_max_path=res.p_max_path[0],
+                slope_path=res.slope_path[0], split_t=res.meta["split_t"])
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def cached_sweep(js: str, p1: str, values1: tuple, n_reps: int, p2: Optional[str], values2: Optional[tuple],
-                 horizon: int, continuation: str):
+                 horizon: int, continuation: str, discount: float = 1.0, oos_split: float = 0.5):
     return run_sweep(from_json(js), p1, list(values1), n_reps, p2, list(values2) if values2 else None,
-                     horizon=horizon, continuation=continuation)
+                     horizon=horizon, continuation=continuation, discount=discount, oos_split=oos_split)
 
 
-def run_sweep_ui(scn: Scenario, p1, values1, n_reps, p2=None, values2=None, horizon=1, continuation="default"):
+def run_sweep_ui(scn: Scenario, p1, values1, n_reps, p2=None, values2=None, horizon=1, continuation="default",
+                 discount=1.0, oos_split=0.5):
     n_runs = len(values1) * (len(values2) if values2 else 1) * n_reps
     with st.spinner(f"Simulating {n_runs:,} markets × {scn.periods:,} periods (H = {horizon})…"):
         return cached_sweep(to_json(scn), p1, tuple(float(x) for x in values1), int(n_reps), p2,
-                            tuple(float(x) for x in values2) if values2 else None, int(horizon), continuation)
+                            tuple(float(x) for x in values2) if values2 else None, int(horizon), continuation,
+                            float(discount), float(oos_split))
 
 
 @st.cache_data(show_spinner=False, max_entries=16)
 def cached_rc_validation(js: str, n_env: int, n_reps: int, ranges_js: str, horizon: int, continuation: str,
-                         env_seed: int):
+                         env_seed: int, discount: float = 1.0, oos_split: float = 0.5):
     r = json.loads(ranges_js)
     ranges = EnvRanges(**{k: tuple(val) for k, val in r.items()})
     envs = random_environments(from_json(js), n_env, ranges, seed=env_seed)
-    return rc_validation(envs, n_reps, horizon=horizon, continuation=continuation)
+    return rc_validation(envs, n_reps, horizon=horizon, continuation=continuation, discount=discount,
+                         oos_split=oos_split)
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def cached_bound(js: str, phis: tuple, difficulty: str, levels: tuple, n_reps: int):
+    return adjustment_bound_experiment(from_json(js), list(phis), difficulty, list(levels), n_reps)
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def cached_uncertainty(js: str, deltas: tuple, hazards: tuple, n_reps: int, horizon: int, continuation: str,
+                       discount: float):
+    return uncertainty_comparison(from_json(js), list(deltas), list(hazards), n_reps, horizon=horizon,
+                                  continuation=continuation, discount=discount)
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def cached_event(js: str, n_reps: int, horizon: int, continuation: str, pre: int, post: int):
+    return regime_event_study(from_json(js), n_reps, horizon=horizon, continuation=continuation, pre=pre, post=post)
 
 
 @st.cache_data(show_spinner=False, max_entries=16)
@@ -296,7 +351,8 @@ def slope_chart(summary: pd.DataFrame, x: str, x_title: str, group: Optional[str
     for k, (gv, g) in enumerate(groups):
         g = g.sort_values(x)
         color = CAT[k % len(CAT)]
-        name = "Mean slope" if gv is None else f"{group_title or group} = {gv:g}"
+        name = "Mean slope" if gv is None else (f"{group_title or group} = {gv:g}" if isinstance(gv, (int, float))
+                                                 else str(gv))
         fig.add_trace(go.Scatter(
             x=g[x], y=g["slope"], mode="lines+markers", name=name, line=dict(color=color, width=2),
             marker=dict(size=8), error_y=dict(type="data", symmetric=False, array=g["hi"] - g["slope"],

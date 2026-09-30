@@ -5,6 +5,7 @@ import streamlit as st
 
 from heiner_abm.analysis import flex_profit_by_market, ols
 from heiner_abm.experiments import PARAMS, slope_summary, switch_point
+from heiner_abm.params import FirmSpec
 from ui.common import (CAT, base_scenario, behaviour_horizon, download, firm_profit_bars, fmt_p, hypothesis_card, measurement, reps,
                        run_sweep_ui, show_errors, slope_chart, style, verdict)
 
@@ -48,6 +49,45 @@ def range_help(p):
     return f"Lowest and highest {p.label} to sweep. {p.help}".strip()
 
 
+def trend_test(key, scn, param, x_title, rng, lo_hi_default, steps_default, expect, horizon=None, rng_help="",
+               log_x=False):
+    """Sweep one parameter, chart the payoff to flexibility and regress each market's slope on the parameter.
+    expect: '+' or '-', the sign the reliability condition predicts."""
+    c1, c2 = st.columns(2)
+    lo_hi = c1.slider("Range", *rng, lo_hi_default, key=f"{key}_rng", help=rng_help)
+    steps = c2.slider("Steps", 3, 12, steps_default, key=f"{key}_steps", help=STEPS_HELP)
+    vals = list(np.round(np.geomspace(max(lo_hi[0], 1e-3), lo_hi[1], steps) if log_x else
+                         np.linspace(*lo_hi, steps), 3))
+    if param == "n_firms" or param == "belief_lag":
+        vals = sorted(set(int(round(x)) for x in vals))
+    Hk = H if horizon is None else horizon
+    if not run_state(key, (tuple(vals), R, Hk, cont, str(scn))):
+        return None
+    firms, mk = run_sweep_ui(scn, param, vals, R, horizon=Hk, continuation=cont)
+    summ = slope_summary(firms, mk, [param])
+    fig = slope_chart(summ, param, x_title)
+    if log_x:
+        fig.update_xaxes(type="log")
+    st.plotly_chart(fig)
+    per = pd.concat([flex_profit_by_market(g).assign(**{param: v}) for v, g in firms.groupby(param)])
+    per = per.dropna(subset=["slope"])
+    tab, r2 = ols(per["slope"].to_numpy(float), [per[param].to_numpy(float)], [param])
+    coef, pv = tab.loc[1, "coef"], tab.loc[1, "p"]
+    st.markdown(f"**Regression of market-level slope on {x_title}** ({len(per)} markets): coefficient = {coef:.3g}, "
+                f"p = {fmt_p(pv)}, R² = {r2:.3f}")
+    sign = "+" if coef > 0 else "-"
+    if pv < 0.05 and sign == expect:
+        verdict("support", f"The payoff to flexibility **{'rises' if sign == '+' else 'falls'} significantly** with "
+                f"{x_title}, as the reliability condition predicts.")
+    elif pv < 0.05:
+        verdict("reject", f"The payoff to flexibility **{'rises' if sign == '+' else 'falls'} significantly** with "
+                f"{x_title}, the opposite of the reliability condition's prediction.")
+    else:
+        verdict("neutral", f"No significant relationship between {x_title} and the payoff to flexibility here.")
+    download(summ, f"{key}_summary.csv")
+    return summ
+
+
 def run_state(key, params):
     """Run button pattern: results stay visible across reruns until parameters change."""
     if st.button("Run experiment", key=f"btn_{key}", type="primary"):
@@ -56,7 +96,9 @@ def run_state(key, params):
 
 
 tabs = st.tabs(["H1 · Free flexibility", "H2 · Profitability switch", "H3 · Volatility", "H4 · Fixed costs",
-                "H5 · Competition intensity", "H6 · Regimes & equilibrium"])
+                "H5 · Competition intensity", "H6 · Regimes & equilibrium", "H7 · Competence",
+                "H8 · Perception noise", "H9 · Selection rules", "H10 · Predictable behaviour",
+                "H11 · Number of rivals", "H12 · Model-updating lag"])
 rule = base.firms[0].rule
 
 # ------------------------------------------------------------------------------------------------ H1
@@ -343,3 +385,183 @@ with tabs[5]:
         else:
             verdict("neutral", f"No clear monotone relationship between industry flexibility and profit (ρ = {rho:.2f}).")
         download(g, "H6_regimes.csv")
+
+# ------------------------------------------------------------------------------------------------ H7
+with tabs[6]:
+    hypothesis_card(
+        "H7: Competence restores the value of flexibility",
+        "Competence is the other side of the CD-gap. Raising cost foresight κ lets firms anticipate part of the coming "
+        "cost change, so their recommendations are right more often.",
+        "The CD-gap narrows: r rises, w falls, and **the payoff to flexibility rises with κ**.",
+        "Optimisation: better information complements flexibility (also a rise). Real options: less uncertainty "
+        "means **less** option value, so the payoff to flexibility **falls** with κ.")
+    trend_test("h7", base, "foresight", "competence κ", (0.0, 1.0), (0.0, 1.0), 5, "+",
+               rng_help="Lowest and highest cost foresight κ: the share of the coming cost change firms anticipate.")
+
+# ------------------------------------------------------------------------------------------------ H8
+with tabs[7]:
+    hypothesis_card(
+        "H8: Perception errors make flexibility harmful",
+        "Perception noise σ adds a random error to every firm's estimate of the coming cost. It widens the CD-gap from "
+        "the agent's side without changing the environment (Δ stays fixed).",
+        "Less competence means lower reliability, so **the payoff to flexibility falls with σ**.",
+        "Real options: more uncertainty raises option value (a rise). Cobweb theory: additive noise leaves "
+        "stability unchanged (no effect).")
+    trend_test("h8", base, "noise", "perception noise σ", (0.0, 20.0), (0.0, 20.0), 5, "-",
+               rng_help="Lowest and highest standard deviation of the error in firms' cost estimates.")
+
+# ------------------------------------------------------------------------------------------------ H9
+with tabs[8]:
+    hypothesis_card(
+        "H9: When uncertainty rises, rules that deviate less often (or only on clear signals) win",
+        "Every firm has the same flexibility φ but a different **selection rule**: Always (fully flexible), "
+        "Never (rule B, rigid), Small (SR1, deviate only on changes below θ) and Large (SR2, deviate only on changes "
+        "above θ, 'big imbalances send clear signals'). They compete in the same market on the same shocks.",
+        "As volatility rises, the fully flexible rule loses ground to the rigid and the selective rules. "
+        "**Always − Never profit falls with Δ.**",
+        "Flexibility is never harmful, so **Always earns at least as much as every other rule at every Δ**.")
+    c1, c2, c3 = st.columns(3)
+    lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h9_rng",
+                      help="Lowest and highest cost volatility Δ to sweep.")
+    steps = c2.slider("Steps", 3, 12, 6, key="h9_steps", help=STEPS_HELP)
+    add_adapt = c3.toggle("Add an Adaptive firm", False, key="h9_adapt",
+                          help="Adds a fifth firm that learns, per size of change, whether deviating pays. It needs the "
+                               "counterfactual horizon H, so runs are slower.")
+    phi = float(np.mean([f.flex for f in base.firms]))
+    thr = float(base.firms[0].threshold)
+    sels = ["Always", "Never", "Small", "Large"] + (["Adaptive"] if add_adapt else [])
+    scn = base.copy()
+    t0 = base.firms[0]
+    scn.firms = [FirmSpec(rule=t0.rule, flex=min(phi, 1.0) if t0.rule == "Cournot" else phi, selection=sname,
+                          threshold=thr, desired_margin=t0.desired_margin, foresight=t0.foresight, noise=t0.noise,
+                          label=sname) for sname in sels]
+    scn.firm_globals.q0 = round(base.firm_globals.q0 * base.n_firms / len(sels))
+    st.caption(f"{len(sels)} firms, each with φ = {phi:.2f} (mean of the sidebar ladder) and θ = {thr:g}.")
+    vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+    Hs = max(H, 2) if add_adapt else 1
+    if run_state("h9", (tuple(vals), R, Hs, cont, str(scn))):
+        firms, mk = run_sweep_ui(scn, "delta", vals, R, horizon=Hs, continuation=cont)
+        agg = firms.groupby(["delta", "selection"])["avg_profit"].agg(["mean", "std", "count"]).reset_index()
+        agg["ci"] = 1.96 * agg["std"] / np.sqrt(agg["count"])
+        fig = go.Figure()
+        for k, sname in enumerate(sels):
+            d = agg[agg["selection"] == sname]
+            fig.add_trace(go.Scatter(x=d["delta"], y=d["mean"], name=sname, mode="lines+markers",
+                                     line=dict(color=CAT[k % len(CAT)], width=2),
+                                     error_y=dict(type="data", array=d["ci"], thickness=1, width=3)))
+        fig.update_xaxes(title="Cost volatility Δ"); fig.update_yaxes(title="Average profit per period")
+        st.plotly_chart(style(fig, title="Profit by selection rule"))
+        wide = firms.pivot_table(index=["market", "delta"], columns="selection", values="avg_profit").reset_index()
+        wide["always_minus_never"] = wide["Always"] - wide["Never"]
+        wide["large_minus_small"] = wide["Large"] - wide["Small"]
+        tab, r2 = ols(wide["always_minus_never"].to_numpy(float), [wide["delta"].to_numpy(float)], ["Δ"])
+        coef, pv = tab.loc[1, "coef"], tab.loc[1, "p"]
+        st.markdown(f"**Regression of (Always − Never) profit on Δ** ({len(wide)} markets): coefficient = {coef:.3g}, "
+                    f"p = {fmt_p(pv)}. Mean (Large − Small) = {wide['large_minus_small'].mean():,.1f}.")
+        worse = agg.pivot(index="delta", columns="selection", values="mean")
+        beaten = (worse.drop(columns="Always").max(axis=1) > worse["Always"]).any()
+        if coef < 0 and pv < 0.05:
+            verdict("support", "The fully flexible rule **loses ground** to rule B as volatility rises, as the "
+                    "reliability condition predicts.")
+        elif coef > 0 and pv < 0.05:
+            verdict("reject", "The fully flexible rule **gains** on rule B as volatility rises.")
+        else:
+            verdict("neutral", "No significant trend in the flexible rule's advantage over rule B.")
+        if beaten:
+            st.caption("At some Δ a less flexible rule earned more than **Always** on average: evidence against "
+                       "'flexibility is never harmful'.")
+        download(agg, "H9_selection_rules.csv")
+
+# ------------------------------------------------------------------------------------------------ H10
+with tabs[9]:
+    hypothesis_card(
+        "H10: Greater uncertainty makes behaviour more predictable",
+        "Heiner's (1983) central claim, 'The origin of predictable behavior': imperfect agents facing more uncertainty "
+        "restrict themselves to fewer, more rule-governed actions. Here every firm uses the **Adaptive** selection "
+        "rule, which learns from counterfactual payoffs when deviating from rule B pays. No rule is imposed on how "
+        "often to deviate.",
+        "As volatility rises, reliability-learning firms **deviate less often**: their behaviour becomes more "
+        "rule-governed.",
+        "Optimisation: bigger shocks make re-optimising worthwhile more often, so deviations **rise**. Satisficing: "
+        "performance falls below aspiration more often, so search and change **rise**.")
+    c1, c2 = st.columns(2)
+    lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h10_rng",
+                      help="Lowest and highest cost volatility Δ to sweep.")
+    steps = c2.slider("Steps", 3, 12, 6, key="h10_steps", help=STEPS_HELP)
+    scn = base.copy()
+    for f in scn.firms:
+        f.selection = "Adaptive"
+    H10 = max(H, 2)
+    st.caption(f"Adaptive firms learn from the counterfactual over H = {H10} periods (sidebar H, at least 2).")
+    vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+    if run_state("h10", (tuple(vals), R, H10, cont, str(scn))):
+        firms, mk = run_sweep_ui(scn, "delta", vals, R, horizon=H10, continuation=cont)
+        firms = firms[firms["opportunities"] > 0].copy()
+        firms["dev_rate"] = firms["deviations"] / firms["opportunities"]
+        per = firms.groupby(["market", "delta"]).agg(dev_rate=("dev_rate", "mean"), r=("r", "mean"),
+                                                     w=("w", "mean")).reset_index()
+        g = per.groupby("delta").agg(dev=("dev_rate", "mean"), dev_sd=("dev_rate", "std"), n=("dev_rate", "count"),
+                                     r=("r", "mean"), w=("w", "mean")).reset_index()
+        g["ci"] = 1.96 * g["dev_sd"] / np.sqrt(g["n"])
+        c1, c2 = st.columns(2)
+        f1 = go.Figure()
+        f1.add_trace(go.Scatter(x=g["delta"], y=g["dev"], mode="lines+markers", name="Deviation rate",
+                                line=dict(color=CAT[0], width=2), error_y=dict(type="data", array=g["ci"], thickness=1,
+                                                                               width=3)))
+        f1.update_xaxes(title="Cost volatility Δ"); f1.update_yaxes(title="Share of opportunities with a deviation",
+                                                                    range=[0, 1])
+        c1.plotly_chart(style(f1, 340, "How often do firms deviate from rule B?"))
+        f2 = go.Figure()
+        f2.add_trace(go.Scatter(x=g["delta"], y=g["r"], mode="lines+markers", name="r (deviate | exception)",
+                                line=dict(color=CAT[2], width=2)))
+        f2.add_trace(go.Scatter(x=g["delta"], y=g["w"], mode="lines+markers", name="w (deviate | no exception)",
+                                line=dict(color=CAT[1], width=2)))
+        f2.update_xaxes(title="Cost volatility Δ"); f2.update_yaxes(title="Rate", range=[0, 1])
+        c2.plotly_chart(style(f2, 340, "Learned reliability"))
+        tab, r2 = ols(per["dev_rate"].to_numpy(float), [per["delta"].to_numpy(float)], ["Δ"])
+        coef, pv = tab.loc[1, "coef"], tab.loc[1, "p"]
+        st.markdown(f"**Regression of the deviation rate on Δ** ({len(per)} markets): coefficient = {coef:.4f}, "
+                    f"p = {fmt_p(pv)}, R² = {r2:.3f}")
+        if coef < 0 and pv < 0.05:
+            verdict("support", "Reliability-learning firms **deviate less** as uncertainty rises: behaviour becomes "
+                    "more predictable, as Heiner (1983) argued.")
+        elif coef > 0 and pv < 0.05:
+            verdict("reject", "Firms **deviate more** as uncertainty rises, as the optimising and satisficing views "
+                    "predict.")
+        else:
+            verdict("neutral", "No significant trend in how often firms deviate.")
+        download(g, "H10_predictability.csv")
+
+# ------------------------------------------------------------------------------------------------ H11
+with tabs[10]:
+    hypothesis_card(
+        "H11: More rivals make flexibility less valuable",
+        "With more firms the target each firm aims at moves more with its rivals' choices. In Heiner (1989) the slope "
+        "of the target map is f′ = −(n−1)/2 in symmetric Cournot, so the reliable adjustment speed "
+        "β₀ = 1/((1+K)(1−f′)) falls as n rises. Flexibility ranges stay the same; total initial output is held "
+        "comparable.",
+        "Strategic difficulty rises, so **the payoff to flexibility falls with n**.",
+        "Optimisation: no prediction. Cobweb theory also predicts a fall, but only through instability "
+        "(φ above 4/(n+1)), not through errors.")
+    trend_test("h11", base, "n_firms", "number of firms n", (2.0, 12.0), (2.0, 12.0), 6, "-",
+               rng_help="Smallest and largest number of firms; each market spreads φ over the sidebar's range.")
+
+# ------------------------------------------------------------------------------------------------ H12
+with tabs[11]:
+    hypothesis_card(
+        "H12: The slower firms learn a new regime, the more flexibility hurts model-based firms",
+        "Unannounced demand-regime shifts (hazard λ from the sidebar, or 0.02 if off) make the demand model that "
+        "Cournot firms use for their best replies wrong until they update it, L periods later. The test sweeps L for "
+        "a Cournot industry (sidebar φ if already Cournot, otherwise φ from 0.1 to 0.4, below the stability limit).",
+        "A longer lag means a larger, more persistent CD-gap, so **the payoff to flexibility falls with L**.",
+        "Knightian uncertainty raises the option value of flexibility (a rise), or the lag is irrelevant when agents "
+        "optimise on average (no effect).")
+    scn = base.copy()
+    if base.firms[0].rule != "Cournot":
+        for f, phi in zip(scn.firms, np.linspace(0.1, 0.4, scn.n_firms)):
+            f.rule, f.flex = "Cournot", float(phi)
+    scn.structural.enabled = True
+    if not base.structural.enabled:
+        scn.structural.hazard = 0.02
+    trend_test("h12", scn, "belief_lag", "model-updating lag L", (0.0, 200.0), (0.0, 100.0), 5, "-",
+               rng_help="Shortest and longest lag, in periods, before Cournot firms learn a new demand regime.")

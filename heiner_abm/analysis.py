@@ -285,3 +285,45 @@ def event_study(res: BatchResult, pre: int = 10, post: int = 40, group: str = "s
         return pd.DataFrame()
     df = pd.DataFrame(rows, columns=[group, "k", "deviate", "rel_absdq", "rel_xi", "rel_profit"])
     return df.groupby([group, "k"]).mean().reset_index()
+
+
+# ------------------------------------------------------------------------------------------------
+# Rival-theory predictors: cobweb stability and a small logistic regression
+# ------------------------------------------------------------------------------------------------
+def instability_index(scn) -> float:
+    """Cobweb stability theory (Ezekiel 1938; Nerlove 1958; Theocharis 1960): spectral radius of the
+    linearised production dynamics q' = J q + const, ignoring noise, rounding and bounds.
+
+    Cournot firm i: q_i' = (1 - phi_i/2) q_i - (phi_i/2) Q;  Bertrand firm i: q_i' = q_i - phi_i s Q.
+    So J = diag(d) - u 1', and the market is stable when rho(J) < 1. Unit eigenvalues are neutral modes
+    (with only Bertrand firms, how total output is split is indeterminate) and are left out."""
+    s = scn.market.slope
+    phi = np.array([f.flex for f in scn.firms], float)
+    cour = np.array([f.rule == "Cournot" for f in scn.firms])
+    d = np.where(cour, 1 - phi / 2, 1.0)
+    u = np.where(cour, phi / 2, phi * s)
+    ev = np.abs(np.linalg.eigvals(np.diag(d) - np.outer(u, np.ones(len(phi)))))
+    ev = ev[np.abs(ev - 1.0) > 1e-9]
+    return float(ev.max()) if len(ev) else 1.0
+
+
+def logistic_fit(X: np.ndarray, y: np.ndarray, ridge: float = 1e-3, iters: int = 50) -> np.ndarray:
+    """Logistic regression (with intercept) by Newton-Raphson with a small ridge penalty for stability."""
+    X1 = np.column_stack([np.ones(len(X)), X])
+    beta = np.zeros(X1.shape[1])
+    pen = np.full(X1.shape[1], ridge)
+    pen[0] = 0.0
+    y = np.asarray(y, float)
+    for _ in range(iters):
+        p = 1 / (1 + np.exp(-np.clip(X1 @ beta, -30, 30)))
+        g = X1.T @ (y - p) - pen * beta
+        Hm = (X1 * (p * (1 - p))[:, None]).T @ X1 + np.diag(pen)
+        step = np.linalg.solve(Hm + 1e-9 * np.eye(len(beta)), g)
+        beta += step
+        if np.max(np.abs(step)) < 1e-8:
+            break
+    return beta
+
+
+def logistic_predict(X: np.ndarray, beta: np.ndarray) -> np.ndarray:
+    return 1 / (1 + np.exp(-np.clip(np.column_stack([np.ones(len(X)), X]) @ beta, -30, 30)))

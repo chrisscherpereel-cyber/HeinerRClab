@@ -40,14 +40,38 @@ many replications. For heavy research runs, use a local installation.
 |---|---|
 | Heiner's reliability condition | The theory (CD-gap, r, w, π, G, D, tolerance limit), an interactive RC calculator, and the competing hypotheses |
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
-| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium. Each shows the RC prediction next to the traditional prediction and gives a verdict |
+| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behaviour · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the traditional prediction and gives a verdict |
 | Does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
 | Dynamic RC (Heiner 1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximising flexibility. Signal-detection ROC of each firm's decisions |
 | Risk vs Knightian uncertainty | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot) and model-free (Bertrand) firms. Event study of punctuated slow–quick–slow adjustment |
 | CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
+| Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, parity table against the VBA code |
+
+## Competing theories: reference results
+
+From the *Competing theories* page with 1,000 periods, 20 replications per condition and H = 20, for the default
+Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
+
+| Theory | Tournament record, Bertrand (✅ / ❌ / ➖) | Tournament record, Cournot (✅ / ❌ / ➖) |
+|---|---|---|
+| Heiner: reliability condition | 6/1/2 and 5/1/3 | 5/1/3 and 6/1/2 |
+| Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
+| Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
+| Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
+| Neoclassical optimisation | 1/5/1 and 0/5/2 | 2/2/3 and 2/3/2 |
+
+Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
+perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
+tested low-profit level. Evolved flexibility showed no volatility gradient in any run.
+
+Out-of-sample forecasting (100 random environments × 2 replications, 800 firms, both production rules): the dynamic
+RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.61, 95% CI 0.56–0.66), ahead of
+cobweb stability (0.58), stakes only (0.56), Heiner's K (0.56), accuracy only (0.54) and real options (0.47). A firm's
+own track record in the first half of the run was far better (AUC 0.86), and adding the RC to all rival forecasts
+combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). The paper's one-period RC scored only 0.55.
 
 ## Code layout
 
@@ -56,7 +80,8 @@ heiner_abm/params.py       scenario dataclasses (defaults = VBA SetUpForm)
 heiner_abm/agents.py       readable agent implementation: Firm, Market, Industry
 heiner_abm/engine.py       vectorised batch engine (same model, same random streams) for Monte Carlo
 heiner_abm/analysis.py     reliability metrics, market statistics, regressions
-heiner_abm/experiments.py  sweeps with common random numbers, rigid-twin RC validation, evolution
+heiner_abm/experiments.py  sweeps with common random numbers, rigid-twin RC validation, evolution, horse race
+heiner_abm/theories.py     rival theories, their predictions, the tournament experiments and scoring
 ui/common.py               sidebar base scenario, presets, caching, chart helpers
 app_pages/*.py             the Streamlit pages
 ```

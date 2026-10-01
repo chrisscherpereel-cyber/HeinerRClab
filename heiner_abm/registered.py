@@ -65,3 +65,45 @@ MECHANISMS: Dict[str, str] = {
 
 def tournament(key: str) -> Optional[Dict]:
     return TOURNAMENT.get(key)
+
+
+# Tuned designs and parameters from the registered tournament run (plan TOURNAMENT_PLAN). Used as realistic rivals in
+# the human experiment and as the default rule set for the rule-choice and validation pages, so that those pages do
+# not need to re-run the one-minute tuning. Re-running the registered plan reproduces these values.
+TUNED_DESIGN: Dict[str, str] = {'heiner': 'heiner_p',
+     'optimiser': 'opt_nash',
+     'options': 'options_p',
+     'cobweb': 'cobweb_p',
+     'heuristic': 'heur_markup',
+     'satisficing': 'satis_p',
+     'rl': 'rl_softmax',
+     'imitation': 'imit_avg',
+     'ruleb': 'ruleb'}
+TUNED_PARAMS: Dict[str, Dict[str, float]] = {'heiner_m': {'a_cost': 0.262729,
+              'a_rival': 0.063353,
+              'phi': 0.239951,
+              'theta': 3.44545,
+              'memory': 0.886542,
+              'horizon': 13.0},
+ 'heiner_p': {'lam': 0.708243, 'phi': 0.477099, 'theta': 1.585432, 'memory': 0.883274, 'horizon': 6.0},
+ 'opt_br': {'a_cost': 0.180077, 'a_rival': 0.050491, 'phi': 0.638447},
+ 'opt_nash': {'a_cost': 0.163401, 'phi': 0.241701},
+ 'options_m': {'a_cost': 0.059442, 'a_rival': 0.6927, 'phi': 0.112801, 'k': 1.764088},
+ 'options_p': {'lam': 0.977468, 'phi': 0.520112, 'k': 0.476872},
+ 'cobweb_p': {'lam': 0.698148, 'phi': 0.879722},
+ 'cobweb_q': {'a_rival': 0.931346, 'phi': 0.560706},
+ 'heur_wsls': {'step': 1.724622},
+ 'heur_markup': {'phi': 2.095768, 'm': 6.055212},
+ 'satis_m': {'a_cost': 0.633627, 'a_rival': 0.069392, 'phi': 0.134541, 'alpha': 0.085199},
+ 'satis_p': {'lam': 0.060947, 'phi': 0.086688, 'alpha': 0.014058},
+ 'rl_softmax': {'step': 4.87352, 'eta': 0.046256, 'temp': 1.876073},
+ 'rl_erevroth': {'step': 1.055022, 'forget': 0.001978, 'gain': 5.001642},
+ 'imit_best': {'p': 0.13636, 'noise': 4.569344},
+ 'imit_avg': {'p': 0.104148, 'noise': 7.527318},
+ 'ruleb': {}}
+
+
+def registered_tuned():
+    """The registered tournament's tuned designs and parameters as an arena.Tuned object."""
+    from .arena import Tuned
+    return Tuned(design=dict(TUNED_DESIGN), params={k: dict(v) for k, v in TUNED_PARAMS.items()})

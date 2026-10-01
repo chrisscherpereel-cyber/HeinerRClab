@@ -26,6 +26,8 @@ pages = {
         st.Page("app_pages/cd_gap.py", title="CD-gap explorer", icon="🧭"),
         st.Page("app_pages/evolution.py", title="Endogenous flexibility", icon="🧬"),
         st.Page("app_pages/theories.py", title="Competing theories", icon="🏆"),
+        st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),
+        st.Page("app_pages/mechanisms.py", title="Mechanisms", icon="🔬"),
         st.Page("app_pages/designer.py", title="Experiment designer", icon="🛠️"),
     ],
     "Reference": [

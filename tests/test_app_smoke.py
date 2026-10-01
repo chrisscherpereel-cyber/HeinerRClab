@@ -7,13 +7,15 @@ from streamlit.testing.v1 import AppTest
 APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
 PAGES = ["app_pages/theory.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
-         "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/designer.py",
+         "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/designer.py",
          "app_pages/literature.py", "app_pages/model_docs.py"]
 
 
 def _fast(at):
     at.session_state["cfg_reps"] = 3
     at.session_state["cfg_periods"] = 300
+    at.session_state["arena_scale"] = "Quick check"   # the registered plans take a minute or more
+    at.session_state["mech_scale"] = "Quick check"
     return at
 
 

@@ -261,6 +261,34 @@ _REFS = [
     _a("stone1974", "Stone, M.", 1974, "Cross-validatory choice and assessment of statistical predictions",
        "Journal of the Royal Statistical Society: Series B", "36", "2", "111–147"),
     _b("efron1993", "Efron, B.; Tibshirani, R. J.", 1993, "An introduction to the bootstrap", "Chapman & Hall"),
+    _a("hall1939", "Hall, R. L.; Hitch, C. J.", 1939, "Price theory and business behaviour", "Oxford Economic Papers",
+       "2", "", "12–45"),
+    _a("roth1995", "Roth, A. E.; Erev, I.", 1995,
+       "Learning in extensive-form games: Experimental data and simple dynamic models in the intermediate term",
+       "Games and Economic Behavior", "8", "1", "164–212"),
+    _b("boyd1985", "Boyd, R.; Richerson, P. J.", 1985, "Culture and the evolutionary process",
+       "University of Chicago Press"),
+    _a("rockafellar2000", "Rockafellar, R. T.; Uryasev, S.", 2000, "Optimization of conditional value-at-risk",
+       "Journal of Risk", "2", "3", "21–41"),
+    _a("savage1951", "Savage, L. J.", 1951, "The theory of statistical decision",
+       "Journal of the American Statistical Association", "46", "253", "55–67"),
+    _b("axelrod1984", "Axelrod, R.", 1984, "The evolution of cooperation", "Basic Books"),
+    _a("maynardsmith1973", "Maynard Smith, J.; Price, G. R.", 1973, "The logic of animal conflict", "Nature", "246",
+       "5427", "15–18"),
+    _a("nowak1993", "Nowak, M.; Sigmund, K.", 1993,
+       "A strategy of win-stay, lose-shift that outperforms tit-for-tat in the Prisoner's Dilemma game", "Nature",
+       "364", "6432", "56–58"),
+    _a("holm1979", "Holm, S.", 1979, "A simple sequentially rejective multiple test procedure",
+       "Scandinavian Journal of Statistics", "6", "2", "65–70"),
+    _a("mckay1979", "McKay, M. D.; Beckman, R. J.; Conover, W. J.", 1979,
+       "A comparison of three methods for selecting values of input variables in the analysis of output from a "
+       "computer code", "Technometrics", "21", "2", "239–245"),
+    _a("bergstra2012", "Bergstra, J.; Bengio, Y.", 2012, "Random search for hyper-parameter optimization",
+       "Journal of Machine Learning Research", "13", "", "281–305"),
+    _b("saltelli2008", "Saltelli, A.; Ratto, M.; Andres, T.; Campolongo, F.; Cariboni, J.; Gatelli, D.; Saisana, M.; "
+       "Tarantola, S.", 2008, "Global sensitivity analysis: The primer", "Wiley"),
+    _a("nosek2018", "Nosek, B. A.; Ebersole, C. R.; DeHaven, A. C.; Mellor, D. T.", 2018, "The preregistration revolution",
+       "Proceedings of the National Academy of Sciences", "115", "11", "2600–2606"),
     _c("tesfatsion2006", "Tesfatsion, L.", 2006, "Agent-based computational economics: A constructive approach to "
        "economic theory", "Handbook of computational economics (Vol. 2)", "L. Tesfatsion & K. L. Judd", "831–880",
        "Elsevier"),
@@ -614,6 +642,60 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Lets flexibility evolve by social learning, testing whether reliability considerations "
                      "shape industry structure without optimisation."),
 ]
+HYPOTHESES.append(Hypothesis(
+    "ARENA", "When rival theories compete as agents, the reliability-condition agent earns more and resists invasion",
+    "Agent tournament",
+    "An agent that deviates from rule B only when its learned reliability condition holds out-earns rival decision "
+    "rules in mixed markets, and a population of such agents cannot be invaded.",
+    "The best-performing rule is the one that best fits the market's structure: model-free adaptation, imitation or "
+    "optimisation, depending on the environment.",
+    "Rival decision rules",
+    support=[("heiner1983", "Rule-governed behaviour that deviates only when reliable should outperform under "
+                            "uncertainty."),
+             ("heiner1989", "Partial, reliability-limited adjustment toward a moving target outperforms full "
+                            "adjustment."),
+             ("axelrod1984", "Strategy tournaments reveal which decision rules do well against a field of rivals.")],
+    alternative=[("nerlove1958", "Adaptive expectations based on observed prices track a cobweb market without a "
+                                 "structural model."),
+                 ("vegaredondo1997", "Imitating the most profitable firm earns more than rivals in Cournot markets."),
+                 ("erev1998", "Simple reinforcement learning predicts payoffs in repeated games."),
+                 ("kalman1960", "Optimal filtering yields the best forecasts for a model-based optimiser.")],
+    contribution="Implements each rival theory as an agent with an equal tuning budget and pre-registered, held-out "
+                 "evaluation, so theories compete on behaviour rather than on predictions written by the modeller."))
+HYPOTHESES.append(Hypothesis(
+    "MECH1", "The principle of reliability-based restriction is sound; applying it is costly",
+    "Mechanisms · ①",
+    "With known reliability, restricting deviations beats always adjusting toward an error-prone target; an agent "
+    "that must estimate its own reliability loses part or all of that gain, through limited experience and through "
+    "judging its past decisions with a misspecified model.",
+    "Always adjusting toward the best available target is optimal (no restriction needed), or learned estimates are "
+    "as good as true ones, so the principle and its implementation coincide.",
+    "Optimisation / adaptive learning",
+    support=[("heiner1983", "Restriction to rule B pays when the reliability ratio falls short of the tolerance "
+                            "limit."),
+             ("conlisk1996", "Deciding how to decide is itself costly and can regress without end."),
+             ("hansen2008", "Judging policies with a misspecified model biases decisions.")],
+    alternative=[("muth1960", "Optimal smoothing absorbs noise without a separate selection rule."),
+                 ("sutton2018", "Learned value estimates converge to true values with enough experience.")],
+    contribution="Separates the reliability principle from the cost of applying it, and splits that cost into "
+                 "estimation from limited experience and judging with a misspecified model, using an oracle the "
+                 "simulator can provide."))
+HYPOTHESES.append(Hypothesis(
+    "MECH2", "Restriction pays where the flexible rule is unreliable, and more under misspecification than risk",
+    "Mechanisms · ②",
+    "The gain from reliability-based restriction rises with the measured error-to-signal ratio K of the flexible rule, "
+    "and model misspecification raises it more than cost volatility (risk) does.",
+    "Uncertainty of any kind raises the value of flexibility, or only dynamic stability matters.",
+    "Real options / cobweb stability",
+    support=[("heiner1989", "The reliable adjustment speed falls as the error-to-signal ratio K rises."),
+             ("knight1921", "Uncertainty that cannot be reduced to known probabilities differs in kind from risk."),
+             ("gigerenzer2009", "Which rule works depends on the structure of the environment (ecological "
+                                "rationality).")],
+    alternative=[("dixit1994", "Option value increases with volatility."),
+                 ("theocharis1960", "Adjustment dynamics depend on market structure, not on the source of noise.")],
+    contribution="Maps when each decision rule works across separate sources of uncertainty, and tests the "
+                 "reliability condition as a boundary prediction against the measured reliability of the flexible "
+                 "rule."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 
@@ -649,6 +731,18 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "structural inertia are confronted with the same discriminating experiments, and their forecasts are compared "
      "with encompassing tests.",
      ["chong1986", "diebold1995", "davis2007"]),
+    ("A fair agent tournament",
+     "Each theory is implemented as a decision rule and competes in the same market. Every rule gets the same "
+     "tuning budget on training environments; evaluation uses held-out environments, a frozen and hashed analysis "
+     "plan, head-to-head profit, invasion tests, global sensitivity analysis and replication across seeds.",
+     ["axelrod1984", "maynardsmith1973", "bergstra2012", "nosek2018", "saltelli2008"]),
+    ("When does restricting flexibility pay, and who should decide?",
+     "The tournament separates the principle from its implementation. Restricting a flexible rule pays when that rule "
+     "is unreliable (a misspecified model) and costs when it is reliable, as the reliability condition implies. But an "
+     "agent that estimates its own reliability case by case faces a second-order inference problem, and fixed rules "
+     "capture the gains more robustly. This connects the reliability condition to the regress problem of deciding "
+     "how to decide.",
+     ["heiner1983", "conlisk1996", "hansen2008"]),
     ("Risk versus Knightian uncertainty",
      "Structural uncertainty (misspecified demand models) is compared with risk at matched unpredictability, "
      "testing whether the RC applies whatever the source of the CD-gap.",
@@ -661,7 +755,8 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      ["muth1960", "kalman1960", "green1966", "gigerenzer2009"]),
 ]
 
-METHOD_REFS = ["tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
+METHOD_REFS = ["holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
+               "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986"]
 
 

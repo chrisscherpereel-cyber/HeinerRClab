@@ -17,7 +17,7 @@ from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, enco
                                    uncertainty_comparison)
 from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams, MarketParams,
                                SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
-from heiner_abm.literature import HYPOTHESIS_BY_ID, REFERENCES, Hypothesis, bibliography
+from heiner_abm.literature import Hypothesis
 from heiner_abm.theories import run_tournament
 
 # ------------------------------------------------------------------------------------------------
@@ -385,11 +385,25 @@ def cached_evolution(js: str, deltas: tuple, n_reps: int, horizon: int, continua
 # ------------------------------------------------------------------------------------------------
 # Reusable display blocks
 # ------------------------------------------------------------------------------------------------
+def _literature():
+    """The literature registry as currently loaded. Looked up at call time, not bound at import, because Streamlit
+    reloads changed modules only: a name imported here would keep pointing at an outdated registry after an update
+    that changed the registry but not this file."""
+    import heiner_abm.literature as lit
+    return lit
+
+
 def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: Optional[str] = None,
                     trad: Optional[str] = None):
     """Hypothesis, the competing predictions, the research behind each, and the simulation's contribution.
     Title and predictions come from the literature registry unless overridden."""
-    h = HYPOTHESIS_BY_ID[hid]
+    h = _literature().HYPOTHESIS_BY_ID.get(hid)
+    if h is None:      # never take a page down for a missing registry entry
+        st.markdown(f"#### {title or hid}")
+        st.markdown(statement)
+        st.caption(f"Research basis for {hid} is unavailable. If the app was just updated, reboot it so that every "
+                   "module is reloaded.")
+        return
     rc, trad = rc or h.rc_prediction, trad or h.alt_prediction
     title = title or (f"{hid}: {h.title}" if hid.startswith("H") else h.title)
     st.markdown(f"#### {title}")
@@ -405,7 +419,8 @@ def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: O
 
 
 def _evidence_md(items) -> str:
-    return "\n".join(f"* **{REFERENCES[k].cite}**: {note}" for k, note in items)
+    refs = _literature().REFERENCES
+    return "\n".join(f"* **{refs[k].cite}**: {note}" for k, note in items)
 
 
 def research_panel(h: Hypothesis, nested: bool = False):
@@ -426,7 +441,7 @@ def research_panel(h: Hypothesis, nested: bool = False):
             st.markdown(_evidence_md(h.alternative))
         st.markdown("**References**")
         keys = list(dict.fromkeys(k for k, _ in h.support + h.alternative))
-        st.markdown("\n".join(f"* {r.apa}" for r in bibliography(keys)))
+        st.markdown("\n".join(f"* {r.apa}" for r in _literature().bibliography(keys)))
     st.caption(f"**Contribution:** {h.contribution}")
 
 

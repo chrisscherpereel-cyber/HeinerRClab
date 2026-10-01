@@ -42,6 +42,7 @@ pages = {
     "Validate & generalise": [
         st.Page("app_pages/field_patterns.py", title="Field patterns", icon="📊"),
         st.Page("app_pages/calibration.py", title="Calibration to experiments", icon="📏"),
+        st.Page("app_pages/empirical.py", title="Empirical validation (public data)", icon="🗄️"),
         st.Page("app_pages/play_market.py", title="Play the market", icon="🎮"),
         st.Page("app_pages/experiment_analysis.py", title="Experiment analysis", icon="🧾"),
         st.Page("app_pages/generalisation.py", title="Generalisation", icon="🌐"),

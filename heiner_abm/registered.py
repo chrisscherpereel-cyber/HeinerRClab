@@ -5,7 +5,7 @@ tests/test_theory_pages.py fails when the code changes the hashes, so the number
 """
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 TOURNAMENT_PLAN = "15193603c3f8359b"
 STUDY_PLAN = "fafb771393aab7fe"
@@ -111,3 +111,84 @@ def registered_tuned():
     """The registered tournament's tuned designs and parameters as an arena.Tuned object."""
     from .arena import Tuned
     return Tuned(design=dict(TUNED_DESIGN), params={k: dict(v) for k, v in TUNED_PARAMS.items()})
+
+
+# Empirical validation on the five public datasets (registered run of the protocol on the Empirical validation page).
+EMPIRICAL_PLAN = "96b15ef4d9b78d56"
+EMPIRICAL_VERDICTS: Dict[str, str] = {'V1': 'not supported',
+ 'V2': 'not supported',
+ 'V3': 'not supported',
+ 'V4': 'supported',
+ 'V5': 'supported',
+ 'V6': 'not supported',
+ 'V7': 'supported'}
+EMPIRICAL_DETAILS: List[Tuple[str, str, str]] = [('V1',
+  'Cournot, aggregate information',
+  'best reply − RC test RMSE -0.061 [-0.152, +0.028], RC better for 46% of 72 participants'),
+ ('V2',
+  'Cournot, aggregate information',
+  'change rate: human 0.615, simulated [0.880, 0.903]; output vs nash: human 0.979, simulated [0.972, 1.045]'),
+ ('V1',
+  'Cournot, individual information',
+  'best reply − RC test RMSE -0.133 [-0.277, +0.010], RC better for 31% of 72 participants'),
+ ('V2',
+  'Cournot, individual information',
+  'change rate: human 0.671, simulated [0.907, 0.931]; output vs nash: human 1.059, simulated [1.030, 1.110]'),
+ ('V3',
+  'EGM, negative feedback',
+  'adaptive − RC test RMSE -0.332 [-0.644, -0.096], RC better for 47% of 252 participants'),
+ ('V4', 'EGM, negative feedback', "most common best rule 'imitate' fits 22% [17%, 27%] of participants"),
+ ('V3',
+  'EGM, positive feedback',
+  'adaptive − RC test RMSE -0.318 [-0.598, -0.110], RC better for 32% of 120 participants'),
+ ('V4', 'EGM, positive feedback', "most common best rule 'naive' fits 24% [17%, 32%] of participants"),
+ ('V3',
+  'Anufriev–Hommes asset markets',
+  'adaptive − RC test RMSE -1.647 [-4.176, +1.032], RC better for 32% of 120 participants'),
+ ('V4', 'Anufriev–Hommes asset markets', "most common best rule 'trend' fits 37% [28%, 46%] of participants"),
+ ('V5',
+  'Newsvendor, low cost (optimal 75)',
+  'pull-to-center ratio 0.16 [0.01, 0.31]; demand-chasing slope +0.34 [+0.27, +0.41]; n = 26'),
+ ('V6',
+  'Newsvendor, low cost (optimal 75)',
+  'chasing − RC test RMSE -1.413 [-2.292, -0.654], RC better for 12% of 26 participants'),
+ ('V5',
+  'Newsvendor, high cost (optimal 25)',
+  'pull-to-center ratio 0.29 [0.14, 0.46]; demand-chasing slope +0.30 [+0.23, +0.37]; n = 26'),
+ ('V6',
+  'Newsvendor, high cost (optimal 25)',
+  'chasing − RC test RMSE -1.023 [-1.989, -0.138], RC better for 23% of 26 participants'),
+ ('V7',
+  'Time pressure (high vs low)',
+  'share best predicted by simple/restricted rules, high − low time pressure +0.11 [+0.01, +0.21] (high 46%, low '
+  '35%, paired by participant)')]
+# Exploratory (not pre-registered): share of participants best predicted by a restricted rule (keep, inaction band,
+# reliability condition) and the rule with the lowest out-of-sample error in each dataset.
+EMPIRICAL_RULES: Dict[str, Dict] = {'Cournot, aggregate information': {'participants': 72,
+                                    'restricted': 0.306,
+                                    'top_rule': 'Move toward the best reply only below aspiration',
+                                    'top_rmse': 4.738},
+ 'Cournot, individual information': {'participants': 72,
+                                     'restricted': 0.111,
+                                     'top_rule': 'Imitate the most profitable firm',
+                                     'top_rmse': 5.841},
+ 'EGM, negative feedback': {'participants': 252,
+                            'restricted': 0.313,
+                            'top_rule': 'Imitate the most accurate group member',
+                            'top_rmse': 5.183},
+ 'EGM, positive feedback': {'participants': 120,
+                            'restricted': 0.358,
+                            'top_rule': 'Naive expectations',
+                            'top_rmse': 11.968},
+ 'Anufriev–Hommes asset markets': {'participants': 120,
+                                   'restricted': 0.1,
+                                   'top_rule': 'Trend following',
+                                   'top_rmse': 54.209},
+ 'Newsvendor, low cost (optimal 75)': {'participants': 26,
+                                       'restricted': 0.231,
+                                       'top_rule': 'Anchor on the pulled-to-center order, adjust toward last demand',
+                                       'top_rmse': 19.975},
+ 'Newsvendor, high cost (optimal 25)': {'participants': 26,
+                                        'restricted': 0.115,
+                                        'top_rule': 'Anchor on the pulled-to-center order, adjust toward last demand',
+                                        'top_rmse': 17.374}}

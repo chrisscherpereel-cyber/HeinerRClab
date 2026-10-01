@@ -246,6 +246,25 @@ _REFS = [
        "Learning the value of information in an uncertain world", "Nature Neuroscience", "10", "9", "1214–1221"),
     _a("fischbacher2007", "Fischbacher, U.", 2007, "z-Tree: Zurich toolbox for ready-made economic experiments",
        "Experimental Economics", "10", "2", "171–178"),
+    _a("gomezmartinez2016", "Gomez-Martinez, F.; Onderstal, S.; Sonnemans, J.", 2016,
+       "Firm-specific information and explicit collusion in experimental oligopolies", "European Economic Review",
+       "82", "", "132–141"),
+    _a("evans2025", "Evans, G. W.; Gibbs, C. G.; McGough, B.", 2025, "A unified model of learning to forecast",
+       "American Economic Journal: Macroeconomics", "17", "2", "101–133"),
+    _a("brokesova2022", "Brokesova, Z.; Deck, C.; Peliova, J.", 2022, "Pull-to-center is not just for newsvendors",
+       "PLOS ONE", "17", "2", "e0264183"),
+    _a("hommes2005", "Hommes, C.; Sonnemans, J.; Tuinstra, J.; van de Velden, H.", 2005,
+       "Coordination of expectations in asset pricing experiments", "Review of Financial Studies", "18", "3",
+       "955–980"),
+    _a("hommes2008", "Hommes, C.; Sonnemans, J.; Tuinstra, J.; van de Velden, H.", 2008,
+       "Expectations and bubbles in asset pricing experiments", "Journal of Economic Behavior & Organization", "67",
+       "1", "116–133"),
+    _a("bostian2008", "Bostian, A. A.; Holt, C. A.; Smith, A. M.", 2008,
+       "Newsvendor \"pull-to-center\" effect: Adaptive learning in a laboratory experiment",
+       "Manufacturing & Service Operations Management", "10", "4", "590–608"),
+    _b("creed2021", "CREED, University of Amsterdam", 2021,
+       "Pushed to perform: Time pressure in long run Learning-to-Forecast experiments [Data set]",
+       "University of Amsterdam figshare, article 13948409"),
     _a("huck2004", "Huck, S.; Normann, H.-T.; Oechssler, J.", 2004,
        "Two are few and four are many: Number effects in experimental oligopolies",
        "Journal of Economic Behavior & Organization", "53", "4", "435–446"),
@@ -838,6 +857,32 @@ HYPOTHESES.append(Hypothesis(
                  "first reproduces the Muth–Kalman optimum, then shows that lopsided stakes, not information, drive "
                  "restriction, and that the restriction becomes unnecessary once the stakes are built into the "
                  "estimate."))
+HYPOTHESES.append(Hypothesis(
+    "EMPVAL", "Restricted rules describe human choices in public experimental data",
+    "Empirical validation",
+    "In public Cournot, learning-to-forecast and newsvendor data, rules that keep the previous decision unless a "
+    "deviation has proved reliable predict participants' later choices at least as well as the flexible rules they "
+    "restrict; behaviour is heterogeneous; and markets simulated with the fitted rules reproduce how often people "
+    "change and how competitive the markets become.",
+    "Human choices are best described by best replies, adaptive learning or systematic biases (anchoring, "
+    "pull-to-center); restricting adjustment adds nothing out of sample.",
+    "Adaptive learning / behavioural bias",
+    support=[("hommes2011", "Heterogeneous simple heuristics describe laboratory expectations better than a single "
+                            "rational rule."),
+             ("hommes2005", "Participants coordinate on common, simple forecasting rules."),
+             ("anufriev2012", "Participants switch between simple heuristics according to their past performance."),
+             ("gomezmartinez2016", "Information about individual competitors makes Cournot markets more competitive, "
+                                   "consistent with imitation and learning from rivals.")],
+    alternative=[("bostian2008", "Adaptive learning explains the newsvendor pull-to-center effect."),
+                 ("brokesova2022", "Pull-to-center reflects structural features of the task (prospect theory, "
+                                   "impulse balance), not a domain-specific rule."),
+                 ("evans2025", "A unified model of adaptive learning, level-k reasoning and replicator dynamics "
+                               "predicts individual and market responses to announced changes."),
+                 ("hommes2008", "Trend-following expectations generate bubbles in asset markets.")],
+    contribution="Confronts the simulation's decision rules with public experimental data under a protocol fixed in "
+                 "advance (earlier periods to fit, later periods to test, treatment-specific information sets, "
+                 "participant-level uncertainty), and adds a generative check: markets re-run with the fitted rules "
+                 "must reproduce the human markets."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 
@@ -897,7 +942,7 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      ["muth1960", "kalman1960", "green1966", "gigerenzer2009"]),
 ]
 
-METHOD_REFS = ["holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
+METHOD_REFS = ["creed2021", "holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
                "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986"]
 

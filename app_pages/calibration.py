@@ -19,6 +19,8 @@ hypothesis_card(
     "out-of-sample error, and each subject is classified by the rule that predicts them best. Rules with more "
     "parameters fit the first half better, but gain nothing out of sample unless they capture real behaviour.")
 
+st.page_link("app_pages/empirical.py", label="Five public datasets, with a validation protocol fixed in advance, are on "
+             "the Empirical validation page", icon="🗄️")
 with st.expander("Getting the published data", icon="📂"):
     st.markdown(
         "The published datasets are not bundled with this app: their licences require a request to the authors or "

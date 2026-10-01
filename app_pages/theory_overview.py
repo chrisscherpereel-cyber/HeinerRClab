@@ -70,8 +70,11 @@ st.markdown(
     "optimum; with lopsided stakes, restricting the filter's costly moves cuts the loss by up to a third although the "
     "information is unchanged, as the reliability condition predicts and certainty equivalence does not. A filter "
     "that builds the stakes into its estimate does better still (Solvable benchmark).\n"
-    "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment); the "
-    "calibration and human-experiment pipelines are ready but have no human data yet (Validate & generalise).")
+    "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment). In five "
+    "public experimental datasets, behaviour is heterogeneous, simulated Cournot markets reach the human level of "
+    "competition and time pressure shifts people toward simple or restricted rules; but the learned reliability "
+    "condition does not predict individual choices better than the flexible rules it restricts, and people change "
+    "their decisions less often than any fitted rule implies (Empirical validation).")
 
 
 def _lit():

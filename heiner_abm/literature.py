@@ -261,6 +261,23 @@ _REFS = [
     _a("stone1974", "Stone, M.", 1974, "Cross-validatory choice and assessment of statistical predictions",
        "Journal of the Royal Statistical Society: Series B", "36", "2", "111–147"),
     _b("efron1993", "Efron, B.; Tibshirani, R. J.", 1993, "An introduction to the bootstrap", "Chapman & Hall"),
+    _b("axelrod1984", "Axelrod, R.", 1984, "The evolution of cooperation", "Basic Books"),
+    _a("maynardsmith1973", "Maynard Smith, J.; Price, G. R.", 1973, "The logic of animal conflict", "Nature", "246",
+       "5427", "15–18"),
+    _a("nowak1993", "Nowak, M.; Sigmund, K.", 1993,
+       "A strategy of win-stay, lose-shift that outperforms tit-for-tat in the Prisoner's Dilemma game", "Nature",
+       "364", "6432", "56–58"),
+    _a("holm1979", "Holm, S.", 1979, "A simple sequentially rejective multiple test procedure",
+       "Scandinavian Journal of Statistics", "6", "2", "65–70"),
+    _a("mckay1979", "McKay, M. D.; Beckman, R. J.; Conover, W. J.", 1979,
+       "A comparison of three methods for selecting values of input variables in the analysis of output from a "
+       "computer code", "Technometrics", "21", "2", "239–245"),
+    _a("bergstra2012", "Bergstra, J.; Bengio, Y.", 2012, "Random search for hyper-parameter optimization",
+       "Journal of Machine Learning Research", "13", "", "281–305"),
+    _b("saltelli2008", "Saltelli, A.; Ratto, M.; Andres, T.; Campolongo, F.; Cariboni, J.; Gatelli, D.; Saisana, M.; "
+       "Tarantola, S.", 2008, "Global sensitivity analysis: The primer", "Wiley"),
+    _a("nosek2018", "Nosek, B. A.; Ebersole, C. R.; DeHaven, A. C.; Mellor, D. T.", 2018, "The preregistration revolution",
+       "Proceedings of the National Academy of Sciences", "115", "11", "2600–2606"),
     _c("tesfatsion2006", "Tesfatsion, L.", 2006, "Agent-based computational economics: A constructive approach to "
        "economic theory", "Handbook of computational economics (Vol. 2)", "L. Tesfatsion & K. L. Judd", "831–880",
        "Elsevier"),
@@ -614,6 +631,26 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Lets flexibility evolve by social learning, testing whether reliability considerations "
                      "shape industry structure without optimisation."),
 ]
+HYPOTHESES.append(Hypothesis(
+    "ARENA", "When rival theories compete as agents, the reliability-condition agent earns more and resists invasion",
+    "Agent tournament",
+    "An agent that deviates from rule B only when its learned reliability condition holds out-earns rival decision "
+    "rules in mixed markets, and a population of such agents cannot be invaded.",
+    "The best-performing rule is the one that best fits the market's structure: model-free adaptation, imitation or "
+    "optimisation, depending on the environment.",
+    "Rival decision rules",
+    support=[("heiner1983", "Rule-governed behaviour that deviates only when reliable should outperform under "
+                            "uncertainty."),
+             ("heiner1989", "Partial, reliability-limited adjustment toward a moving target outperforms full "
+                            "adjustment."),
+             ("axelrod1984", "Strategy tournaments reveal which decision rules do well against a field of rivals.")],
+    alternative=[("nerlove1958", "Adaptive expectations based on observed prices track a cobweb market without a "
+                                 "structural model."),
+                 ("vegaredondo1997", "Imitating the most profitable firm earns more than rivals in Cournot markets."),
+                 ("erev1998", "Simple reinforcement learning predicts payoffs in repeated games."),
+                 ("kalman1960", "Optimal filtering yields the best forecasts for a model-based optimiser.")],
+    contribution="Implements each rival theory as an agent with an equal tuning budget and pre-registered, held-out "
+                 "evaluation, so theories compete on behaviour rather than on predictions written by the modeller."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 
@@ -649,6 +686,11 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "structural inertia are confronted with the same discriminating experiments, and their forecasts are compared "
      "with encompassing tests.",
      ["chong1986", "diebold1995", "davis2007"]),
+    ("A fair agent tournament",
+     "Each theory is implemented as a decision rule and competes in the same market. Every rule gets the same "
+     "tuning budget on training environments; evaluation uses held-out environments, a frozen and hashed analysis "
+     "plan, head-to-head profit, invasion tests, global sensitivity analysis and replication across seeds.",
+     ["axelrod1984", "maynardsmith1973", "bergstra2012", "nosek2018", "saltelli2008"]),
     ("Risk versus Knightian uncertainty",
      "Structural uncertainty (misspecified demand models) is compared with risk at matched unpredictability, "
      "testing whether the RC applies whatever the source of the CD-gap.",
@@ -661,7 +703,7 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      ["muth1960", "kalman1960", "green1966", "gigerenzer2009"]),
 ]
 
-METHOD_REFS = ["tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
+METHOD_REFS = ["holm1979", "mckay1979", "nowak1993", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986"]
 
 

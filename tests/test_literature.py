@@ -46,3 +46,22 @@ def test_app_text_has_no_stray_document_references():
     hits = [f"{f.name}:{i}" for f in files for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
             if banned.search(line.replace('yref="paper"', ""))]
     assert not hits, hits
+
+
+def test_ui_sees_a_reloaded_registry():
+    """Streamlit reloads only changed modules; ui.common must read the registry at call time so that an updated
+    registry is visible even when ui/common.py itself did not change."""
+    import importlib
+    import sys
+
+    import heiner_abm.literature as lit
+    import ui.common as common
+    old = sys.modules["heiner_abm.literature"]
+    try:
+        del sys.modules["heiner_abm.literature"]           # what Streamlit does with a changed module
+        new = importlib.import_module("heiner_abm.literature")
+        new.HYPOTHESIS_BY_ID["NEWID"] = new.HYPOTHESIS_BY_ID["H1"]
+        assert common._literature() is new and "NEWID" in common._literature().HYPOTHESIS_BY_ID
+    finally:
+        sys.modules["heiner_abm.literature"] = old
+    assert lit is old

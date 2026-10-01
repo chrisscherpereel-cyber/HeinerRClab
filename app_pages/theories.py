@@ -12,11 +12,12 @@ from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scor
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, fmt_p, measure_opts,
                        measurement, reps, research_panel, show_errors, style, to_json, verdict)
 
-st.title("Competing theories: is Heiner's model superior?")
-st.caption("Heiner's reliability condition is one of several theories about when behavioural flexibility pays under "
-           "uncertainty. This page states what each rival theory predicts in this market, runs the experiments that "
-           "tell them apart, and scores every theory against the results. A second test asks which theory best "
-           "*forecasts*, out of sample, whether a firm's flexibility will beat its own rigid twin.")
+st.title("Competing theories: a tournament of predictions")
+st.caption("Seven theories make directional predictions about when behavioural flexibility pays under uncertainty. "
+           "This page states what each predicts in this market, runs the experiments that tell them apart, and "
+           "scores every theory against the results. A second test asks which theory best *forecasts*, out of "
+           "sample, whether a firm's flexibility will beat its own rigid twin. Each theory has its own page under "
+           "*Theories*.")
 
 base = base_scenario()
 if not show_errors(base):
@@ -212,7 +213,7 @@ if race:
     download(hr, "theory_horse_race.csv")
 
 # ------------------------------------------------------------------------------------------------ verdict
-st.header("5 · So, is Heiner's model superior?", divider="gray")
+st.header("5 · Where does the reliability condition stand among its rivals?", divider="gray")
 if not (outcomes and race):
     st.info("Run the tournament (section 3) and the horse race (section 4) to fill in this verdict with this "
             "session's results.", icon="ℹ️")

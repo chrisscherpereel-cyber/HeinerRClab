@@ -236,8 +236,8 @@ def render_sidebar():
                             help="How many periods model-based (Cournot) firms keep using the old demand curve "
                                  "after a shift. 0 = they learn it one period later; −1 = they never update.")
     sb.markdown("---")
-    sb.caption("Grounded in Heiner (1983, 1989) and rival theories of flexibility under uncertainty. "
-               "See *Research & contribution*.")
+    sb.caption("Eight theories of decision making under uncertainty, tested on equal terms. See the *Theories* "
+               "overview and *Research & contribution*.")
 
 
 def base_scenario() -> Scenario:

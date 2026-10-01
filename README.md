@@ -62,6 +62,7 @@ default, not a privileged position.
 | Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
+| Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licences and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labelled |
@@ -229,8 +230,8 @@ short series), and imitate-the-best subjects in the Cournot format mostly look l
 reliability-condition user therefore needs longer series than these designs provide. The published datasets are not bundled:
 the Cournot data of Huck, Normann & Oechssler (1999) are archived in heiDATA,
 [doi:10.11588/data/10012](https://doi.org/10.11588/data/10012) (access on request), and the cobweb data of Hommes,
-Sonnemans, Tuinstra & van de Velden (2007) are available from the authors. **No results on human data are reported
-yet.**
+Sonnemans, Tuinstra & van de Velden (2007) are available from the authors. Results on five public datasets are in
+the next section.
 
 **Human experiment.** Protocol `01f956595e90e5ab`: three blocks of 25 periods (low, medium, high uncertainty),
 counterbalanced order (all six orders, assigned from the participant ID), the same three tuned agent rivals and the
@@ -239,6 +240,51 @@ participants change output less often under high than low uncertainty (paired bo
 uncertainty, participants who change less often earn more relative to their rivals (OLS). On simulated participants
 the classification recovers the generating design for every participant. **No human data have been collected yet**;
 ethics approval and informed consent are needed before collecting data.
+
+## Empirical validation on public data: registered results
+
+Five public datasets were analysed under a protocol fixed in advance (plan `96b15ef4d9b78d56`): every rule is fitted on
+each participant's first half of periods and scored on the second half; every treatment is analysed separately with
+the rules its information set allows; uncertainty is a participant-cluster bootstrap; a hypothesis tested on several
+datasets or treatments counts as supported only if it holds in every one. The data are not bundled (their licences
+govern redistribution); the Empirical validation page reads the files exactly as distributed.
+
+| Data | Participants | What the files contain |
+|---|---|---|
+| Gomez-Martinez, Onderstal & Sonnemans (2016), Mendeley Data | 144 (36 markets of 4) | SQL dumps per session. Each firm's price is P_i = 150 − q_i − (2/3)·Q_−i, unit cost 2 (reproduces every recorded price; Nash output 37). Part 1, periods 1–25, without communication; aggregate vs individual information about rivals |
+| Evans, Gibbs & McGough (2025), openICPSR 198204 | 372 (62 markets of 6) | One-period-ahead price forecasts, 50 periods; negative feedback (treatments 1–6) and positive feedback (7–8); announced structural changes around periods 20 and 45 |
+| Anufriev & Hommes (2012) replication package, openICPSR 114401 | 120 (20 markets of 6) | Asset-pricing experiments of Hommes et al. (2005, 2008); two-period-ahead forecasts (verified with the pricing equation); fundamental price 60 (40 in three groups) |
+| Brokesova, Deck & Peliova (2022), PLOS ONE S2 | 52 newsvendors | 100 orders each, uniform demand 0–100, price 100, unit cost 25 (optimal order 75) or 75 (optimal order 25) |
+| Time-pressure learning-to-forecast experiments, University of Amsterdam figshare | 198, each under high and low time pressure | oTree exports; asset-pricing design, two-period-ahead forecasts |
+
+| | Hypothesis | Result | Verdict |
+|---|---|---|---|
+| V1 | Cournot: the reliability condition predicts later quantities better than the best reply it restricts | Aggregate information −0.061 [−0.152, +0.028]; individual information −0.133 [−0.277, +0.010] (RMSE gain) | not supported |
+| V2 | Cournot: markets re-run with each participant's fitted rule reproduce the human markets | Output relative to Nash reproduced (human 0.98 and 1.06, inside the simulated intervals); change frequency **not** reproduced: humans change output in 62% and 67% of periods, the fitted rules plus noise in 88–93% | not supported |
+| V3 | Forecasting: the reliability condition predicts later forecasts better than adaptive expectations | EGM negative feedback −0.33 [−0.64, −0.10]; positive feedback −0.32 [−0.60, −0.11]; asset markets −1.6 [−4.2, +1.0] | not supported |
+| V4 | Forecasting: no single rule is best for a majority | Most common best rule fits 22% (imitation, EGM negative), 24% (naive, EGM positive), 37% (trend following, asset markets) | **supported** |
+| V5 | Newsvendor: pull-to-center and demand chasing | Pull-to-center ratio 0.16 [0.01, 0.31] and 0.29 [0.14, 0.46]; demand-chasing slope +0.34 and +0.30 | **supported** |
+| V6 | Newsvendor: the reliability condition predicts later orders better than demand chasing | −1.41 [−2.29, −0.65] and −1.02 [−1.99, −0.14] | not supported |
+| V7 | Time pressure changes reliance on simple or restricted rules | Share best predicted by them: 46% under high, 35% under low time pressure, +0.11 [+0.01, +0.21], paired by participant | **supported** |
+
+Best out-of-sample rules: aspiration-based adjustment toward the best reply (Cournot, aggregate information),
+imitating the most profitable firm (Cournot, individual information, consistent with the original finding that
+individual information makes markets more competitive), imitating the most accurate forecaster (EGM, negative
+feedback), naive expectations (EGM, positive feedback), trend following (asset markets) and anchoring on a
+pulled-to-center order with adjustment toward last demand (newsvendor). In five of the six EGM treatments with an
+announced change, forecast errors rise in the five periods after it and fall in the next five (treatment 5 is the
+exception); the control treatment without a change also shows an error rise around period 20, so not all of the rise
+can be attributed to the announcement.
+
+**What the data say about the simulation.** The learned reliability condition, as implemented here, is not a better
+description of individual choices than the flexible rules it restricts, in any of the five datasets; fixed
+restrictions (an inaction band) do no better. The data do support the population-level claims: behaviour is
+heterogeneous, the documented newsvendor patterns are present, simulated Cournot markets reach the human level of
+competition, and lower competence (time pressure) shifts people toward simple or restricted rules. The generative
+check also shows a specific failure of the simulated rules: people keep their decision unchanged far more often than
+the fitted rules plus decision noise imply, so human behaviour is more inert than any of the flexible rules. As an
+exploratory, not pre-registered observation, restricted rules are the best description for more participants where
+information is poorer: 31% under aggregate and 11% under individual information in the Cournot data.
 
 ## Generalisation: registered results
 
@@ -325,6 +371,8 @@ heiner_abm/patterns.py     pattern-oriented validation against documented field 
 heiner_abm/calibration.py  per-subject out-of-sample fitting of every theory's rule to laboratory data
 heiner_abm/stepper.py      a market that advances one period at a time, for human participants
 heiner_abm/experiment.py   human experiment protocol, classification and pre-registered tests
+heiner_abm/empirical.py    validation against public experimental data: protocol, adapters, generative check
+heiner_abm/datasets.py     loaders for the five public datasets, from the files as distributed
 heiner_abm/tasks.py        generalisation tasks: inventory, learning with shifting payoffs, irreversible investment
 heiner_abm/tracking.py     single-firm tracking benchmark: exact Muth–Kalman solution and lopsided stakes
 heiner_abm/focal.py        the theory under test: every theory's prediction for every hypothesis

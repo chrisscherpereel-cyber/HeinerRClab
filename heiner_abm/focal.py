@@ -42,6 +42,7 @@ def alternative_owners(alt_label: str) -> List[str]:
 # statements written from each theory's core claim (step 3 above)
 STATEMENTS: Dict[str, Dict[str, str]] = {
     "optimiser": {
+        "EMPVAL": "Best replies and rational expectations predict human choices best out of sample.",
         "H2": "Flexibility pays at every profit level: an optimiser uses it only when it raises expected profit.",
         "H5": "Competition changes margins, not the value of responding optimally to new information.",
         "H6": "Markets converge to the Cournot–Nash equilibrium; rigidity only delays convergence.",
@@ -62,6 +63,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "GEN": "Optimal policies use all available information; restricting a well-specified flexible rule never pays.",
     },
     "options": {
+        "EMPVAL": "Inaction bands predict human choices best: people adjust only when the gap is large.",
         "H1": "An option is never worth less than zero: free flexibility cannot hurt.",
         "H2": "The value of flexibility depends on uncertainty and adjustment costs, not on the level of profit.",
         "H5": "Competition erodes option value only through the payoffs from exercising the option.",
@@ -88,6 +90,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
                  "timing.",
     },
     "cobweb": {
+        "EMPVAL": "Adaptive expectations and demand chasing predict human choices best.",
         "H1": "Free flexibility hurts only by destabilising the market; in a stable market it does not.",
         "H2": "Profitability does not affect stability; only adjustment speed relative to the stability limit does.",
         "H4": "Fixed costs do not change the adjustment dynamics.",
@@ -111,6 +114,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "TRACK": "With a single firm there is no market feedback; the theory makes no prediction about stakes.",
     },
     "heuristic": {
+        "EMPVAL": "Simple heuristics (anchoring, trend following) predict best, and people differ in which.",
         "H2": "Accuracy, not profitability, decides between simple and flexible rules.",
         "H9": "Simple rules that ignore information win when estimation noise is high.",
         "H10": "Simple rules make behaviour predictable, and their use rises with noise.",
@@ -130,6 +134,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "TRACK": "Only accuracy matters, so lopsided stakes should not change which rule is best.",
     },
     "satisficing": {
+        "EMPVAL": "People change after disappointing outcomes; aspiration rules predict their changes.",
         "H1": "Flexibility as such is not the issue; poor performance triggers search and change.",
         "H3": "Volatility pushes results below aspiration more often, triggering more search and change.",
         "H9": "Rules that change only when performance falls below aspiration do well.",
@@ -162,6 +167,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "TRACK": "A learner that optimises the true loss learns the stakes; restriction becomes unnecessary.",
     },
     "imitation": {
+        "EMPVAL": "Where people see rivals' outcomes, imitating the most successful predicts their choices.",
         "H10": "Selection favours inert, reliable organisations regardless of uncertainty.",
         "ARENA": "Imitating successful rivals performs as well as the rules being imitated.",
         "PATTERN": "Imitating the most profitable firm pushes output above the Cournot–Nash level.",

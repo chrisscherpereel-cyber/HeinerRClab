@@ -1,4 +1,4 @@
-"""Heiner's Reliability Condition - agent-based simulation lab.
+"""Decision making under uncertainty: an agent-based laboratory comparing eight theories.
 
 Run with:  streamlit run app.py
 """
@@ -11,11 +11,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ui.common import render_sidebar  # noqa: E402
 
-st.set_page_config(page_title="Heiner_RC_Lab", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Decision under uncertainty lab", page_icon="⚖️", layout="wide")
 
 pages = {
-    "Theory": [
-        st.Page("app_pages/theory.py", title="Heiner's reliability condition", icon="📘", default=True),
+    "Theories": [
+        st.Page("app_pages/theory_overview.py", title="Overview", icon="🗺️", default=True),
+        st.Page("app_pages/theory_heiner.py", title="Heiner: reliability condition", icon="📘"),
+        st.Page("app_pages/theory_optimiser.py", title="Neoclassical optimisation", icon="📈"),
+        st.Page("app_pages/theory_options.py", title="Real options", icon="🔀"),
+        st.Page("app_pages/theory_cobweb.py", title="Cobweb & adaptive expectations", icon="🕸️"),
+        st.Page("app_pages/theory_heuristics.py", title="Simple heuristics", icon="🎯"),
+        st.Page("app_pages/theory_satisficing.py", title="Satisficing", icon="🎚️"),
+        st.Page("app_pages/theory_rl.py", title="Reinforcement learning", icon="🧠"),
+        st.Page("app_pages/theory_imitation.py", title="Imitation & selection", icon="🧬"),
     ],
     "Simulate": [
         st.Page("app_pages/market_lab.py", title="Market lab (single run)", icon="🏭"),

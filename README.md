@@ -1,9 +1,10 @@
-# Heiner_RC_Lab: agent-based tests of Heiner's reliability condition
+# Decision making under uncertainty: an agent-based laboratory
 
-A Streamlit agent-based simulation laboratory that tests Heiner's (1983, 1989) reliability condition in a cobweb
-oligopoly and confronts it with rival theories of flexibility under uncertainty: neoclassical optimisation, real
-options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. Every
-hypothesis, and every alternative to it, is grounded in published research (see *Research basis* below).
+A Streamlit agent-based simulation laboratory that compares eight theories of when a decision maker should adapt
+and when it should stick to a rule: Heiner's reliability condition, neoclassical optimisation, real options, cobweb
+theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, and
+imitation and evolutionary selection. All are implemented in the same cobweb oligopoly and tested on equal terms.
+Every hypothesis, and every alternative to it, is grounded in published research (see *Research basis* below).
 
 ## Run locally
 
@@ -39,7 +40,8 @@ many replications. For heavy research runs, use a local installation.
 
 | Page | What it does |
 |---|---|
-| Heiner's reliability condition | The theory (CD-gap, r, w, π, G, D, tolerance limit), an interactive RC calculator, every hypothesis with its alternative and research, and the contribution to the literature |
+| Theories · Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
+| Theories · one page per theory | Heiner, optimisation, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
 | Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behaviour · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
 | Does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
@@ -187,6 +189,9 @@ heiner_abm/theories.py     rival theories, their predictions, the tournament exp
 heiner_abm/literature.py   references, research behind every hypothesis and alternative, contributions
 heiner_abm/arena.py        rival agents, shared-market simulator, equal-budget tuning, pre-registered tournament
 heiner_abm/mechanisms.py   oracle vs learned reliability condition, boundary test, uncertainty-type maps
+heiner_abm/theory_content.py  the eight theories, described with the same structure
+heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
+ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
 ui/common.py               sidebar base scenario, presets, caching, chart helpers
 app_pages/*.py             the Streamlit pages
 ```

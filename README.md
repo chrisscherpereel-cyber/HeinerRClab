@@ -52,7 +52,13 @@ many replications. For heavy research runs, use a local installation.
 | Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
 | Mechanisms | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardised effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
+| Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
+| Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
+| Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
+| Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
+| Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labelled |
+| Generalisation | The same selection layers and boundary test in two other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand and a learning task with shifting payoffs. Frozen plan with four pre-registered hypotheses |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
 
@@ -177,6 +183,82 @@ The plan was revised during development, before it was frozen: a first version r
 design (and, earlier still, the reliability-condition agent used an unfiltered target). Both earlier versions also
 placed the reliability-condition agent in the lower half.
 
+## Rule choice: registered results
+
+Plan `e6df56611a66c23f` (uncertainty levels u = 0, 0.25, 0.5, 0.75, 1, where cost volatility, perception error and
+the demand-shift hazard rise together; intensities of choice β = 0, 1, 4, 16; 8 replications; 12 firms; 1,500
+periods; rules tuned under tournament plan `15193603c3f8359b`).
+
+| | E1 restricted share rises with uncertainty | E2 change rate falls with uncertainty | E3 selection raises the restricted share at u = 1 | E4 restricted share widens the distance from Nash |
+|---|---|---|---|---|
+| Result | slope +0.003 (p = 0.95) | slope −0.087 (p = 0.009) | −0.005 [−0.18, 0.15] | +4.9 per unit of share (p = 0.002) |
+| Verdict | not supported | **supported** | not supported | **supported** |
+
+With moderate selection (β = 4) the restricted share rises from 51% at u = 0 to 60% at u = 1 and the change rate
+falls from 57% to 42%. Under strong selection (β = 16) the flexible optimiser (filtered best reply) is driven out as
+uncertainty rises (32% of firms at u = 0, under 1% at u = 1), but its place is taken by the target-margin heuristic
+(0.5% to 47%), a simple rule that ignores most market information but is not one of the three restricted rules.
+Populations become more predictable and move away from sophisticated optimisation under uncertainty, as Heiner
+argued, but performance-based selection favours a simple heuristic as much as an explicit restriction. Markets
+with more rule-governed firms stay further from the Cournot–Nash price at every uncertainty level.
+
+## Validation against data
+
+**Field patterns** (registered tuned parameters, 12 markets per pattern, 600 periods): 5 of 6 documented patterns
+reproduced. Naive price expectations produce cobweb cycles (lag-1 autocorrelation −0.80); slow adaptive
+expectations dampen them (price s.d. 18.4 vs 37.4); imitate-the-best firms produce 1.19 × the Cournot–Nash output;
+a mixed market's mean price lies within 4.3% of the Nash price with 1.06 × its volatility; prices lie between cost
+and the monopoly price. **Not reproduced:** lumpy adjustment. Inaction-band firms change output in only 34% of
+periods (sticky), but their changes are no larger on average than those of always-adjusting firms (67.0 vs 69.2),
+so the "large steps" half of the pattern fails.
+
+**Calibration to laboratory experiments.** The pipeline fits each theory's rule per subject on the first half of the
+periods and predicts the second half. On synthetic subjects with known rules it recovers the generating rule for
+about 70% of subjects in both formats (chance about 10%). Recovery is uneven: naive, keep, anchoring, trend and
+win-stay/lose-shift subjects are recovered almost perfectly, but synthetic reliability-condition forecasters are
+never recovered (they are classified as inaction band, keep or imitation, which make similar predictions over a
+short series), and imitate-the-best subjects in the Cournot format mostly look like keep. Classifying a person as a
+reliability-condition user therefore needs longer series than these designs provide. The published datasets are not bundled:
+the Cournot data of Huck, Normann & Oechssler (1999) are archived in heiDATA,
+[doi:10.11588/data/10012](https://doi.org/10.11588/data/10012) (access on request), and the cobweb data of Hommes,
+Sonnemans, Tuinstra & van de Velden (2007) are available from the authors. **No results on human data are reported
+yet.**
+
+**Human experiment.** Protocol `01f956595e90e5ab`: three blocks of 25 periods (low, medium, high uncertainty),
+counterbalanced order (all six orders, assigned from the participant ID), the same three tuned agent rivals and the
+same random draws per block for everyone, 15 agent designs recorded in shadow mode. Pre-registered hypotheses: X1
+participants change output less often under high than low uncertainty (paired bootstrap); X2 under high
+uncertainty, participants who change less often earn more relative to their rivals (OLS). On simulated participants
+the classification recovers the generating design for every participant. **No human data have been collected yet**;
+ethics approval and informed consent are needed before collecting data.
+
+## Generalisation: registered results
+
+Plan `ffaa66523475d466` (two tasks, 120 environments each by Latin hypercube over outcome noise, shift hazard,
+observation error and the flexible rule's gain; 3,000 periods; band width tuned on 30 separate environments; oracle
+values from 30,000-period independent runs). Each task has a default (slow, long-memory estimate), a flexible
+alternative (fast re-estimate) and no cost of deviating. Gain over always deviating (95% CI):
+
+| | Inventory (cost per period ≈ 41) | Learning with shifting payoffs (payoff per period ≈ 0.16) |
+|---|---|---|
+| Boundary slope of the oracle's gain on ln K | +5.5 (p < 0.001), break-even K* ≈ 0.68 | +0.18 (p < 0.001), K* ≈ 0.88 |
+| Oracle, top third of K | **+2.45 [1.32, 3.73]** | **+0.061 [0.041, 0.082]** |
+| Oracle, bottom third of K | −0.01 [−0.08, 0.06] | −0.001 [−0.005, 0.002] |
+| Learned RC, top third of K | **+2.42 [1.42, 3.61]** | **+0.047 [0.026, 0.068]** |
+| Rule B, bottom third of K | −10.6 [−11.7, −9.6] | −0.095 [−0.113, −0.078] |
+| Oracle − learned (all environments) | +0.04 [−0.09, 0.17] | +0.011 [0.004, 0.016] |
+
+Pre-registered verdicts: G1 (boundary in every task) **supported**; G2 (restriction pays only where K is high)
+**supported**; G3 (learning the reliability is costly in every task) not supported, because in the inventory task
+the learned rule does as well as the oracle; G4 (the learned RC beats always deviating where K is high) **supported**.
+
+**What generalisation adds.** In both tasks restriction pays where the flexible rule is unreliable and is worthless
+where it is reliable, with a break-even error-to-signal ratio below or near 1, as in the market (K ≈ 0.97). The
+boundary is therefore a property of decisions with a default, a flexible alternative and a difficulty–competence
+gap, not of cobweb markets. What differs is the cost of applying the principle: in these tasks the gain of a
+deviation can be judged exactly from what the agent observes, so a learner captures most of the oracle's gain; in
+the market, where outcomes depend on rivals and on a misspecified model, it does not.
+
 ## Code layout
 
 ```
@@ -189,6 +271,12 @@ heiner_abm/theories.py     rival theories, their predictions, the tournament exp
 heiner_abm/literature.py   references, research behind every hypothesis and alternative, contributions
 heiner_abm/arena.py        rival agents, shared-market simulator, equal-budget tuning, pre-registered tournament
 heiner_abm/mechanisms.py   oracle vs learned reliability condition, boundary test, uncertainty-type maps
+heiner_abm/rulechoice.py   endogenous rule choice with logit switching (Brock & Hommes 1997)
+heiner_abm/patterns.py     pattern-oriented validation against documented field patterns
+heiner_abm/calibration.py  per-subject out-of-sample fitting of every theory's rule to laboratory data
+heiner_abm/stepper.py      a market that advances one period at a time, for human participants
+heiner_abm/experiment.py   human experiment protocol, classification and pre-registered tests
+heiner_abm/tasks.py        generalisation tasks: inventory and learning with shifting payoffs
 heiner_abm/theory_content.py  the eight theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory

@@ -1,0 +1,165 @@
+"""Rule choice, field patterns, calibration, the human experiment and the generalisation tasks."""
+import os
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from heiner_abm import registered
+from heiner_abm.arena import Env, simulate
+from heiner_abm.calibration import (FORECAST_RULES, QUANTITY_RULES, fit_subjects, prepare_forecasts,
+                                    prepare_quantities, summarise, synthetic_cournot_data, synthetic_forecast_data)
+from heiner_abm.experiment import (PLAN, SHADOWS, block_market, block_order, classify, evaluate_experiment,
+                                   synthetic_participants)
+from heiner_abm.patterns import PATTERNS, run_patterns
+from heiner_abm.rulechoice import (QUICK_CHOICE, RESTRICTED, RULES, default_choice_plan, level_env, run_choice_study,
+                                   simulate_choice)
+from heiner_abm.stepper import InteractiveMarket
+from heiner_abm.tasks import LAYERS, QUICK_TASKS, TaskPlan, _decisions, _env_set, _layer, oracle_table, run_tasks
+
+
+# ------------------------------------------------------------------------------------------------ stepped market
+@pytest.mark.parametrize("design", ["heiner_p", "opt_br", "cobweb_p", "ruleb"])
+def test_stepper_reproduces_simulate(design):
+    """A participant who always plays a design's proposal reproduces the batch simulator exactly."""
+    env = Env(delta=20.0, c_max=80.0, q_range=1500.0, noise=5.0, foresight=0.0, hazard=0.03, belief_lag=10, seed=11)
+    rivals = ("cobweb_p", "heur_markup", "options_p")
+    T = 60
+    m = InteractiveMarket(env, rivals, registered.TUNED_PARAMS, [design], T)
+    while not m.done:
+        m.info()
+        m.step(m.pending["shadows"][design])
+    log = m.frame()
+    params = {k: {n: np.asarray(v, float) for n, v in p.items()} for k, p in registered.TUNED_PARAMS.items()}
+    out = simulate([env], np.array([[design, *rivals]], dtype=object), params, T, burn_in=1)
+    assert np.isclose(log["profit"].mean(), out["profit"][0, 0])
+
+
+def test_block_order_counterbalanced():
+    orders = {tuple(block_order(f"p{i}")) for i in range(200)}
+    assert len(orders) == 6
+    assert all(sorted(o) == sorted(PLAN.conditions) for o in orders)
+
+
+def test_experiment_classification_and_tests():
+    df, truth = synthetic_participants(6, noise=2.0)
+    cl = classify(df).merge(truth, on="participant")
+    assert (cl["best_design"] == cl["true_design"]).mean() >= 0.8
+    v = evaluate_experiment(df)
+    assert list(v["id"]) == ["X1", "X2"]
+    assert set(v["verdict"]) <= {"supported", "not supported", "not tested"}
+    assert set(SHADOWS) == {c[7:] for c in df.columns if c.startswith("shadow:")}
+
+
+def test_experiment_not_tested_without_data():
+    df, _ = synthetic_participants(1, noise=2.0)
+    v = evaluate_experiment(df[df["block"] == "low"])
+    assert set(v["verdict"]) == {"not tested"}
+
+
+def test_experiment_plan_registered():
+    assert PLAN.digest == registered.EXPERIMENT_PLAN
+
+
+# ------------------------------------------------------------------------------------------------ rule choice
+def test_rule_choice_random_at_zero_intensity():
+    """With beta = 0 rule choice is random, so the restricted share stays near its expected value of one half."""
+    envs = [level_env(1.0, 50 + j) for j in range(6)]
+    out = simulate_choice(envs, registered.TUNED_PARAMS, 0.0, 12, 400, 50, 0.05, 0.95, {})
+    assert abs(out["restricted_share"].mean() - len(RESTRICTED) / len(RULES)) < 0.1
+    assert out["rule_share"].shape == (6, len(RULES))
+    assert np.allclose(out["rule_share"].sum(1), 1.0)
+
+
+def test_rule_choice_selection_moves_shares():
+    """With strong selection, rule shares depart from uniform."""
+    envs = [level_env(0.0, 70 + j) for j in range(4)]
+    out = simulate_choice(envs, registered.TUNED_PARAMS, 16.0, 12, 500, 50, 0.1, 0.9, {})
+    assert out["rule_share"].max(1).mean() > 1.5 / len(RULES)
+
+
+def test_rule_choice_study_quick():
+    plan = replace(default_choice_plan(registered.TOURNAMENT_PLAN), **QUICK_CHOICE)
+    res = run_choice_study(plan, registered.registered_tuned())
+    assert list(res.verdicts["id"]) == ["E1", "E2", "E3", "E4"]
+    assert len(res.runs) == len(plan.levels) * len(plan.betas) * plan.reps
+
+
+def test_rule_choice_plan_registered():
+    assert default_choice_plan(registered.TOURNAMENT_PLAN).digest == registered.CHOICE_PLAN
+
+
+# ------------------------------------------------------------------------------------------------ field patterns
+def test_patterns_run():
+    res = run_patterns(registered.registered_tuned(), n_envs=3, periods=250)
+    assert list(res["key"]) == [p.key for p in PATTERNS]
+    assert res.set_index("key").loc["cycles", "passed"]        # naive expectations on steep demand cycle
+
+
+# ------------------------------------------------------------------------------------------------ calibration
+def test_calibration_recovers_forecast_rules():
+    df, truth = synthetic_forecast_data(n_groups=3, seed=1)
+    _, best = summarise(fit_subjects(prepare_forecasts(df), FORECAST_RULES, "forecast", {}))
+    acc = (best.merge(truth, on=["group", "subject"]).eval("rule == true_rule")).mean()
+    assert acc > 3 / len(FORECAST_RULES)
+
+
+def test_calibration_recovers_quantity_rules():
+    df, truth = synthetic_cournot_data(n_groups=4, seed=1)
+    fits = fit_subjects(prepare_quantities(df, 100.0, 1.0, 1.0), QUANTITY_RULES, "quantity",
+                        dict(a=100.0, b=1.0, c=1.0, n=4))
+    rank, best = summarise(fits)
+    acc = (best.merge(truth, on=["group", "subject"]).eval("rule == true_rule")).mean()
+    assert acc > 3 / len(QUANTITY_RULES)
+    assert (fits["test_rmse"] >= 0).all() and set(rank["rule"]) == {r.key for r in QUANTITY_RULES}
+
+
+# ------------------------------------------------------------------------------------------------ generalisation
+@pytest.mark.parametrize("task", ["inventory", "learning"])
+def test_task_layers_consistent(task):
+    env = _env_set(task, 4, 99)[1]
+    dec = _decisions(env, 800, env.seed)
+    r = {k: _layer(dec, k, 100, band=1.0, table=np.full(5, 1.0)) for k in ("always", "ruleb", "rc_oracle", "band")}
+    # an oracle that finds every deviation worthwhile is the always-deviating rule
+    assert r["rc_oracle"]["payoff"] == pytest.approx(r["always"]["payoff"])
+    assert r["ruleb"]["deviation_rate"] == 0.0
+    assert r["band"]["deviation_rate"] <= r["always"]["deviation_rate"]
+    # an oracle that never deviates is rule B
+    assert _layer(dec, "rc_oracle", 100, table=np.full(5, -1.0))["payoff"] == pytest.approx(r["ruleb"]["payoff"])
+    assert np.isfinite(oracle_table(env, replace(TaskPlan(), oracle_periods=2000))).any()
+
+
+def test_tasks_quick_study():
+    plan = replace(TaskPlan(), **{**QUICK_TASKS, "n_envs": 12, "n_train": 4})
+    res = run_tasks(plan)
+    assert set(res.runs["layer"]) == set(LAYERS)
+    assert list(res.verdicts["id"]) == ["G1", "G2", "G3", "G4"]
+
+
+def test_task_plan_registered():
+    assert TaskPlan().digest == registered.TASK_PLAN
+
+
+def test_play_through_experiment():
+    """A participant can complete all three blocks; the download holds every decision with shadow predictions."""
+    from streamlit.testing.v1 import AppTest
+    app = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
+    at = AppTest.from_file(app, default_timeout=120)
+    at.run()
+    at.switch_page("app_pages/play_market.py").run()
+    at.text_input(key="play_pid").set_value("tester-1").run()
+    at.checkbox(key="play_consent").check().run()
+    at.button(key="play_start").click().run()
+    n = len(PLAN.conditions) * PLAN.periods_per_block
+    for i in range(n):
+        btns = {b.label.split()[0]: b for b in at.button}
+        if i % 2:
+            at.number_input[0].set_value(int(at.number_input[0].value) + 10)
+            btns["Submit"].click().run()
+        else:
+            btns["Keep"].click().run()
+        assert not at.exception, [e.value for e in at.exception]
+    frames = at.session_state["play"]["frames"]
+    assert len(frames) == len(PLAN.conditions)
+    assert sum(len(f) for f in frames) == n
+    assert any(b.label.startswith("Download your data") for b in at.get("download_button"))

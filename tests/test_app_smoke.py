@@ -10,7 +10,7 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/theory_satisficing.py", "app_pages/theory_rl.py", "app_pages/theory_imitation.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
          "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/rule_choice.py", "app_pages/designer.py",
-         "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/play_market.py",
+         "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/empirical.py", "app_pages/play_market.py",
          "app_pages/experiment_analysis.py", "app_pages/generalisation.py", "app_pages/tracking.py",
          "app_pages/literature.py", "app_pages/model_docs.py"]
 
@@ -23,6 +23,12 @@ def _fast(at):
     at.session_state["choice_scale"] = "Quick check"
     at.session_state["gen_scale"] = "Quick check"
     at.session_state["trk_scale"] = "Quick check"
+    for k in ("cournot", "forecast", "nv", "time"):
+        at.session_state[f"emp_{k}_src"] = "Synthetic demonstration"
+    at.session_state["emp_cournot_groups"] = 2
+    at.session_state["emp_cournot_gen"] = False
+    at.session_state["emp_forecast_groups"] = 2
+    at.session_state["emp_nv_subjects"] = 6
     at.session_state["pat_envs"] = 4
     at.session_state["pat_periods"] = 200
     at.session_state["exa_src"] = "Synthetic demonstration"

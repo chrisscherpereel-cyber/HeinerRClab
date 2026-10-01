@@ -6,7 +6,8 @@ Two experimental formats are supported:
   the market price follows from the forecasts. Columns: group, subject, period, price, forecast
   (forecast = the subject's forecast of the price in that period, made before the price was known).
 * Quantity-setting Cournot markets (the design of Huck et al. 1999): subjects choose output. Columns: group, subject,
-  period, quantity; market parameters (linear inverse demand P = a − bQ, unit cost c) are entered separately.
+  period, quantity; market parameters are entered separately: each firm's inverse demand P_i = a − b(q_i + γ·Q_−i)
+  (γ = 1 for a homogeneous product, γ < 1 for differentiated products) and unit cost c.
 
 Every theory contributes decision rules of the same kind as its agent designs. Each rule's parameters are fitted per
 subject on the first half of that subject's periods (grid search, squared error) and the rule is scored on the second
@@ -54,7 +55,11 @@ def _fc_adaptive(d, g, p, x):
 
 
 def _fc_rational(d, g, p, x):
-    return np.full(len(d), x["mean_price_train"])
+    """Rational expectations: the equilibrium (fundamental) price if it is known, else the training-window mean."""
+    if "fundamental" in d and d["fundamental"].notna().all():
+        return d["fundamental"].to_numpy(float)
+    fund = x.get("fundamental")
+    return np.full(len(d), float(fund) if fund is not None else x["mean_price_train"])
 
 
 def _fc_trend(d, g, p, x):
@@ -86,13 +91,17 @@ def _fc_rc(d, g, p, x):
     tgt = _adaptive_path(d["price_prev"].to_numpy(), p["lam"])
     own, price = d["own_prev"].to_numpy(), d["price"].to_numpy()
     edges = p["theta"] * np.array([0.5, 1.0, 2.0, 4.0])
+    lag = int(x.get("horizon", 1)) - 1           # with two-period-ahead forecasts the price arrives a period later
     E = np.zeros(5)
     out = np.empty(len(d))
+    pending = []
     for t in range(len(d)):
         b = int((abs(tgt[t] - own[t]) > edges).sum())
         out[t] = tgt[t] if E[b] >= 0 else own[t]
-        gain = (price[t] - own[t]) ** 2 - (price[t] - tgt[t]) ** 2       # learned after the price is known
-        E[b] = p["memory"] * E[b] + (1 - p["memory"]) * gain
+        pending.append((b, (price[t] - own[t]) ** 2 - (price[t] - tgt[t]) ** 2))   # gain, known once P_t is
+        if len(pending) > lag:
+            bb, gain = pending.pop(0)
+            E[bb] = p["memory"] * E[bb] + (1 - p["memory"]) * gain
     return out
 
 
@@ -131,25 +140,34 @@ FORECAST_RULES: List[Rule] = [
 ]
 
 
-def prepare_forecasts(df: pd.DataFrame) -> pd.DataFrame:
-    """Add the lagged information each rule may use: last two prices, own last forecast and its error, and the
-    forecast of last period's most accurate group member."""
+def prepare_forecasts(df: pd.DataFrame, horizon: int = 1) -> pd.DataFrame:
+    """Add the lagged information each rule may use, respecting the experiment's information set.
+
+    `forecast` is the subject's forecast of the price of that row's period. With horizon = 1 (cobweb markets) the
+    latest price known when forecasting P_t is P_{t-1}; with horizon = 2 (asset-pricing experiments, where the
+    forecast of P_{t+1} is made before P_t is known) it is P_{t-2}. Columns added: the latest two known prices, the
+    subject's previous forecast, the error of its latest forecast whose price is known, and the forecast of the most
+    accurate group member in the latest period whose price is known."""
+    h = int(horizon)
     df = df.sort_values(["group", "subject", "period"]).copy()
     prices = df.groupby(["group", "period"])["price"].first()
-    df["price_prev"] = [prices.get((g, t - 1), np.nan) for g, t in zip(df["group"], df["period"])]
-    df["price_prev2"] = [prices.get((g, t - 2), np.nan) for g, t in zip(df["group"], df["period"])]
+    df["price_prev"] = [prices.get((g, t - h), np.nan) for g, t in zip(df["group"], df["period"])]
+    df["price_prev2"] = [prices.get((g, t - h - 1), np.nan) for g, t in zip(df["group"], df["period"])]
     df["own_prev"] = df.groupby(["group", "subject"])["forecast"].shift(1)
-    df["own_err_prev"] = df.groupby(["group", "subject"])["price"].shift(1) - df["own_prev"]
+    df["own_err_prev"] = (df.groupby(["group", "subject"])["price"].shift(h)
+                          - df.groupby(["group", "subject"])["forecast"].shift(h))
     err = (df["forecast"] - df["price"]).abs()
-    best = df.assign(err=err).loc[lambda x: x.groupby(["group", "period"])["err"].idxmin()]
+    valid = df.assign(err=err).dropna(subset=["err"])
+    best = valid.loc[valid.groupby(["group", "period"])["err"].idxmin()]
     best = best.set_index(["group", "period"])["forecast"]
-    df["best_prev"] = [best.get((g, t - 1), np.nan) for g, t in zip(df["group"], df["period"])]
+    df["best_prev"] = [best.get((g, t - h), np.nan) for g, t in zip(df["group"], df["period"])]
     return df.dropna(subset=["price_prev", "price_prev2", "own_prev", "own_err_prev", "best_prev"]).reset_index(drop=True)
 
 
 # ================================================================================================ quantity rules
 def _br(R, m):
-    return np.maximum(0.0, (m["a"] - m["c"] - m["b"] * R) / (2 * m["b"]))
+    """Best reply to rivals' total output R with inverse demand P_i = a − b(q_i + γR)."""
+    return np.maximum(0.0, (m["a"] - m["c"] - m["b"] * m.get("gamma", 1.0) * R) / (2 * m["b"]))
 
 
 def _q_keep(d, g, p, m):
@@ -162,7 +180,7 @@ def _q_br(d, g, p, m):
 
 
 def _q_nash(d, g, p, m):
-    return np.full(len(d), (m["a"] - m["c"]) / (m["b"] * (m["n"] + 1)))
+    return np.full(len(d), (m["a"] - m["c"]) / (m["b"] * (2 + m.get("gamma", 1.0) * (m["n"] - 1))))
 
 
 def _q_imit_best(d, g, p, m):
@@ -199,7 +217,7 @@ def _q_rc(d, g, p, m):
         cand = q[t] + p["phi"] * (_br(R[t], m) - q[t])
         b = int((abs(cand - q[t]) > edges).sum())
         out[t] = cand if E[b] >= 0 else q[t]
-        prof = lambda x: (max(0.0, m["a"] - m["b"] * (R_now[t] + x)) - m["c"]) * x
+        prof = lambda x: (max(0.0, m["a"] - m["b"] * (x + m.get("gamma", 1.0) * R_now[t])) - m["c"]) * x
         E[b] = p["memory"] * E[b] + (1 - p["memory"]) * (prof(cand) - prof(q[t]))
     return out
 
@@ -231,11 +249,11 @@ QUANTITY_RULES: List[Rule] = [
 ]
 
 
-def prepare_quantities(df: pd.DataFrame, a: float, b: float, c: float) -> pd.DataFrame:
+def prepare_quantities(df: pd.DataFrame, a: float, b: float, c: float, gamma: float = 1.0) -> pd.DataFrame:
     df = df.sort_values(["group", "subject", "period"]).copy()
     tot = df.groupby(["group", "period"])["quantity"].transform("sum")
     df["others"] = tot - df["quantity"]
-    df["price"] = np.maximum(0.0, a - b * tot)
+    df["price"] = np.maximum(0.0, a - b * (df["quantity"] + gamma * df["others"]))
     df["profit"] = (df["price"] - c) * df["quantity"]
     grp = df.groupby(["group", "subject"])
     df["own_prev"] = grp["quantity"].shift(1)

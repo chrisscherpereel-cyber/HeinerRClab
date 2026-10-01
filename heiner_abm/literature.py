@@ -662,6 +662,40 @@ HYPOTHESES.append(Hypothesis(
                  ("kalman1960", "Optimal filtering yields the best forecasts for a model-based optimiser.")],
     contribution="Implements each rival theory as an agent with an equal tuning budget and pre-registered, held-out "
                  "evaluation, so theories compete on behaviour rather than on predictions written by the modeller."))
+HYPOTHESES.append(Hypothesis(
+    "MECH1", "The principle of reliability-based restriction is sound; applying it is costly",
+    "Mechanisms · ①",
+    "With known reliability, restricting deviations beats always adjusting toward an error-prone target; an agent "
+    "that must estimate its own reliability loses part or all of that gain, through limited experience and through "
+    "judging its past decisions with a misspecified model.",
+    "Always adjusting toward the best available target is optimal (no restriction needed), or learned estimates are "
+    "as good as true ones, so the principle and its implementation coincide.",
+    "Optimisation / adaptive learning",
+    support=[("heiner1983", "Restriction to rule B pays when the reliability ratio falls short of the tolerance "
+                            "limit."),
+             ("conlisk1996", "Deciding how to decide is itself costly and can regress without end."),
+             ("hansen2008", "Judging policies with a misspecified model biases decisions.")],
+    alternative=[("muth1960", "Optimal smoothing absorbs noise without a separate selection rule."),
+                 ("sutton2018", "Learned value estimates converge to true values with enough experience.")],
+    contribution="Separates the reliability principle from the cost of applying it, and splits that cost into "
+                 "estimation from limited experience and judging with a misspecified model, using an oracle the "
+                 "simulator can provide."))
+HYPOTHESES.append(Hypothesis(
+    "MECH2", "Restriction pays where the flexible rule is unreliable, and more under misspecification than risk",
+    "Mechanisms · ②",
+    "The gain from reliability-based restriction rises with the measured error-to-signal ratio K of the flexible rule, "
+    "and model misspecification raises it more than cost volatility (risk) does.",
+    "Uncertainty of any kind raises the value of flexibility, or only dynamic stability matters.",
+    "Real options / cobweb stability",
+    support=[("heiner1989", "The reliable adjustment speed falls as the error-to-signal ratio K rises."),
+             ("knight1921", "Uncertainty that cannot be reduced to known probabilities differs in kind from risk."),
+             ("gigerenzer2009", "Which rule works depends on the structure of the environment (ecological "
+                                "rationality).")],
+    alternative=[("dixit1994", "Option value increases with volatility."),
+                 ("theocharis1960", "Adjustment dynamics depend on market structure, not on the source of noise.")],
+    contribution="Maps when each decision rule works across separate sources of uncertainty, and tests the "
+                 "reliability condition as a boundary prediction against the measured reliability of the flexible "
+                 "rule."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 

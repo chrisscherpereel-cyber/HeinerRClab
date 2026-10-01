@@ -115,6 +115,7 @@ class Market:
         self.kappa = np.array([e.foresight for e in envs])
         self.sigma = np.array([e.noise for e in envs])
         self.R_hist = np.zeros((self.B, periods, n))     # rivals' actual output faced by each firm
+        self.q_hist = np.zeros((self.B, periods, n))     # each firm's actual output
         self.t = 0
         self.P_prev = self.Q_prev = None
         self.q_prev = self.profit_prev = self.c_hat = None
@@ -197,10 +198,20 @@ SELECT_TEXT = {"always": "moves a share φ toward it every period",
 
 
 class Composite(Agent):
-    """Target x selection rule."""
+    """Target x selection rule.
+
+    Reliability-condition variants (SELECT = "rc"):
+        GAIN = "believed"  judges past decisions with the agent's own (possibly outdated) demand model (default);
+        GAIN = "true"      judges them with the true demand curve (removes model bias from the estimates);
+        ORACLE = True      does not learn: deviates by fixed expected gains per size bin, passed as parameters
+                           e0..e4 (the true reliability of its rule in this environment, estimated elsewhere).
+    Every composite records its target's error against the ex-post best reply (Heiner's 1989 error-to-signal
+    ratio K), and RC variants record the gain of every opportunity by bin (used to estimate oracle values)."""
     TARGET = "model"
     SELECT = "always"
     FIXED: Dict[str, float] = {}
+    GAIN = "believed"
+    ORACLE = False
 
     def __init__(self, idx, slot, p, mk):
         super().__init__(idx, slot, p, mk)
@@ -208,8 +219,15 @@ class Composite(Agent):
         self.cf = self.rf = self.pe = None
         self.v, self.last = np.zeros(self.n), None
         self.A = None
+        self.tgt = np.zeros((mk.T, self.n))
+        self.err2 = np.zeros(self.n)
+        self.sig2 = np.zeros(self.n)
+        self.gsum = np.zeros((self.n, N_BINS))
+        self.gcnt = np.zeros((self.n, N_BINS))
         if self.SELECT == "rc":
             self.E = np.zeros((self.n, N_BINS))
+            if self.ORACLE:
+                self.E = np.column_stack([self.p[f"e{b}"] for b in range(N_BINS)])
             self.qs = np.zeros((mk.T, self.n))
             self.qb = np.zeros((mk.T, self.n))
             self.bin = np.zeros((mk.T, self.n), dtype=int)
@@ -233,6 +251,7 @@ class Composite(Agent):
 
     def act(self):
         q, tgt = self.q, self.target()
+        self.tgt[self.mk.t] = tgt
         cand = np.maximum(Q_MIN, np.rint(q + self.p["phi"] * (tgt - q)))
         if self.SELECT == "always":
             dev = np.ones(self.n, bool)
@@ -256,12 +275,17 @@ class Composite(Agent):
         return np.where(dev, cand, q)
 
     def update(self):
-        """Reliability-condition learning: judge the decision made h periods ago by holding the candidate vs holding
-        the old level (rule B) for h periods, rivals on their actual path, prices from the believed demand curve and
-        realised costs."""
+        """Record the target's error against the ex-post best reply. Reliability-condition learning: judge the decision
+        made h periods ago by holding the candidate vs holding the old level (rule B) for h periods, rivals on their
+        actual path, prices from the believed (or true) demand curve and realised costs."""
+        mk, t = self.mk, self.mk.t
+        R, i = mk.R_hist[self.idx, t, self.i], self.idx
+        br_true = (mk.PM[i, t] - mk.SL[i, t] * R - mk.cost[i, t]) / (2 * mk.SL[i, t])
+        self.err2 += (self.tgt[t] - br_true) ** 2
+        self.sig2 += (br_true - self.q_before(t)) ** 2
         if self.SELECT != "rc":
             return
-        mk, t = self.mk, self.mk.t
+        demand = (mk.PMB, mk.SLB) if self.GAIN == "believed" else (mk.PM, mk.SL)
         for h in np.unique(self.h):
             d = t - h + 1
             if d < 1:
@@ -271,22 +295,30 @@ class Composite(Agent):
                 continue
             mi = self.idx[rows]
             R = mk.R_hist[mi, d:t + 1, self.i]
-            pm, sl, c = mk.PMB[mi, d:t + 1], mk.SLB[mi, d:t + 1], mk.cost[mi, d:t + 1]
+            pm, sl, c = demand[0][mi, d:t + 1], demand[1][mi, d:t + 1], mk.cost[mi, d:t + 1]
             x1, x0 = self.qs[d, rows][:, None], self.qb[d, rows][:, None]
             gain = (((np.maximum(P_MIN, pm - sl * (R + x1)) - c) * x1)
                     - ((np.maximum(P_MIN, pm - sl * (R + x0)) - c) * x0)).sum(1)
             b = self.bin[d, rows]
-            lam = self.p["memory"][rows]
-            self.E[rows, b] = lam * self.E[rows, b] + (1 - lam) * gain
+            self.gsum[rows, b] += gain
+            self.gcnt[rows, b] += 1
+            if not self.ORACLE:
+                lam = self.p["memory"][rows]
+                self.E[rows, b] = lam * self.E[rows, b] + (1 - lam) * gain
+
+    def q_before(self, t):
+        """Own output before the period-t decision (rule B's level)."""
+        return self.mk.q_hist[self.idx, t - 1, self.i]
 
 
-def composite(key, name, theory, target, select, sources, fixed=None):
+def composite(key, name, theory, target, select, sources, fixed=None, gain="believed", oracle=False):
     space = {**TARGET_SPACE[target], **SELECT_SPACE[select]}
     for k in (fixed or {}):
         space.pop(k, None)
     rule = f"Target: {TARGET_TEXT[target]}. Selection: {SELECT_TEXT[select]}."
     return type(key, (Composite,), dict(key=key, name=name, theory=theory, TARGET=target, SELECT=select,
-                                        FIXED=dict(fixed or {}), SPACE=space, rule=rule, sources=tuple(sources)))
+                                        FIXED=dict(fixed or {}), SPACE=space, rule=rule, sources=tuple(sources),
+                                        GAIN=gain, ORACLE=oracle))
 
 
 # ------------------------------------------------------------------------------------------------ stand-alone designs
@@ -479,6 +511,20 @@ TUNED = [k for k in KEYS if k != "ruleb"]
 FACTORIAL = ("opt_br", "options_m", "heiner_m", "satis_m", "cobweb_p", "options_p", "heiner_p", "satis_p")
 AGENTS = DESIGNS                                   # alias
 
+# Reliability-condition variants used by the mechanism study (not tournament entries): the same agent judging its
+# past decisions with the true demand curve, and an oracle that knows the true expected gain of each kind of deviation.
+VARIANTS: Dict[str, type] = {d.key: d for d in (
+    composite("heiner_m_true", "Reliability condition · model-based · judged with the true model",
+              "Heiner: reliability condition", "model", "rc", ("heiner1983",), gain="true"),
+    composite("heiner_p_true", "Reliability condition · price-based · judged with the true model",
+              "Heiner: reliability condition", "price", "rc", ("heiner1983",), gain="true"),
+    composite("heiner_m_oracle", "Reliability condition · model-based · oracle", "Heiner: reliability condition",
+              "model", "rc", ("heiner1983",), oracle=True),
+    composite("heiner_p_oracle", "Reliability condition · price-based · oracle", "Heiner: reliability condition",
+              "price", "rc", ("heiner1983",), oracle=True),
+)}
+ALL_DESIGNS: Dict[str, type] = {**DESIGNS, **VARIANTS}
+
 
 def default_params(design: str) -> Dict[str, float]:
     return {n: s.default for n, s in DESIGNS[design].SPACE.items()}
@@ -500,13 +546,17 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
     mk.P_prev, mk.Q_prev, mk.q_prev = P, Q, q
     mk.profit_prev = (P - mk.cost[:, 0])[:, None] * q
     mk.R_hist[:, 0] = Q[:, None] - q
+    mk.q_hist[:, 0] = q
     agents: List[Agent] = []
     for i in range(N):
         for key in np.unique(lineup[:, i]):
             idx = np.flatnonzero(lineup[:, i] == key)
-            p = {n: np.broadcast_to(np.asarray(params.get(key, {}).get(n, s.default), float), (B,))[idx].copy()
-                 for n, s in DESIGNS[key].SPACE.items()}
-            agents.append(DESIGNS[key](idx, i, p, mk))
+            cls = ALL_DESIGNS[key]
+            given = params.get(key, {})
+            names = list(cls.SPACE) + [n for n in given if n not in cls.SPACE]     # extra per-market inputs (oracle)
+            p = {n: np.broadcast_to(np.asarray(given.get(n, cls.SPACE[n].default if n in cls.SPACE else 0.0), float),
+                                    (B,))[idx].copy() for n in names}
+            agents.append(cls(idx, i, p, mk))
     sum_profit = np.zeros((B, N))
     changes = np.zeros((B, N))
     path = np.zeros((B, periods - burn_in, N)) if keep_path else None
@@ -522,6 +572,7 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
         P = np.maximum(P_MIN, mk.PM[:, t] - mk.SL[:, t] * Q)
         profit = (P - c_now)[:, None] * new
         mk.R_hist[:, t] = Q[:, None] - new
+        mk.q_hist[:, t] = new
         if t >= burn_in:
             sum_profit += profit
             changes += new != mk.q_prev
@@ -531,7 +582,13 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
         for a in agents:
             a.update()
     n_rec = periods - burn_in
-    return dict(profit=sum_profit / n_rec, change_rate=changes / n_rec, path=path)
+    K = np.full((B, N), np.nan)
+    gsum, gcnt = np.zeros((B, N, N_BINS)), np.zeros((B, N, N_BINS))
+    for a in agents:
+        if isinstance(a, Composite):
+            K[a.idx, a.i] = np.sqrt(a.err2 / np.maximum(a.sig2, 1e-12))
+            gsum[a.idx, a.i], gcnt[a.idx, a.i] = a.gsum, a.gcnt
+    return dict(profit=sum_profit / n_rec, change_rate=changes / n_rec, path=path, K=K, gain_sum=gsum, gain_count=gcnt)
 
 
 # ================================================================================================ pre-registration
@@ -600,7 +657,7 @@ def code_digest() -> str:
     objs = (*hand_written, Agent, Composite, Market,
             simulate, tune, head_to_head, factorial, invasion, criteria, evaluate, sample_envs, composite)
     src = "".join(sorted(inspect.getsource(o) for o in objs)) + json.dumps(
-        {k: [DESIGNS[k].TARGET, DESIGNS[k].SELECT, DESIGNS[k].FIXED] for k in DESIGNS if issubclass(DESIGNS[k], Composite)},
+        {k: [d.TARGET, d.SELECT, d.FIXED, d.GAIN, d.ORACLE] for k, d in ALL_DESIGNS.items() if issubclass(d, Composite)},
         sort_keys=True) + json.dumps(THEORY_DESIGNS, sort_keys=True)
     return hashlib.sha256(src.encode()).hexdigest()
 

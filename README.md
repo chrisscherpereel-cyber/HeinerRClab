@@ -48,7 +48,7 @@ many replications. For heavy research runs, use a local installation.
 | CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
 | Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
-| Agent tournament | Every rival theory implemented as a decision rule competing in the same market: reliability-condition agent, filtered best reply, inaction band, adaptive expectations, win-stay/lose-shift, aspiration-level search, reinforcement learner, imitator and rule B. Equal tuning budget on training environments, held-out test environments, a frozen hashed plan with four pre-registered hypotheses, head-to-head profit, invasion tests, global sensitivity analysis and replication across seeds |
+| Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
@@ -80,33 +80,54 @@ combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). He
 
 ## Agent tournament: registered results
 
-Registered plan `cc1a20c7ceb0484f` (24 training and 40 × 2 held-out environments, 800 periods, tuning budget 24 per
-agent × 2 rounds, invasion with 4 residents + 1 mutant). Mean rank among nine agents (1 = best) in the main run and
-three replications with fresh seeds:
+Registered plan `2e7bc47b726b5ba3`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
+training environments; each theory enters with the design that scored higher on training data; evaluation on 40 × 2
+held-out environments (800 periods); six criteria; invasion with 4 residents + 1 mutant; three replications with
+fresh seeds.
 
-| Agent (theory) | Main | Rep 1 | Rep 2 | Rep 3 |
-|---|---|---|---|---|
-| Adaptive expectations (cobweb theory) | 1.72 | 2.12 | 2.10 | 2.33 |
-| Imitate the best (evolutionary selection) | 3.56 | 3.08 | 3.82 | 3.54 |
-| Rule B (rigid benchmark) | 3.96 | 5.44 | 4.86 | 5.54 |
-| Win-stay, lose-shift (simple heuristics) | 4.05 | 4.72 | 4.78 | 5.39 |
-| Reinforcement learner | 4.49 | 6.89 | 5.30 | 5.21 |
-| Filtered best reply (optimisation) | 6.06 | 5.08 | 4.82 | 5.62 |
-| Reliability-condition agent (Heiner) | 6.24 | 4.76 | 5.72 | 4.45 |
-| Inaction band (real options) | 7.00 | 4.90 | 5.68 | 4.85 |
-| Aspiration-level search (satisficing) | 7.91 | 8.01 | 7.91 | 8.07 |
+| Theory (selected design) | Profit rank: main / reps | Aggregate rank, six criteria: main / reps |
+|---|---|---|
+| Cobweb: adaptive price expectations | 1.89 / 2.91, 2.74, 2.64 | 3.50 / 2.67, 2.33, 2.83 |
+| Simple heuristics: target-margin rule | 2.79 / 3.30, 1.91, 1.65 | 4.00 / 4.17, 4.00, 3.83 |
+| Real options: inaction band, price-based target | 3.41 / 2.99, 3.24, 4.21 | 3.33 / 3.00, 3.83, 3.67 |
+| Heiner: reliability condition, price-based target | 3.98 / 4.89, 6.00, 5.42 | 4.17 / 5.00, 3.33, 6.00 |
+| Optimisation: rational expectations (Cournot–Nash) | 5.84 / 5.62, 5.90, 5.36 | 4.83 / 5.50, 6.83, 4.67 |
+| Reinforcement learning: softmax value learner | 6.20 / 6.65, 5.85, 6.20 | 8.17 / 6.33, 5.17, 6.67 |
+| Imitation (best or average) | 6.24 / 4.35, 5.32, 5.29 | 6.00 / 6.83, 7.00, 5.00 |
+| Rule B (rigid benchmark) | 6.28 / 6.41, 5.72, 5.62 | 5.50 / 5.83, 5.33, 5.67 |
+| Satisficing: aspiration search | 8.39 / 7.88, 8.31, 8.60 | 5.50 / 5.33, 7.17, 6.00 |
 
-None of the four pre-registered hypotheses was supported in the main run (PR2, a growing advantage over the
-optimiser with difficulty, was supported in one of three replications). The reliability-condition agent did not
-differ significantly from the optimiser or the inaction band, which chase the same target, and was beaten by the
-rigid rule B. No population was uninvadable. The robust results are that model-free adaptive expectations wins in
-every run, especially when demand regimes shift, and that aspiration-level search comes last. Model-based agents
-(optimiser, inaction band, reliability-condition agent) lose most where their demand model goes out of date.
+Selection rule versus always adjusting toward the same target (difference in profit and in CVaR 5%; * = 95% CI
+excludes 0; main run / three replications):
 
-The plan was revised once during development, before it was frozen: in the first version the reliability-condition
-agent built its candidate from an unfiltered best reply, while the optimiser used filters, which handicapped it. It
-now shares the optimiser's filtered target and differs only in when it deviates. That version also ranked in the
-lower half.
+| Selection rule · target | Profit | Downside (CVaR 5%) |
+|---|---|---|
+| Inaction band · model-based | +119* / +23, +70, +6 | +3349* / +1074*, +2093*, +1528* |
+| Reliability condition · model-based | +31 / +30*, −45*, +13 | +599* / −102, −308*, −42 |
+| Reliability condition · price-based | −339* / −265*, −364*, −435* | −359* / −818*, −708*, −992* |
+| Aspiration · price-based | −983* / −756*, −808*, −912* | +699* / −106, −275, +169 |
+
+None of the six pre-registered hypotheses was supported in the main run; PR2 was supported in one replication.
+
+**What the tournament shows**
+
+* *Model-free beats model-based.* In every theory that had the choice, the design that needs no demand model was
+  selected on training data, and the top three in every run are model-free. With unannounced regime shifts, a
+  misspecified model is the dominant source of decision error.
+* *Restricting an unreliable flexible rule pays, as Heiner argued.* An inaction band on the error-prone model-based
+  target cut downside risk in every run without costing profit. Restricting the already reliable price-based target
+  hurt.
+* *Heiner's own learned selection rule does not deliver that benefit robustly.* Estimating π, r, w, G and D
+  case by case is itself a hard inference problem. The learned reliability condition is a flexible rule about when to
+  be flexible, and it is noisy; simple fixed restrictions (an inaction band, a target margin) capture the gains
+  without the estimation error. This is consistent with Heiner's deeper argument that reliable behaviour comes from
+  rules rather than case-by-case assessment, and it qualifies the use of the condition as an agent's decision rule.
+* *Criteria matter.* Ranking by profit alone, by downside risk or by survival gives different orders; seven of nine
+  theories are Pareto-efficient in the main run, so claims of superiority must name the criterion.
+
+The plan was revised during development, before it was frozen: a first version represented each theory by one
+design (and, earlier still, the reliability-condition agent used an unfiltered target). Both earlier versions also
+placed the reliability-condition agent in the lower half.
 
 ## Code layout
 

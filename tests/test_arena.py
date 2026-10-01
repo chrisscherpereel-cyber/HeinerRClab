@@ -6,8 +6,8 @@ import pytest
 
 from heiner_abm.agents import cost_path, make_streams
 from heiner_abm import arena
-from heiner_abm.arena import (AGENTS, KEYS, PREREG, QUICK, TUNED, Env, Market, _lhs, _scenario, cluster_ci, holm,
-                              run_protocol, simulate)
+from heiner_abm.arena import (DESIGNS, FACTORIAL, KEYS, PREREG, QUICK, THEORY_DESIGNS, Env, Market, _lhs, _scenario,
+                              TARGET_SPACE, cluster_ci, holm, run_protocol, simulate)
 
 ENV = Env(delta=10, c_max=80, q_range=1500, noise=0, foresight=0, hazard=0, belief_lag=20, seed=3)
 
@@ -19,38 +19,50 @@ def test_market_uses_the_main_models_cost_process():
 
 
 def test_rule_b_never_changes_output_and_simulation_is_deterministic():
-    lineup = np.array([KEYS], dtype=object)
+    lineup = np.array([list(DESIGNS)], dtype=object)
     a = simulate([ENV], lineup, {}, 200, 20)
     b = simulate([ENV], lineup, {}, 200, 20)
     np.testing.assert_array_equal(a["profit"], b["profit"])
-    assert a["change_rate"][0, KEYS.index("ruleb")] == 0
+    assert a["change_rate"][0, list(DESIGNS).index("ruleb")] == 0
 
 
 def test_per_market_parameters_match_separate_runs():
     """A tuning batch (parameters varying across markets) gives the same result as separate runs."""
     envs = [ENV, replace(ENV, seed=4)]
-    lineup = np.tile(np.array(KEYS, dtype=object), (2, 1))
-    batch = simulate(envs, lineup, {"heiner": {"theta": np.array([5.0, 30.0])}}, 200, 20)
+    lineup = np.tile(np.array(list(DESIGNS), dtype=object), (2, 1))
+    batch = simulate(envs, lineup, {"heiner_m": {"theta": np.array([5.0, 30.0])}}, 200, 20)
     for j, th in enumerate((5.0, 30.0)):
-        alone = simulate([envs[j]], lineup[:1], {"heiner": {"theta": th}}, 200, 20)
+        alone = simulate([envs[j]], lineup[:1], {"heiner_m": {"theta": th}}, 200, 20)
         np.testing.assert_allclose(batch["profit"][j], alone["profit"][0])
 
 
 def test_equal_budget_and_disjoint_environments():
-    for key in TUNED:
-        cand = _lhs(AGENTS[key].SPACE, PREREG.budget, np.random.default_rng(0))
+    assert all(len(d) == 2 for t, d in THEORY_DESIGNS.items() if t != "ruleb")
+    for key in DESIGNS:
+        cand = _lhs(DESIGNS[key].SPACE, PREREG.budget, np.random.default_rng(0))
         assert all(len(v) == PREREG.budget for v in cand.values())
-        assert all(v[0] == AGENTS[key].SPACE[n].default for n, v in cand.items())
+        assert all(v[0] == DESIGNS[key].SPACE[n].default for n, v in cand.items())
         for n, v in cand.items():
-            s = AGENTS[key].SPACE[n]
+            s = DESIGNS[key].SPACE[n]
             assert v.min() >= s.lo - 1e-9 and v.max() <= s.hi + 1e-9
     assert not {e.seed for e in arena.train_envs(PREREG)} & {e.seed for e in arena.test_envs(PREREG)}
 
 
-def test_heiner_optimiser_and_options_share_the_target():
-    shared = {"a_cost", "a_rival"}
-    for key in ("heiner", "optimiser", "options"):
-        assert shared <= set(AGENTS[key].SPACE)
+def test_selection_rule_experiment_shares_targets():
+    """Two targets x four selection rules; designs with the same target have the same target parameters."""
+    cells = {(DESIGNS[d].TARGET, DESIGNS[d].SELECT) for d in FACTORIAL}
+    assert cells == {(t, s) for t in ("model", "price") for s in ("always", "band", "rc", "aspiration")}
+    for d in FACTORIAL:
+        assert set(TARGET_SPACE[DESIGNS[d].TARGET]) <= set(DESIGNS[d].SPACE)
+
+
+def test_composite_always_equals_selection_with_band_zero():
+    """An inaction band of width 0 never blocks a move, so it reproduces 'always' exactly."""
+    lineup = np.array([["opt_br"] + ["ruleb"] * 3], dtype=object)
+    a = simulate([ENV], lineup, {}, 200, 20)
+    lineup2 = np.array([["options_m"] + ["ruleb"] * 3], dtype=object)
+    b = simulate([ENV], lineup2, {"options_m": {"k": 0.0}}, 200, 20)
+    np.testing.assert_allclose(a["profit"], b["profit"])
 
 
 def test_plan_hash_changes_with_any_setting():
@@ -67,7 +79,9 @@ def test_statistics():
 
 def test_quick_protocol_runs_end_to_end():
     res = run_protocol(QUICK)
-    assert res.exploratory and len(res.verdicts) == 4
+    assert res.exploratory and len(res.verdicts) == 6
     assert set(res.ranking["key"]) == set(KEYS)
     assert res.invasion.shape[0] == len(KEYS) * (len(KEYS) - 1)
-    assert set(res.tuned) == set(KEYS) and res.tuned["ruleb"] == {}
+    assert all(res.tuned.design[t] in THEORY_DESIGNS[t] for t in KEYS)
+    assert res.ranking["survived"].between(0, 1).all() and res.ranking["pareto"].any()
+    assert len(res.factorial) == len(FACTORIAL)

@@ -1,17 +1,26 @@
 """Agent tournament: rival theories of flexibility compete as agents in the same market.
 
-Each theory is implemented as a decision rule (an agent type). All agents face the same cobweb oligopoly as the main
+Each theory is implemented as decision rules (agent designs). All agents face the same cobweb oligopoly as the main
 model: the same demand curve and unannounced demand-regime shifts, the same reflecting raw-material cost process,
 the same information (last price, last market quantity, own output, a cost estimate of the same quality) and the same
 random streams. They differ only in how they turn that information into output.
 
+Many designs are compositions of a *target* (where a flexible firm would move) and a *selection rule* (when it moves):
+    targets:          model-based (best reply on the believed demand curve, with filtered forecasts)
+                      price-based (adaptive expectation of the price; no demand model needed)
+    selection rules:  always · inaction band (real options) · reliability condition (Heiner) · aspiration (satisficing)
+so Heiner's claim, that a reliability-based selection rule improves on a flexible rule, can be tested on the same
+target. Other designs (Cournot-Nash play, a markup rule, win-stay/lose-shift, two learners, two imitators) stand alone.
+
 Fairness protocol (see PREREG):
-    1. every agent type has its free parameters tuned with the same budget of evaluations (Latin-hypercube search),
-       on training environments only, in two rounds (round 2 tunes against the round-1 tuned rivals);
+    1. every theory has two designs, and every design is tuned with the same budget of evaluations (Latin-hypercube
+       search) on training environments only, in two rounds; each theory enters the tournament with whichever of its
+       two designs scored higher on the training environments;
     2. environments are drawn at random from pre-registered ranges; training and test environments are disjoint;
-    3. the plan (ranges, budgets, metrics, hypotheses, decision rules) is frozen and hashed before running;
-    4. results use several yardsticks: head-to-head profit in mixed markets, invasion tests (can one mutant of type X
-       out-earn residents of type Y?), and robustness across environments (standardised regression coefficients).
+    3. the plan (ranges, budgets, hypotheses, decision rules) and the agent and analysis code are hashed;
+    4. results use several yardsticks: head-to-head profit, downside risk, survival, volatility, regret and worst case
+       in mixed markets; a target x selection-rule experiment; invasion tests; global sensitivity analysis; and
+       replication of the whole protocol with fresh seeds.
 
 Everything is vectorised over markets: a batch holds B markets, and every agent parameter is an array over markets,
 so a whole tuning grid runs as one batch.
@@ -33,6 +42,7 @@ from .params import FirmSpec, GlobalFirmParams, MarketParams, Scenario, Structur
 
 P_MAX, P_MIN, C0, Q_MIN = 100.0, 10.0, 45.0, 5.0
 N_BINS = 5
+CAPITAL_PERIODS = 20      # survival buffer: a firm is ruined if cumulative profit falls below -20 periods of Nash profit
 
 
 # ================================================================================================ environments
@@ -49,7 +59,7 @@ class Env:
 
 
 def sample_envs(n: int, seed: int, ranges: Dict[str, Tuple[float, float]], seed_base: int) -> List[Env]:
-    """Draw environments uniformly from the pre-registered ranges. Half of them have demand-regime shifts."""
+    """Draw environments uniformly from the pre-registered ranges. A share of them have demand-regime shifts."""
     rng = np.random.default_rng(seed)
     u = lambda k: float(rng.uniform(*ranges[k]))
     envs = []
@@ -73,6 +83,12 @@ def nash_output(q_range: float, n: int) -> float:
     """Static Cournot-Nash output per firm at the initial cost: every market starts at equilibrium."""
     s = (P_MAX - P_MIN) / q_range
     return max(Q_MIN, round((P_MAX - C0) / (s * (n + 1))))
+
+
+def nash_profit(q_range: float, n: int) -> float:
+    s = (P_MAX - P_MIN) / q_range
+    q = nash_output(q_range, n)
+    return max(1.0, (P_MAX - s * n * q - C0) * q)
 
 
 # ================================================================================================ market state
@@ -99,7 +115,6 @@ class Market:
         self.kappa = np.array([e.foresight for e in envs])
         self.sigma = np.array([e.noise for e in envs])
         self.R_hist = np.zeros((self.B, periods, n))     # rivals' actual output faced by each firm
-        # per-period information (filled by simulate)
         self.t = 0
         self.P_prev = self.Q_prev = None
         self.q_prev = self.profit_prev = self.c_hat = None
@@ -121,7 +136,7 @@ class Spec:
 
 
 class Agent:
-    """One agent type on one slot of a subset `idx` of the batch's markets. Parameters are arrays over idx."""
+    """One agent design on one slot of a subset `idx` of the batch's markets. Parameters are arrays over idx."""
     key = ""
     name = ""
     theory = ""
@@ -133,7 +148,6 @@ class Agent:
         self.idx, self.i, self.p, self.mk = idx, slot, p, mk
         self.n = len(idx)
 
-    # helpers ---------------------------------------------------------------------------------
     @property
     def q(self):
         return self.mk.q_prev[self.idx, self.i]
@@ -157,96 +171,96 @@ class Agent:
         pass
 
 
-class RuleB(Agent):
-    key, name, theory = "ruleb", "Rule B (rigid)", "Benchmark: rule-governed default"
-    rule = "Always keeps last period's output."
-    sources = ("heiner1983",)
-
-    def act(self):
-        return self.q
-
-
-class Optimiser(Agent):
-    key, name, theory = "optimiser", "Filtered best reply", "Neoclassical optimisation"
-    rule = ("Always plays the best reply to filtered forecasts: exponential (Kalman-type) filters on its cost estimate "
-            "and on rivals' output.")
-    sources = ("muth1960", "kalman1960", "muth1961")
-    SPACE = {"a_cost": Spec(1.0, 0.05, 1.0, "log", "Filter gain on the cost estimate"),
-             "a_rival": Spec(1.0, 0.05, 1.0, "log", "Filter gain on rivals' output")}
-
-    def __init__(self, idx, slot, p, mk):
-        super().__init__(idx, slot, p, mk)
-        self.cf = self.rf = None
-
-    def target(self, a_c, a_r):
-        if self.cf is None:
-            self.cf, self.rf = self.c_hat.copy(), self.rivals.copy()
-        else:
-            self.cf = self.cf + a_c * (self.c_hat - self.cf)
-            self.rf = self.rf + a_r * (self.rivals - self.rf)
-        return self.mk.br(self.idx, self.cf, self.rf)
-
-    def act(self):
-        return self.target(self.p["a_cost"], self.p["a_rival"])
+# ------------------------------------------------------------------------------------------------ composite designs
+TARGET_SPACE = {
+    "model": {"a_cost": Spec(1.0, 0.05, 1.0, "log", "Filter gain on the cost estimate"),
+              "a_rival": Spec(1.0, 0.05, 1.0, "log", "Filter gain on rivals' output"),
+              "phi": Spec(1.0, 0.05, 1.0, help="Share of the way toward the target per move")},
+    "price": {"lam": Spec(0.5, 0.05, 1.0, "log", "Adaptive-expectations gain on the price"),
+              "phi": Spec(0.5, 0.05, 1.0, help="Share of the way toward the target per move")},
+}
+SELECT_SPACE = {
+    "always": {},
+    "band": {"k": Spec(1.0, 0.0, 3.0, help="Band width in standard deviations of target changes")},
+    "rc": {"theta": Spec(10.0, 1.0, 60.0, "log", "Scale of the size-of-change bins"),
+           "memory": Spec(0.97, 0.8, 0.995, help="Exponential memory of the learned gains"),
+           "horizon": Spec(10, 1, 20, "int", "Periods over which a deviation is judged")},
+    "aspiration": {"alpha": Spec(0.1, 0.01, 0.5, "log", "Speed at which aspirations adapt")},
+}
+TARGET_TEXT = {"model": "best reply on the believed demand curve, with filtered cost and rival forecasts",
+               "price": "output that is best at an adaptive price expectation (no demand model)"}
+SELECT_TEXT = {"always": "moves a share φ toward it every period",
+               "band": "moves only when the gap exceeds a band that widens with the volatility of the target",
+               "rc": ("keeps rule B unless its learned reliability condition holds for changes of that size "
+                      "(π·G − (1−π)·D ≥ 0, judged ex post over h periods)"),
+               "aspiration": "keeps its output while profit meets an adaptive aspiration; below it, moves"}
 
 
-class RealOptions(Optimiser):
-    key, name, theory = "options", "Inaction band", "Real options / value of flexibility"
-    rule = ("Same filtered target as the optimiser, but moves to it only when the gap exceeds a band that widens with "
-            "the measured volatility of the target (k standard deviations).")
-    sources = ("dixit1989", "dixit1994")
-    SPACE = {"a_cost": Spec(1.0, 0.05, 1.0, "log", "Filter gain on the cost estimate"),
-             "a_rival": Spec(1.0, 0.05, 1.0, "log", "Filter gain on rivals' output"),
-             "k": Spec(1.0, 0.0, 3.0, help="Band width in standard deviations of target changes")}
+class Composite(Agent):
+    """Target x selection rule."""
+    TARGET = "model"
+    SELECT = "always"
+    FIXED: Dict[str, float] = {}
 
     def __init__(self, idx, slot, p, mk):
         super().__init__(idx, slot, p, mk)
-        self.v = np.zeros(self.n)
-        self.last = None
+        self.p = {**{k: np.full(self.n, v) for k, v in self.FIXED.items()}, **self.p}
+        self.cf = self.rf = self.pe = None
+        self.v, self.last = np.zeros(self.n), None
+        self.A = None
+        if self.SELECT == "rc":
+            self.E = np.zeros((self.n, N_BINS))
+            self.qs = np.zeros((mk.T, self.n))
+            self.qb = np.zeros((mk.T, self.n))
+            self.bin = np.zeros((mk.T, self.n), dtype=int)
+            self.opp = np.zeros((mk.T, self.n), dtype=bool)
+            self.h = self.p["horizon"].astype(int)
+            self.edges = self.p["theta"][:, None] * np.array([0.5, 1.0, 2.0, 4.0])[None, :]
+
+    def target(self):
+        mk = self.mk
+        if self.TARGET == "model":
+            if self.cf is None:
+                self.cf, self.rf = self.c_hat.copy(), self.rivals.copy()
+            else:
+                self.cf = self.cf + self.p["a_cost"] * (self.c_hat - self.cf)
+                self.rf = self.rf + self.p["a_rival"] * (self.rivals - self.rf)
+            return mk.br(self.idx, self.cf, self.rf)
+        P = mk.P_prev[self.idx]
+        self.pe = P.copy() if self.pe is None else self.pe + self.p["lam"] * (P - self.pe)
+        s = mk.SLB[self.idx, mk.t]
+        return (self.pe + s * self.q - self.c_hat) / (2 * s)
 
     def act(self):
-        tgt = self.target(self.p["a_cost"], self.p["a_rival"])
-        if self.last is not None:
-            self.v = 0.9 * self.v + 0.1 * (tgt - self.last) ** 2
-        self.last = tgt
-        q = self.q
-        return np.where(np.abs(tgt - q) > self.p["k"] * np.sqrt(self.v), tgt, q)
-
-
-class Heiner(Optimiser):
-    key, name, theory = "heiner", "Reliability-condition agent", "Heiner: reliability condition"
-    rule = ("Same filtered target as the optimiser, but rule B (keep output) is the default. The agent deviates to "
-            "the target only when its learned reliability condition holds for changes of that size: "
-            "π·G − (1−π)·D ≥ 0, judged ex post over an h-period horizon with exponential memory.")
-    sources = ("heiner1983", "heiner1989")
-    SPACE = {"a_cost": Spec(1.0, 0.05, 1.0, "log", "Filter gain on the cost estimate"),
-             "a_rival": Spec(1.0, 0.05, 1.0, "log", "Filter gain on rivals' output"),
-             "theta": Spec(10.0, 1.0, 60.0, "log", "Scale of the size-of-change bins"),
-             "memory": Spec(0.97, 0.8, 0.995, help="Exponential memory of the learned gains"),
-             "horizon": Spec(10, 1, 20, "int", "Periods over which a deviation is judged")}
-
-    def __init__(self, idx, slot, p, mk):
-        super().__init__(idx, slot, p, mk)
-        self.E = np.zeros((self.n, N_BINS))
-        self.qs = np.zeros((mk.T, self.n))
-        self.qb = np.zeros((mk.T, self.n))
-        self.bin = np.zeros((mk.T, self.n), dtype=int)
-        self.opp = np.zeros((mk.T, self.n), dtype=bool)
-        self.h = self.p["horizon"].astype(int)
-        self.edges = self.p["theta"][:, None] * np.array([0.5, 1.0, 2.0, 4.0])[None, :]
-
-    def act(self):
-        t, q = self.mk.t, self.q
-        cand = np.maximum(Q_MIN, np.rint(self.target(self.p["a_cost"], self.p["a_rival"])))
-        sig = np.abs(cand - q)
-        b = (sig[:, None] > self.edges).sum(1)
-        self.qs[t], self.qb[t], self.bin[t], self.opp[t] = cand, q, b, sig > 0
-        dev = (sig > 0) & (self.E[np.arange(self.n), b] >= 0)
+        q, tgt = self.q, self.target()
+        cand = np.maximum(Q_MIN, np.rint(q + self.p["phi"] * (tgt - q)))
+        if self.SELECT == "always":
+            dev = np.ones(self.n, bool)
+        elif self.SELECT == "band":
+            if self.last is not None:
+                self.v = 0.9 * self.v + 0.1 * (tgt - self.last) ** 2
+            self.last = tgt
+            dev = np.abs(cand - q) > self.p["k"] * np.sqrt(self.v)
+        elif self.SELECT == "aspiration":
+            pr = self.profit
+            if self.A is None:
+                self.A = pr.copy()
+            dev = pr < self.A
+            self.A = self.A + self.p["alpha"] * (pr - self.A)
+        else:  # rc
+            t = self.mk.t
+            sig = np.abs(cand - q)
+            b = (sig[:, None] > self.edges).sum(1)
+            self.qs[t], self.qb[t], self.bin[t], self.opp[t] = cand, q, b, sig > 0
+            dev = (sig > 0) & (self.E[np.arange(self.n), b] >= 0)
         return np.where(dev, cand, q)
 
     def update(self):
-        """Judge the decision made h periods ago: hold the candidate vs hold the old level (rule B) for h periods,
-        rivals on their actual path, prices from the believed demand curve, realised costs."""
+        """Reliability-condition learning: judge the decision made h periods ago by holding the candidate vs holding
+        the old level (rule B) for h periods, rivals on their actual path, prices from the believed demand curve and
+        realised costs."""
+        if self.SELECT != "rc":
+            return
         mk, t = self.mk, self.mk.t
         for h in np.unique(self.h):
             d = t - h + 1
@@ -266,28 +280,46 @@ class Heiner(Optimiser):
             self.E[rows, b] = lam * self.E[rows, b] + (1 - lam) * gain
 
 
-class Cobweb(Agent):
-    key, name, theory = "cobweb", "Adaptive expectations", "Cobweb stability theory"
-    rule = ("Forms an adaptive price expectation (gain λ) and moves a share φ toward the output that is optimal at "
-            "that expected price (partial adjustment).")
-    sources = ("nerlove1958", "ezekiel1938")
-    SPACE = {"lam": Spec(0.5, 0.05, 1.0, "log", "Adaptive-expectations gain"),
-             "phi": Spec(0.5, 0.05, 1.0, help="Partial-adjustment speed")}
+def composite(key, name, theory, target, select, sources, fixed=None):
+    space = {**TARGET_SPACE[target], **SELECT_SPACE[select]}
+    for k in (fixed or {}):
+        space.pop(k, None)
+    rule = f"Target: {TARGET_TEXT[target]}. Selection: {SELECT_TEXT[select]}."
+    return type(key, (Composite,), dict(key=key, name=name, theory=theory, TARGET=target, SELECT=select,
+                                        FIXED=dict(fixed or {}), SPACE=space, rule=rule, sources=tuple(sources)))
+
+
+# ------------------------------------------------------------------------------------------------ stand-alone designs
+class RuleB(Agent):
+    key, name, theory = "ruleb", "Rule B (rigid)", "Benchmark"
+    rule = "Always keeps last period's output."
+    sources = ("heiner1983",)
+
+    def act(self):
+        return self.q
+
+
+class NashRE(Agent):
+    key, name, theory = "opt_nash", "Rational expectations (Cournot–Nash)", "Neoclassical optimisation"
+    rule = ("Expects every rival to be rational and moves toward the static Cournot–Nash output for its filtered cost "
+            "estimate on the believed demand curve.")
+    sources = ("muth1961", "theocharis1960")
+    SPACE = {"a_cost": Spec(1.0, 0.05, 1.0, "log", "Filter gain on the cost estimate"),
+             "phi": Spec(1.0, 0.05, 1.0, help="Share of the way toward the Nash output per period")}
 
     def __init__(self, idx, slot, p, mk):
         super().__init__(idx, slot, p, mk)
-        self.pe = None
+        self.cf = None
 
     def act(self):
-        P = self.mk.P_prev[self.idx]
-        self.pe = P.copy() if self.pe is None else self.pe + self.p["lam"] * (P - self.pe)
-        s, q = self.mk.SLB[self.idx, self.mk.t], self.q
-        tgt = (self.pe + s * q - self.c_hat) / (2 * s)
-        return q + self.p["phi"] * (tgt - q)
+        mk = self.mk
+        self.cf = self.c_hat.copy() if self.cf is None else self.cf + self.p["a_cost"] * (self.c_hat - self.cf)
+        tgt = (mk.PMB[self.idx, mk.t] - self.cf) / (mk.SLB[self.idx, mk.t] * (mk.N + 1))
+        return self.q + self.p["phi"] * (tgt - self.q)
 
 
 class Heuristic(Agent):
-    key, name, theory = "heuristic", "Win-stay, lose-shift", "Bias–variance / ecological rationality"
+    key, name, theory = "heur_wsls", "Win-stay, lose-shift", "Bias–variance / ecological rationality"
     rule = ("Ignores the demand model: keeps changing output in the same direction while profit rises, reverses when it "
             "falls (fixed step).")
     sources = ("gigerenzer2009", "nowak1993")
@@ -306,33 +338,23 @@ class Heuristic(Agent):
         return self.q + self.dir * self.p["step"]
 
 
-class Satisficer(Agent):
-    key, name, theory = "satisficing", "Aspiration-level search", "Satisficing / aspiration-level search"
-    rule = ("Keeps output while profit meets an adaptive aspiration level; below it, searches by moving a share φ "
-            "toward the best reply.")
-    sources = ("simon1955", "cyert1963")
-    SPACE = {"alpha": Spec(0.1, 0.01, 0.5, "log", "Speed at which aspirations adapt"),
-             "phi": Spec(0.5, 0.05, 1.0, help="Search step toward the best reply")}
-
-    def __init__(self, idx, slot, p, mk):
-        super().__init__(idx, slot, p, mk)
-        self.A = None
+class Markup(Agent):
+    key, name, theory = "heur_markup", "Target-margin rule", "Bias–variance / ecological rationality"
+    rule = "Raises output when the observed margin P − ĉ exceeds a target margin m, lowers it otherwise (step φ)."
+    sources = ("hall1939", "gigerenzer2009")
+    SPACE = {"phi": Spec(0.5, 0.05, 3.0, "log", "Output change per unit of margin gap"),
+             "m": Spec(5.0, 0.0, 30.0, help="Target margin")}
 
     def act(self):
-        pr, q = self.profit, self.q
-        if self.A is None:
-            self.A = pr.copy()
-        tgt = self.mk.br(self.idx, self.c_hat, self.rivals)
-        out = np.where(pr >= self.A, q, q + self.p["phi"] * (tgt - q))
-        self.A = self.A + self.p["alpha"] * (pr - self.A)
-        return out
+        P = self.mk.P_prev[self.idx]
+        return self.q + self.p["phi"] * (P - self.c_hat - self.p["m"])
 
 
 class Reinforcement(Agent):
-    key, name, theory = "rl", "Reinforcement learner", "Reinforcement learning"
+    key, name, theory = "rl_softmax", "Softmax value learner", "Reinforcement learning"
     rule = ("Chooses among five moves (−2, −1, 0, +1, +2 steps) by softmax over learned values; a move's value is the "
             "profit change that followed it.")
-    sources = ("erev1998", "sutton2018")
+    sources = ("sutton2018",)
     SPACE = {"step": Spec(5.0, 1.0, 30.0, "log", "Size of one step"),
              "eta": Spec(0.1, 0.01, 0.5, "log", "Learning rate"),
              "temp": Spec(0.2, 0.01, 2.0, "log", "Exploration temperature (relative to typical profit changes)")}
@@ -345,55 +367,129 @@ class Reinforcement(Agent):
         self.last = None
         self.scale = np.ones(self.n)
 
+    def probs(self):
+        z = self.V / (self.p["temp"] * self.scale + 1e-9)[:, None]
+        w = np.exp(z - z.max(1, keepdims=True))
+        return w / w.sum(1, keepdims=True)
+
+    def learn(self, r):
+        rows = np.arange(self.n)
+        self.V[rows, self.a] += self.p["eta"] * (r - self.V[rows, self.a])
+
     def act(self):
-        pr, rows = self.profit, np.arange(self.n)
+        pr = self.profit
         if self.a is not None:
             r = pr - self.last
             self.scale = 0.95 * self.scale + 0.05 * np.abs(r)
-            eta = self.p["eta"]
-            self.V[rows, self.a] += eta * (r - self.V[rows, self.a])
-        z = self.V / (self.p["temp"] * self.scale + 1e-9)[:, None]
-        w = np.exp(z - z.max(1, keepdims=True))
-        cdf = np.cumsum(w / w.sum(1, keepdims=True), axis=1)
+            self.learn(r)
+        cdf = np.cumsum(self.probs(), axis=1)
         u = self.mk.UR[self.idx, self.mk.t, self.i]
         self.a = np.minimum((cdf < u[:, None]).sum(1), 4)
         self.last = pr.copy()
         return self.q + self.MOVES[self.a] * self.p["step"]
 
 
+class ErevRoth(Reinforcement):
+    key, name = "rl_erevroth", "Erev–Roth propensity learner"
+    rule = ("Chooses among five moves with probability proportional to propensities; a move's propensity grows with "
+            "the profit gain that followed it, and all propensities decay (forgetting).")
+    sources = ("erev1998", "roth1995")
+    SPACE = {"step": Spec(5.0, 1.0, 30.0, "log", "Size of one step"),
+             "forget": Spec(0.05, 0.001, 0.3, "log", "Forgetting rate of propensities"),
+             "gain": Spec(1.0, 0.1, 10.0, "log", "Reinforcement per typical profit change")}
+
+    def __init__(self, idx, slot, p, mk):
+        super().__init__(idx, slot, p, mk)
+        self.V = np.ones((self.n, 5))
+
+    def probs(self):
+        return self.V / self.V.sum(1, keepdims=True)
+
+    def learn(self, r):
+        rows = np.arange(self.n)
+        self.V *= (1 - self.p["forget"])[:, None]
+        self.V[rows, self.a] += self.p["gain"] * np.maximum(r, 0) / (self.scale + 1e-9)
+        self.V = np.maximum(self.V, 1e-3)
+
+
 class Imitator(Agent):
-    key, name, theory = "imitation", "Imitate the best", "Structural inertia / evolutionary selection"
+    key, name, theory = "imit_best", "Imitate the best", "Evolutionary selection / imitation"
     rule = ("With probability p copies last period's output of the most profitable firm in the market, plus small "
             "random experimentation.")
     sources = ("vegaredondo1997", "alchian1950")
     SPACE = {"p": Spec(0.5, 0.05, 1.0, help="Probability of imitating each period"),
              "noise": Spec(2.0, 0.0, 20.0, help="Standard deviation of experimentation")}
 
-    def act(self):
+    def model(self):
         mk, idx = self.mk, self.idx
-        best = mk.profit_prev[idx].argmax(1)
-        q_best = mk.q_prev[idx, best]
-        u, z = mk.UR[idx, mk.t, self.i], mk.ZR[idx, mk.t, self.i]
-        return np.where(u < self.p["p"], q_best, self.q) + self.p["noise"] * z
+        return mk.q_prev[idx, mk.profit_prev[idx].argmax(1)]
+
+    def act(self):
+        mk = self.mk
+        u, z = mk.UR[self.idx, mk.t, self.i], mk.ZR[self.idx, mk.t, self.i]
+        return np.where(u < self.p["p"], self.model(), self.q) + self.p["noise"] * z
 
 
-AGENTS: Dict[str, type] = {a.key: a for a in
-                           (Heiner, Optimiser, RealOptions, Cobweb, Heuristic, Satisficer, Reinforcement, Imitator,
-                            RuleB)}
-KEYS = list(AGENTS)
-TUNED = [k for k in KEYS if AGENTS[k].SPACE]
+class Conformist(Imitator):
+    key, name = "imit_avg", "Imitate the average"
+    rule = ("With probability p moves to the average output of the other firms (conformist transmission), plus small "
+            "random experimentation.")
+    sources = ("boyd1985", "alchian1950")
+
+    def model(self):
+        return self.rivals / (self.mk.N - 1)
 
 
-def default_params(key: str) -> Dict[str, float]:
-    return {n: s.default for n, s in AGENTS[key].SPACE.items()}
+DESIGNS: Dict[str, type] = {d.key: d for d in (
+    composite("heiner_m", "Reliability condition · model-based target", "Heiner: reliability condition", "model", "rc",
+              ("heiner1983", "heiner1989")),
+    composite("heiner_p", "Reliability condition · price-based target", "Heiner: reliability condition", "price", "rc",
+              ("heiner1983", "heiner1989")),
+    composite("opt_br", "Filtered best reply", "Neoclassical optimisation", "model", "always",
+              ("muth1960", "kalman1960")),
+    NashRE,
+    composite("options_m", "Inaction band · model-based target", "Real options / value of flexibility", "model",
+              "band", ("dixit1989", "dixit1994")),
+    composite("options_p", "Inaction band · price-based target", "Real options / value of flexibility", "price", "band",
+              ("dixit1989", "dixit1994")),
+    composite("cobweb_p", "Adaptive price expectations", "Cobweb stability theory", "price", "always",
+              ("nerlove1958", "ezekiel1938")),
+    composite("cobweb_q", "Adaptive quantity adjustment", "Cobweb stability theory", "model", "always",
+              ("theocharis1960", "nerlove1958"), fixed={"a_cost": 1.0}),
+    Heuristic, Markup,
+    composite("satis_m", "Aspiration search · model-based target", "Satisficing / aspiration-level search", "model",
+              "aspiration", ("simon1955", "cyert1963")),
+    composite("satis_p", "Aspiration search · price-based target", "Satisficing / aspiration-level search", "price",
+              "aspiration", ("simon1955", "cyert1963")),
+    Reinforcement, ErevRoth, Imitator, Conformist, RuleB)}
+
+THEORY_DESIGNS: Dict[str, Tuple[str, ...]] = {
+    "heiner": ("heiner_m", "heiner_p"), "optimiser": ("opt_br", "opt_nash"), "options": ("options_m", "options_p"),
+    "cobweb": ("cobweb_p", "cobweb_q"), "heuristic": ("heur_wsls", "heur_markup"),
+    "satisficing": ("satis_m", "satis_p"), "rl": ("rl_softmax", "rl_erevroth"), "imitation": ("imit_best", "imit_avg"),
+    "ruleb": ("ruleb",)}
+THEORY_NAMES = {"heiner": "Heiner: reliability condition", "optimiser": "Neoclassical optimisation",
+                "options": "Real options", "cobweb": "Cobweb / adaptive expectations",
+                "heuristic": "Simple heuristics (bias–variance)", "satisficing": "Satisficing",
+                "rl": "Reinforcement learning", "imitation": "Imitation / evolutionary selection",
+                "ruleb": "Rule B (benchmark)"}
+KEYS = list(THEORY_DESIGNS)                       # theories, in tournament slot order
+TUNED = [k for k in KEYS if k != "ruleb"]
+# the target x selection-rule experiment: same targets, four selection rules
+FACTORIAL = ("opt_br", "options_m", "heiner_m", "satis_m", "cobweb_p", "options_p", "heiner_p", "satis_p")
+AGENTS = DESIGNS                                   # alias
+
+
+def default_params(design: str) -> Dict[str, float]:
+    return {n: s.default for n, s in DESIGNS[design].SPACE.items()}
 
 
 # ================================================================================================ simulation
 def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str, np.ndarray]], periods: int,
-             burn_in: int) -> Dict[str, np.ndarray]:
-    """Run B markets. lineup (B, N) holds agent keys per market and slot; params[key][name] is an array over the B
-    markets (or a scalar). Returns average profit per period after burn-in (B, N) and the share of periods in which
-    each firm changed its output."""
+             burn_in: int, keep_path: bool = False) -> Dict[str, np.ndarray]:
+    """Run B markets. lineup (B, N) holds design keys per market and slot; params[design][name] is an array over the
+    B markets (or a scalar). Returns average profit per period after burn-in (B, N), the share of periods in which
+    each firm changed its output, and with keep_path the per-period profits after burn-in (B, T - burn_in, N)."""
     lineup = np.asarray(lineup, dtype=object)
     B, N = lineup.shape
     mk = Market(envs, N, periods)
@@ -409,10 +505,11 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
         for key in np.unique(lineup[:, i]):
             idx = np.flatnonzero(lineup[:, i] == key)
             p = {n: np.broadcast_to(np.asarray(params.get(key, {}).get(n, s.default), float), (B,))[idx].copy()
-                 for n, s in AGENTS[key].SPACE.items()}
-            agents.append(AGENTS[key](idx, i, p, mk))
+                 for n, s in DESIGNS[key].SPACE.items()}
+            agents.append(DESIGNS[key](idx, i, p, mk))
     sum_profit = np.zeros((B, N))
     changes = np.zeros((B, N))
+    path = np.zeros((B, periods - burn_in, N)) if keep_path else None
     for t in range(1, periods):
         mk.t = t
         c_prev, c_now = mk.cost[:, t - 1], mk.cost[:, t]
@@ -420,7 +517,7 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
         new = np.empty((B, N))
         for a in agents:
             new[a.idx, a.i] = a.act()
-        new = np.maximum(Q_MIN, np.rint(np.nan_to_num(new, nan=Q_MIN)))
+        new = np.maximum(Q_MIN, np.rint(np.nan_to_num(new, nan=Q_MIN, posinf=Q_MIN, neginf=Q_MIN)))
         Q = new.sum(1)
         P = np.maximum(P_MIN, mk.PM[:, t] - mk.SL[:, t] * Q)
         profit = (P - c_now)[:, None] * new
@@ -428,11 +525,13 @@ def simulate(envs: Sequence[Env], lineup: np.ndarray, params: Dict[str, Dict[str
         if t >= burn_in:
             sum_profit += profit
             changes += new != mk.q_prev
+            if keep_path:
+                path[:, t - burn_in] = profit
         mk.P_prev, mk.Q_prev, mk.q_prev, mk.profit_prev = P, Q, new, profit
         for a in agents:
             a.update()
     n_rec = periods - burn_in
-    return dict(profit=sum_profit / n_rec, change_rate=changes / n_rec)
+    return dict(profit=sum_profit / n_rec, change_rate=changes / n_rec, path=path)
 
 
 # ================================================================================================ pre-registration
@@ -443,24 +542,31 @@ ENV_RANGES = {"delta": (2.0, 30.0), "c_max": (60.0, 95.0), "q_range": (800.0, 30
 HYPOTHESES = (
     ("PR1", "Head-to-head: in held-out mixed markets the reliability-condition agent earns more than each rival.",
      "Paired profit difference per market; 95% cluster-bootstrap CI over environments, Holm-adjusted across rivals. "
-     "Supported against a rival if the adjusted CI lies above 0."),
-    ("PR2", "Conditional advantage: the reliability-condition agent's advantage over the filtered best reply grows "
-            "with environmental difficulty.",
+     "Supported if the reliability-condition agent is significantly better than every rival."),
+    ("PR2", "Conditional advantage: the reliability-condition agent's advantage over the optimiser grows with "
+            "environmental difficulty.",
      "OLS of the paired difference on a difficulty index (mean of standardised Δ, σ and hazard). Supported if the "
      "slope is positive with p < α."),
     ("PR3", "Evolutionary stability: a population of reliability-condition agents cannot be invaded by any rival.",
-     "For each rival mutant, the mutant's profit minus the residents' mean profit. Supported if no mutant's 95% CI "
-     "lies above 0 (Holm-adjusted)."),
+     "For each rival mutant, the mutant's profit minus the residents' mean profit. Supported if no mutant is "
+     "significantly better (Holm-adjusted)."),
     ("PR4", "Invasion: the reliability-condition agent can invade every rival population.",
-     "Mutant reliability-condition agent's profit minus the residents' mean profit. Supported against a rival if the "
-     "Holm-adjusted 95% CI lies above 0."),
+     "Mutant reliability-condition agent's profit minus the residents' mean profit. Supported if it is significantly "
+     "positive (Holm-adjusted) in every rival population."),
+    ("PR5", "Selection rule: reliability-condition selection improves on always adjusting toward the same target.",
+     "Target × selection-rule market. Paired profit difference reliability condition − always, for the model-based "
+     "and the price-based target, Holm-adjusted. Supported if significantly positive for both targets."),
+    ("PR6", "Downside risk: the reliability-condition agent has less downside risk than always adjusting toward the "
+            "same target.",
+     "Same market. Paired difference in CVaR 5% of per-period profit (mean of the worst 5% of periods), reliability "
+     "condition − always, Holm-adjusted over the two targets. Supported if significantly positive for both."),
 )
 
 
 @dataclass(frozen=True)
 class Prereg:
-    """The frozen analysis plan. Its hash identifies the plan; any change makes a run exploratory."""
-    version: str = "1.0"
+    """The frozen analysis plan. Its hash identifies the plan and the code; any change makes a run exploratory."""
+    version: str = "2.0"
     env_ranges: Tuple[Tuple[str, Tuple[float, float]], ...] = tuple(ENV_RANGES.items())
     n_train: int = 24
     n_test: int = 40
@@ -490,13 +596,13 @@ class Prereg:
 
 def code_digest() -> str:
     """Hash of the agents, the simulator and the analysis code: changing any of them changes the plan's hash."""
-    src = "".join(inspect.getsource(o) for o in (*AGENTS.values(), Agent, Market, simulate, tune, head_to_head,
-                                                  invasion, evaluate, sample_envs))
+    hand_written = [d for d in DESIGNS.values() if not issubclass(d, Composite)]
+    objs = (*hand_written, Agent, Composite, Market,
+            simulate, tune, head_to_head, factorial, invasion, criteria, evaluate, sample_envs, composite)
+    src = "".join(sorted(inspect.getsource(o) for o in objs)) + json.dumps(
+        {k: [DESIGNS[k].TARGET, DESIGNS[k].SELECT, DESIGNS[k].FIXED] for k in DESIGNS if issubclass(DESIGNS[k], Composite)},
+        sort_keys=True) + json.dumps(THEORY_DESIGNS, sort_keys=True)
     return hashlib.sha256(src.encode()).hexdigest()
-
-
-PREREG = Prereg()
-QUICK = Prereg(n_train=6, n_test=8, reps_test=1, periods=250, burn_in=30, budget=6, rounds=1, n_boot=200)
 
 
 def train_envs(pr: Prereg) -> List[Env]:
@@ -528,68 +634,120 @@ def _lhs(space: Dict[str, Spec], k: int, rng: np.random.Generator) -> Dict[str, 
     return out
 
 
-def tune(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None
-         ) -> Tuple[Dict[str, Dict[str, float]], pd.DataFrame]:
-    """Equal-budget tuning. Every agent type gets `budget` candidate parameter vectors (default included), each
-    evaluated on the same training environments in a mixed market with one firm of every type. Round r tunes each
-    type against the others' parameters from round r - 1 (round 1: defaults). Returns tuned parameters and a log."""
+@dataclass
+class Tuned:
+    """Selected design per theory, and tuned parameters for every design."""
+    design: Dict[str, str]                          # theory -> design entering the tournament
+    params: Dict[str, Dict[str, float]]             # design -> parameters
+
+    def lineup(self, theories: Sequence[str] = KEYS) -> List[str]:
+        return [self.design[t] for t in theories]
+
+
+def tune(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None) -> Tuple[Tuned, pd.DataFrame]:
+    """Equal-budget tuning and design selection on the training environments.
+
+    Every design gets `budget` candidate parameter vectors (default included) per round, evaluated in a mixed market
+    with one firm per theory, where the other theories use their current design and parameters (round 1: first
+    design, defaults). Each theory then enters with whichever of its two designs scored higher. Every theory has two
+    designs, so every theory gets the same total budget."""
     envs = train_envs(pr)
     E, K = len(envs), pr.budget
-    current = {k: default_params(k) for k in KEYS}
+    tuned = Tuned(design={t: d[0] for t, d in THEORY_DESIGNS.items()},
+                  params={d: default_params(d) for d in DESIGNS})
     log = []
-    steps, done = pr.rounds * len(TUNED), 0
+    steps, done = pr.rounds * sum(len(THEORY_DESIGNS[t]) for t in TUNED), 0
     for rnd in range(1, pr.rounds + 1):
-        new = {k: dict(v) for k, v in current.items()}
-        for key in TUNED:
-            if progress:
-                progress(done / steps, f"Round {rnd}: tuning {AGENTS[key].name}")
-            rng = np.random.default_rng([pr.train_seed, rnd, KEYS.index(key)])
-            cand = _lhs(AGENTS[key].SPACE, K, rng)
-            lineup = np.tile(np.array(KEYS, dtype=object), (K * E, 1))
-            params = {k: dict(v) for k, v in current.items()}
-            params[key] = {n: np.repeat(v, E) for n, v in cand.items()}
-            out = simulate(envs * K, lineup, params, pr.periods, pr.burn_in)
-            score = out["profit"][:, KEYS.index(key)].reshape(K, E).mean(1)
-            best = int(np.argmax(score))
-            new[key] = {n: float(v[best]) for n, v in cand.items()}
-            log.append(dict(round=rnd, agent=AGENTS[key].name, key=key, default_score=float(score[0]),
-                            best_score=float(score[best]), gain=float(score[best] - score[0]),
-                            **{f"param:{n}": float(v[best]) for n, v in cand.items()}))
-            done += 1
-        current = new
+        new_params = {d: dict(v) for d, v in tuned.params.items()}
+        new_design = dict(tuned.design)
+        for theory in TUNED:
+            slot = KEYS.index(theory)
+            best_score, best_design = -np.inf, None
+            for design in THEORY_DESIGNS[theory]:
+                if progress:
+                    progress(done / steps, f"Round {rnd}: tuning {DESIGNS[design].name}")
+                rng = np.random.default_rng([pr.train_seed, rnd, list(DESIGNS).index(design)])
+                cand = _lhs(DESIGNS[design].SPACE, K, rng)
+                lineup = np.tile(np.array(tuned.lineup(), dtype=object), (K * E, 1))
+                lineup[:, slot] = design
+                params = {d: dict(v) for d, v in tuned.params.items()}
+                params[design] = {n: np.repeat(v, E) for n, v in cand.items()}
+                out = simulate(envs * K, lineup, params, pr.periods, pr.burn_in)
+                score = out["profit"][:, slot].reshape(K, E).mean(1)
+                b = int(np.argmax(score))
+                new_params[design] = {n: float(v[b]) for n, v in cand.items()}
+                log.append(dict(round=rnd, theory=theory, design=design, design_name=DESIGNS[design].name,
+                                default_score=float(score[0]), best_score=float(score[b]),
+                                gain=float(score[b] - score[0]),
+                                **{f"param:{n}": float(v[b]) for n, v in cand.items()}))
+                if score[b] > best_score:
+                    best_score, best_design = float(score[b]), design
+                done += 1
+            new_design[theory] = best_design
+        tuned = Tuned(design=new_design, params=new_params)
     if progress:
         progress(1.0, "Tuning done")
-    return current, pd.DataFrame(log)
+    log = pd.DataFrame(log)
+    last = log["round"] == log["round"].max()
+    log["selected"] = last & log.apply(lambda r: tuned.design[r["theory"]] == r["design"], axis=1)
+    return tuned, log
 
 
 # ================================================================================================ yardsticks
-def head_to_head(pr: Prereg, tuned: Dict[str, Dict[str, float]]) -> pd.DataFrame:
-    """One firm of every type per market, held-out environments. One row per (market, agent)."""
-    envs = test_envs(pr)
-    lineup = np.tile(np.array(KEYS, dtype=object), (len(envs), 1))
-    out = simulate(envs, lineup, tuned, pr.periods, pr.burn_in)
+def _market_rows(envs, keys, names, out, label) -> pd.DataFrame:
+    """Per (market, agent) outcomes on several criteria from simulate(..., keep_path=True)."""
     rows = []
+    path = out["path"]
     for b, e in enumerate(envs):
         prof = out["profit"][b]
         rank = (-prof).argsort().argsort() + 1
-        for i, key in enumerate(KEYS):
-            rows.append(dict(market=b, env=e.seed % 50_000, agent=key, profit=prof[i], rank=int(rank[i]),
-                             rel_profit=prof[i] - prof.mean(), change_rate=out["change_rate"][b, i], **asdict(e)))
+        cap = CAPITAL_PERIODS * nash_profit(e.q_range, len(keys))
+        cum = np.cumsum(path[b], axis=0)
+        k5 = max(1, int(round(0.05 * path.shape[1])))
+        worst = np.sort(path[b], axis=0)[:k5].mean(0)
+        for i, key in enumerate(keys):
+            rows.append(dict(market=b, env=e.seed % 50_000, **{label: key}, name=names[key], profit=prof[i],
+                             rank=int(rank[i]), rel_profit=prof[i] - prof.mean(), regret=prof.max() - prof[i],
+                             sd=float(path[b, :, i].std()), cvar5=float(worst[i]),
+                             survived=float(cum[:, i].min() > -cap), change_rate=out["change_rate"][b, i],
+                             **asdict(e)))
     return pd.DataFrame(rows)
 
 
-def invasion(pr: Prereg, tuned: Dict[str, Dict[str, float]],
-             progress: Optional[Callable[[float, str], None]] = None) -> pd.DataFrame:
-    """For every resident type Y and mutant type X != Y: markets with `residents` firms of type Y and one of type X.
-    Fitness = mutant profit - mean resident profit. One row per (market, resident, mutant)."""
+def head_to_head(pr: Prereg, tuned: Tuned) -> pd.DataFrame:
+    """One firm per theory (its selected design) per market, held-out environments. One row per (market, theory)."""
+    envs = test_envs(pr)
+    lineup = np.tile(np.array(tuned.lineup(), dtype=object), (len(envs), 1))
+    out = simulate(envs, lineup, tuned.params, pr.periods, pr.burn_in, keep_path=True)
+    df = _market_rows(envs, KEYS, {t: THEORY_NAMES[t] for t in KEYS}, out, "agent")
+    df["design"] = df["agent"].map(tuned.design)
+    return df
+
+
+def factorial(pr: Prereg, tuned: Tuned) -> pd.DataFrame:
+    """Target x selection-rule market: the eight composite designs (two targets x four selection rules), each with its
+    own tuned parameters, compete in the same held-out markets. One row per (market, design)."""
+    envs = test_envs(pr)
+    lineup = np.tile(np.array(FACTORIAL, dtype=object), (len(envs), 1))
+    out = simulate(envs, lineup, tuned.params, pr.periods, pr.burn_in, keep_path=True)
+    df = _market_rows(envs, list(FACTORIAL), {d: DESIGNS[d].name for d in FACTORIAL}, out, "design")
+    df["target"] = df["design"].map(lambda d: DESIGNS[d].TARGET)
+    df["select"] = df["design"].map(lambda d: DESIGNS[d].SELECT)
+    return df
+
+
+def invasion(pr: Prereg, tuned: Tuned, progress: Optional[Callable[[float, str], None]] = None) -> pd.DataFrame:
+    """For every resident theory Y and mutant theory X != Y (selected designs): markets with `residents` firms of
+    type Y and one of type X. Fitness = mutant profit - mean resident profit. One row per (market, resident, mutant)."""
     envs = test_envs(pr)
     rows = []
     for r_i, res in enumerate(KEYS):
         if progress:
-            progress(r_i / len(KEYS), f"Invasion of {AGENTS[res].name} populations")
+            progress(r_i / len(KEYS), f"Invasion of {THEORY_NAMES[res]} populations")
         muts = [k for k in KEYS if k != res]
-        lineup = np.array([[res] * pr.residents + [m] for m in muts for _ in envs], dtype=object)
-        out = simulate(envs * len(muts), lineup, tuned, pr.periods, pr.burn_in)
+        lineup = np.array([[tuned.design[res]] * pr.residents + [tuned.design[m]] for m in muts for _ in envs],
+                          dtype=object)
+        out = simulate(envs * len(muts), lineup, tuned.params, pr.periods, pr.burn_in)
         prof = out["profit"]
         fit = prof[:, -1] - prof[:, :-1].mean(1)
         scale = np.abs(prof[:, :-1].mean(1)) + 1e-9
@@ -601,7 +759,7 @@ def invasion(pr: Prereg, tuned: Dict[str, Dict[str, float]],
 
 
 def cluster_ci(values: np.ndarray, clusters: np.ndarray, n_boot: int, conf: float, seed: int = 0):
-    """Mean with a cluster-bootstrap CI (resampling environments)."""
+    """Mean with a cluster-bootstrap CI (resampling environments) and a two-sided bootstrap p-value for mean = 0."""
     df = pd.DataFrame(dict(v=values, c=clusters))
     g = df.groupby("c")["v"].agg(["sum", "count"])
     s, n = g["sum"].to_numpy(), g["count"].to_numpy()
@@ -626,30 +784,66 @@ def holm(pvals: Sequence[float], alpha: float) -> List[bool]:
     return rej
 
 
-def ranking(h2h: pd.DataFrame, pr: Prereg) -> pd.DataFrame:
+CRITERIA = (("rel_profit", "Mean profit (vs market mean)", 1), ("cvar5", "Downside: CVaR 5%", 1),
+            ("survived", "Survival", 1), ("sd", "Volatility (s.d.)", -1), ("regret", "Regret vs market's best", -1),
+            ("worst10", "Worst case: 10th percentile", 1))
+
+
+def criteria(df: pd.DataFrame, label: str, pr: Prereg) -> pd.DataFrame:
+    """Several performance criteria per agent, their ranks, an aggregate (mean) rank and Pareto efficiency."""
     rows = []
-    for key in KEYS:
-        d = h2h[h2h["agent"] == key]
+    for key, d in df.groupby(label, sort=False):
         m, lo, hi, _ = cluster_ci(d["rel_profit"].to_numpy(), d["env"].to_numpy(), pr.n_boot, 1 - pr.alpha)
-        rows.append(dict(agent=AGENTS[key].name, key=key, theory=AGENTS[key].theory, mean_rank=d["rank"].mean(),
-                         win_share=(d["rank"] == 1).mean(), rel_profit=m, lo=lo, hi=hi, profit=d["profit"].mean(),
-                         change_rate=d["change_rate"].mean()))
-    return pd.DataFrame(rows).sort_values("mean_rank", ignore_index=True)
+        rows.append(dict(key=key, agent=d["name"].iloc[0], mean_rank=d["rank"].mean(), win_share=(d["rank"] == 1).mean(),
+                         rel_profit=m, lo=lo, hi=hi, profit=d["profit"].mean(), cvar5=d["cvar5"].mean(),
+                         survived=d["survived"].mean(), sd=d["sd"].mean(), regret=d["regret"].mean(),
+                         worst10=float(np.percentile(d["rel_profit"], 10)), change_rate=d["change_rate"].mean()))
+    out = pd.DataFrame(rows)
+    for col, _, sign in CRITERIA:
+        out[f"rank_{col}"] = (-sign * out[col]).rank(method="min")
+    out["aggregate_rank"] = out[[f"rank_{c}" for c, _, _ in CRITERIA]].mean(1)
+    vals = np.column_stack([sign * out[c].to_numpy(float) for c, _, sign in CRITERIA])
+    out["pareto"] = [not any(np.all(vals[j] >= vals[i]) and np.any(vals[j] > vals[i]) for j in range(len(vals)) if j != i)
+                     for i in range(len(vals))]
+    return out.sort_values("mean_rank", ignore_index=True)
+
+
+def ranking(h2h: pd.DataFrame, pr: Prereg) -> pd.DataFrame:
+    out = criteria(h2h, "agent", pr)
+    out["design"] = out["key"].map(dict(zip(h2h["agent"], h2h["design"])))
+    out["design_name"] = out["design"].map(lambda d: DESIGNS[d].name)
+    return out
+
+
+def paired(df: pd.DataFrame, label: str, a: str, b: str, col: str, pr: Prereg):
+    w = df.pivot_table(index=["market", "env"], columns=label, values=col).reset_index()
+    return cluster_ci((w[a] - w[b]).to_numpy(), w["env"].to_numpy(), pr.n_boot, 1 - pr.alpha)
 
 
 def pairwise(h2h: pd.DataFrame, focal: str, pr: Prereg) -> pd.DataFrame:
     """Paired profit difference focal - rival per market, Holm-adjusted across rivals."""
-    w = h2h.pivot_table(index=["market", "env"], columns="agent", values="profit").reset_index()
     rows = []
     for key in KEYS:
         if key == focal:
             continue
-        diff = (w[focal] - w[key]).to_numpy()
-        m, lo, hi, p = cluster_ci(diff, w["env"].to_numpy(), pr.n_boot, 1 - pr.alpha)
-        rows.append(dict(rival=AGENTS[key].name, key=key, diff=m, lo=lo, hi=hi, p=p))
+        m, lo, hi, p = paired(h2h, "agent", focal, key, "profit", pr)
+        rows.append(dict(rival=THEORY_NAMES[key], key=key, diff=m, lo=lo, hi=hi, p=p))
     df = pd.DataFrame(rows)
     df["holm_reject"] = holm(df["p"].to_list(), pr.alpha)
     return df
+
+
+def selection_effects(fac: pd.DataFrame, pr: Prereg) -> pd.DataFrame:
+    """For each target: every selection rule against 'always', on profit and on downside risk (CVaR 5%)."""
+    rows = []
+    for target, always in (("model", "opt_br"), ("price", "cobweb_p")):
+        for sel in ("band", "rc", "aspiration"):
+            d = next(k for k in FACTORIAL if DESIGNS[k].TARGET == target and DESIGNS[k].SELECT == sel)
+            for col in ("profit", "cvar5"):
+                m, lo, hi, p = paired(fac, "design", d, always, col, pr)
+                rows.append(dict(target=target, select=sel, design=DESIGNS[d].name, criterion=col, diff=m, lo=lo,
+                                 hi=hi, p=p))
+    return pd.DataFrame(rows)
 
 
 def difficulty_index(df: pd.DataFrame) -> np.ndarray:
@@ -657,18 +851,20 @@ def difficulty_index(df: pd.DataFrame) -> np.ndarray:
     return ((z(df["delta"]) + z(df["noise"]) + z(df["hazard"])) / 3).to_numpy()
 
 
+FEATURES = ["delta", "c_max", "q_range", "noise", "foresight", "hazard", "belief_lag"]
+
+
 def robustness(h2h: pd.DataFrame) -> pd.DataFrame:
     """Standardised regression coefficients of each agent's relative profit on the environment parameters (a global
     sensitivity analysis over the sampled environment space)."""
-    feats = ["delta", "c_max", "q_range", "noise", "foresight", "hazard", "belief_lag"]
     rows = []
     for key in KEYS:
         d = h2h[h2h["agent"] == key]
         y = d["rel_profit"].to_numpy(float)
-        X = [((d[f] - d[f].mean()) / (d[f].std() + 1e-12)).to_numpy(float) for f in feats]
-        tab, r2 = ols((y - y.mean()) / (y.std() + 1e-12), X, feats)
-        rows.append(dict(agent=AGENTS[key].name, key=key, r2=r2,
-                         **{f: float(tab.loc[tab["term"] == f, "coef"].iloc[0]) for f in feats}))
+        X = [((d[f] - d[f].mean()) / (d[f].std() + 1e-12)).to_numpy(float) for f in FEATURES]
+        tab, r2 = ols((y - y.mean()) / (y.std() + 1e-12), X, FEATURES)
+        rows.append(dict(agent=THEORY_NAMES[key], key=key, r2=r2,
+                         **{f: float(tab.loc[tab["term"] == f, "coef"].iloc[0]) for f in FEATURES}))
     return pd.DataFrame(rows)
 
 
@@ -687,7 +883,7 @@ def invasion_matrix(inv: pd.DataFrame, pr: Prereg) -> pd.DataFrame:
     return df
 
 
-def evaluate(pr: Prereg, h2h: pd.DataFrame, inv: pd.DataFrame) -> pd.DataFrame:
+def evaluate(pr: Prereg, h2h: pd.DataFrame, inv: pd.DataFrame, fac: pd.DataFrame) -> pd.DataFrame:
     """Apply the pre-registered decision rules."""
     pw = pairwise(h2h, "heiner", pr)
     won = pw[pw["holm_reject"] & (pw["diff"] > 0)]["rival"].tolist()
@@ -703,27 +899,40 @@ def evaluate(pr: Prereg, h2h: pd.DataFrame, inv: pd.DataFrame) -> pd.DataFrame:
            f"slope {slope:+.3g} per SD of difficulty (p = {p2:.3g})")
     im = invasion_matrix(inv, pr)
     res_h = im[im["resident"] == "heiner"]
-    invaders = [AGENTS[k].name for k in res_h[res_h["verdict"] == "invades"]["mutant"]]
+    invaders = [THEORY_NAMES[k] for k in res_h[res_h["verdict"] == "invades"]["mutant"]]
     pr3 = ("supported" if not invaders else "not supported",
            "No rival invades" if not invaders else "Invaded by " + ", ".join(invaders))
     mut_h = im[im["mutant"] == "heiner"]
-    beaten = [AGENTS[k].name for k in mut_h[mut_h["verdict"] == "invades"]["resident"]]
+    beaten = [THEORY_NAMES[k] for k in mut_h[mut_h["verdict"] == "invades"]["resident"]]
     pr4 = ("supported" if len(beaten) == len(mut_h) else "not supported",
            f"Invades {len(beaten)} of {len(mut_h)} rival populations")
+    se = selection_effects(fac, pr)
+    out = []
+    for col, label in (("profit", "profit"), ("cvar5", "CVaR 5%")):
+        d = se[(se["select"] == "rc") & (se["criterion"] == col)].reset_index(drop=True)
+        rej = holm(d["p"].to_list(), pr.alpha)
+        ok = [r and x > 0 for r, x in zip(rej, d["diff"])]
+        out.append(("supported" if all(ok) else "not supported",
+                    "; ".join(f"{t} target {x:+.0f} [{lo:.0f}, {hi:.0f}]{' *' if r else ''}"
+                              for t, x, lo, hi, r in zip(d["target"], d["diff"], d["lo"], d["hi"], rej))
+                    + f" ({label}, reliability condition − always; * = Holm-significant)"))
     return pd.DataFrame([dict(id=h[0], hypothesis=h[1], decision_rule=h[2], verdict=v[0], result=v[1])
-                         for h, v in zip(pr.hypotheses, (pr1, pr2, pr3, pr4))])
+                         for h, v in zip(pr.hypotheses, (pr1, pr2, pr3, pr4, *out))])
 
 
 @dataclass
 class TournamentResult:
     prereg_hash: str
     exploratory: bool
-    tuned: Dict[str, Dict[str, float]]
+    tuned: Tuned
     tuning_log: pd.DataFrame
     h2h: pd.DataFrame
+    fac: pd.DataFrame
     inv: pd.DataFrame
     ranking: pd.DataFrame = field(default_factory=pd.DataFrame)
     pairwise: pd.DataFrame = field(default_factory=pd.DataFrame)
+    factorial: pd.DataFrame = field(default_factory=pd.DataFrame)
+    selection: pd.DataFrame = field(default_factory=pd.DataFrame)
     invasion: pd.DataFrame = field(default_factory=pd.DataFrame)
     robustness: pd.DataFrame = field(default_factory=pd.DataFrame)
     verdicts: pd.DataFrame = field(default_factory=pd.DataFrame)
@@ -731,33 +940,40 @@ class TournamentResult:
 
 def run_protocol(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None) -> TournamentResult:
     stage = lambda lo, hi: (lambda f, msg: progress(lo + (hi - lo) * f, msg)) if progress else None
-    tuned, log = tune(pr, stage(0.0, 0.6))
+    tuned, log = tune(pr, stage(0.0, 0.7))
     if progress:
-        progress(0.6, "Head-to-head on held-out environments")
+        progress(0.7, "Head-to-head and selection-rule markets on held-out environments")
     h2h = head_to_head(pr, tuned)
-    inv = invasion(pr, tuned, stage(0.65, 1.0))
+    fac = factorial(pr, tuned)
+    inv = invasion(pr, tuned, stage(0.75, 1.0))
     return TournamentResult(prereg_hash=pr.digest, exploratory=pr.digest != PREREG.digest, tuned=tuned,
-                            tuning_log=log, h2h=h2h, inv=inv, ranking=ranking(h2h, pr),
-                            pairwise=pairwise(h2h, "heiner", pr), invasion=invasion_matrix(inv, pr),
-                            robustness=robustness(h2h), verdicts=evaluate(pr, h2h, inv))
+                            tuning_log=log, h2h=h2h, fac=fac, inv=inv, ranking=ranking(h2h, pr),
+                            pairwise=pairwise(h2h, "heiner", pr), factorial=criteria(fac, "design", pr),
+                            selection=selection_effects(fac, pr), invasion=invasion_matrix(inv, pr),
+                            robustness=robustness(h2h), verdicts=evaluate(pr, h2h, inv, fac))
 
 
 def replicate(pr: Prereg, n: int, progress: Optional[Callable[[float, str], None]] = None) -> pd.DataFrame:
-    """Re-run the whole protocol (tuning included) with n independent pairs of training and test seeds, to show
-    which conclusions survive a new draw of environments. One row per (replication, agent)."""
-    rows = []
+    """Re-run the whole protocol (tuning and design selection included) with n independent pairs of training and test
+    seeds, to show which conclusions survive a new draw of environments. One row per (replication, agent); the
+    selection-rule effects of every replication are in .attrs["selection"]."""
+    rows, sel = [], []
     for r in range(n):
         p = Prereg(**{**asdict(pr), "train_seed": pr.train_seed + 100 * (r + 1), "test_seed": pr.test_seed + 100 * (r + 1)})
         if progress:
             progress(r / n, f"Replication {r + 1} of {n}")
         res = run_protocol(p)
+        sel.append(res.selection.assign(replication=r + 1))
         ver = "".join("✓" if v == "supported" else "✗" for v in res.verdicts["verdict"])
         for _, x in res.ranking.iterrows():
             rows.append(dict(replication=r + 1, train_seed=p.train_seed, agent=x["agent"], key=x["key"],
-                             mean_rank=x["mean_rank"], rel_profit=x["rel_profit"], verdicts=ver))
+                             design=x["design_name"], mean_rank=x["mean_rank"], aggregate_rank=x["aggregate_rank"],
+                             rel_profit=x["rel_profit"], cvar5=x["cvar5"], survived=x["survived"], verdicts=ver))
     if progress:
         progress(1.0, "Replications done")
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs["selection"] = pd.concat(sel, ignore_index=True)    # selection-rule effects per replication
+    return out
 
 
 def prereg_from_dict(d: dict) -> Prereg:
@@ -765,3 +981,7 @@ def prereg_from_dict(d: dict) -> Prereg:
     d["env_ranges"] = tuple((k, tuple(v)) for k, v in d["env_ranges"])
     d["hypotheses"] = tuple(tuple(h) for h in d["hypotheses"])
     return Prereg(**d)
+
+
+PREREG = Prereg()
+QUICK = Prereg(n_train=6, n_test=8, reps_test=1, periods=250, burn_in=30, budget=6, rounds=1, n_boot=200)

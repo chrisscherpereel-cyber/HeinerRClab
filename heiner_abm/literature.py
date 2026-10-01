@@ -261,6 +261,17 @@ _REFS = [
     _a("stone1974", "Stone, M.", 1974, "Cross-validatory choice and assessment of statistical predictions",
        "Journal of the Royal Statistical Society: Series B", "36", "2", "111–147"),
     _b("efron1993", "Efron, B.; Tibshirani, R. J.", 1993, "An introduction to the bootstrap", "Chapman & Hall"),
+    _a("hall1939", "Hall, R. L.; Hitch, C. J.", 1939, "Price theory and business behaviour", "Oxford Economic Papers",
+       "2", "", "12–45"),
+    _a("roth1995", "Roth, A. E.; Erev, I.", 1995,
+       "Learning in extensive-form games: Experimental data and simple dynamic models in the intermediate term",
+       "Games and Economic Behavior", "8", "1", "164–212"),
+    _b("boyd1985", "Boyd, R.; Richerson, P. J.", 1985, "Culture and the evolutionary process",
+       "University of Chicago Press"),
+    _a("rockafellar2000", "Rockafellar, R. T.; Uryasev, S.", 2000, "Optimization of conditional value-at-risk",
+       "Journal of Risk", "2", "3", "21–41"),
+    _a("savage1951", "Savage, L. J.", 1951, "The theory of statistical decision",
+       "Journal of the American Statistical Association", "46", "253", "55–67"),
     _b("axelrod1984", "Axelrod, R.", 1984, "The evolution of cooperation", "Basic Books"),
     _a("maynardsmith1973", "Maynard Smith, J.; Price, G. R.", 1973, "The logic of animal conflict", "Nature", "246",
        "5427", "15–18"),
@@ -691,6 +702,13 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "tuning budget on training environments; evaluation uses held-out environments, a frozen and hashed analysis "
      "plan, head-to-head profit, invasion tests, global sensitivity analysis and replication across seeds.",
      ["axelrod1984", "maynardsmith1973", "bergstra2012", "nosek2018", "saltelli2008"]),
+    ("When does restricting flexibility pay, and who should decide?",
+     "The tournament separates the principle from its implementation. Restricting a flexible rule pays when that rule "
+     "is unreliable (a misspecified model) and costs when it is reliable, as the reliability condition implies. But an "
+     "agent that estimates its own reliability case by case faces a second-order inference problem, and fixed rules "
+     "capture the gains more robustly. This connects the reliability condition to the regress problem of deciding "
+     "how to decide.",
+     ["heiner1983", "conlisk1996", "hansen2008"]),
     ("Risk versus Knightian uncertainty",
      "Structural uncertainty (misspecified demand models) is compared with risk at matched unpredictability, "
      "testing whether the RC applies whatever the source of the CD-gap.",
@@ -703,7 +721,8 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      ["muth1960", "kalman1960", "green1966", "gigerenzer2009"]),
 ]
 
-METHOD_REFS = ["holm1979", "mckay1979", "nowak1993", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
+METHOD_REFS = ["holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
+               "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986"]
 
 

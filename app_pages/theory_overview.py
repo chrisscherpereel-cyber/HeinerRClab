@@ -9,7 +9,8 @@ st.markdown(
     "When should a decision maker adapt, and when should it stick to a rule? Eight theories give different answers. "
     "This laboratory implements each of them in the same cobweb oligopoly, where firms commit output before costs and "
     "prices are known, and tests them against one another on equal terms: directional experiments, out-of-sample "
-    "forecasts, an agent tournament with equal tuning budgets, and a mechanism study. No theory is the default; each "
+    "forecasts, an agent tournament with equal tuning budgets, a mechanism study, endogenous rule choice, validation "
+    "against field patterns and laboratory data, and two further decision tasks. No theory is the default; each "
     "has its own page with the same sections.")
 
 st.header("1 · The theories at a glance", divider="gray")
@@ -54,7 +55,15 @@ st.markdown(
     "target pays when its reliability is known, and breaks even near an error-to-signal ratio of about 1.\n"
     "* **Knowing when to hold back is the hard part.** Agents that must learn their own reliability lose that gain; "
     "fixed rules recover part of it.\n"
-    "* **Criteria matter.** Rankings by profit, downside risk and survival differ; most theories are Pareto-efficient.")
+    "* **Criteria matter.** Rankings by profit, downside risk and survival differ; most theories are Pareto-efficient.\n"
+    "* **When firms choose their own rules,** populations change output less often and abandon the flexible optimiser "
+    "as uncertainty rises, but selection favours a simple target-margin heuristic as much as an explicit restriction "
+    "(Rule choice).\n"
+    "* **The boundary generalises.** In an inventory task and a learning task with shifting payoffs, restriction pays "
+    "only where the flexible rule is unreliable, with a break-even error-to-signal ratio below or near 1 "
+    "(Generalisation).\n"
+    "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment); the "
+    "calibration and human-experiment pipelines are ready but have no human data yet (Validate & generalise).")
 
 
 def _lit():

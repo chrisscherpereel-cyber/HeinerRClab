@@ -9,7 +9,9 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/theory_options.py", "app_pages/theory_cobweb.py", "app_pages/theory_heuristics.py",
          "app_pages/theory_satisficing.py", "app_pages/theory_rl.py", "app_pages/theory_imitation.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
-         "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/designer.py",
+         "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/rule_choice.py", "app_pages/designer.py",
+         "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/play_market.py",
+         "app_pages/experiment_analysis.py", "app_pages/generalisation.py",
          "app_pages/literature.py", "app_pages/model_docs.py"]
 
 
@@ -18,6 +20,14 @@ def _fast(at):
     at.session_state["cfg_periods"] = 300
     at.session_state["arena_scale"] = "Quick check"   # the registered plans take a minute or more
     at.session_state["mech_scale"] = "Quick check"
+    at.session_state["choice_scale"] = "Quick check"
+    at.session_state["gen_scale"] = "Quick check"
+    at.session_state["pat_envs"] = 4
+    at.session_state["pat_periods"] = 200
+    at.session_state["exa_src"] = "Synthetic demonstration"
+    at.session_state["exa_n"] = 6
+    at.session_state["play_pid"] = "smoke-test"
+    at.session_state["play_consent"] = True
     return at
 
 

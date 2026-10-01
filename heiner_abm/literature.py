@@ -227,6 +227,25 @@ _REFS = [
        "375–384"),
     _a("huck1999", "Huck, S.; Normann, H.-T.; Oechssler, J.", 1999, "Learning in Cournot oligopoly: An experiment",
        "Economic Journal", "109", "454", "C80–C95"),
+    _a("hommes2011", "Hommes, C.", 2011, "The heterogeneous expectations hypothesis: Some evidence from the lab",
+       "Journal of Economic Dynamics and Control", "35", "1", "1–24"),
+    _a("anufriev2012", "Anufriev, M.; Hommes, C.", 2012, "Evolutionary selection of individual expectations and "
+       "aggregate outcomes in asset pricing experiments", "American Economic Journal: Microeconomics", "4", "4",
+       "35–64"),
+    _a("grimm2005", "Grimm, V.; Revilla, E.; Berger, U.; Jeltsch, F.; Mooij, W. M.; Railsback, S. F.; Thulke, H.-H.; "
+       "Weiner, J.; Wiegand, T.; DeAngelis, D. L.", 2005, "Pattern-oriented modeling of agent-based complex systems: "
+       "Lessons from ecology", "Science", "310", "5750", "987–991"),
+    _a("arrow1951b", "Arrow, K. J.; Harris, T.; Marschak, J.", 1951, "Optimal inventory policy", "Econometrica", "19",
+       "3", "250–272"),
+    _a("schweitzer2000", "Schweitzer, M. E.; Cachon, G. P.", 2000, "Decision bias in the newsvendor problem with a "
+       "known demand distribution: Experimental evidence", "Management Science", "46", "3", "404–420"),
+    _a("bolton2008", "Bolton, G. E.; Katok, E.", 2008, "Learning by doing in the newsvendor problem: A laboratory "
+       "investigation of the role of experience and feedback", "Manufacturing & Service Operations Management",
+       "10", "3", "519–538"),
+    _a("behrens2007", "Behrens, T. E. J.; Woolrich, M. W.; Walton, M. E.; Rushworth, M. F. S.", 2007,
+       "Learning the value of information in an uncertain world", "Nature Neuroscience", "10", "9", "1214–1221"),
+    _a("fischbacher2007", "Fischbacher, U.", 2007, "z-Tree: Zurich toolbox for ready-made economic experiments",
+       "Experimental Economics", "10", "2", "171–178"),
     _a("huck2004", "Huck, S.; Normann, H.-T.; Oechssler, J.", 2004,
        "Two are few and four are many: Number effects in experimental oligopolies",
        "Journal of Economic Behavior & Organization", "53", "4", "435–446"),
@@ -696,6 +715,105 @@ HYPOTHESES.append(Hypothesis(
     contribution="Maps when each decision rule works across separate sources of uncertainty, and tests the "
                  "reliability condition as a boundary prediction against the measured reliability of the flexible "
                  "rule."))
+HYPOTHESES.append(Hypothesis(
+    "EMERGE", "Rule-governed behaviour emerges when firms choose their own rules",
+    "Rule choice",
+    "When firms switch between rules according to recent performance, populations drift toward restricted, "
+    "rule-governed rules (and change output less often) as uncertainty rises, and such markets stay further from "
+    "equilibrium.",
+    "Performance-based selection favours the most responsive, best-informed rule (or drives the market toward the "
+    "equilibrium), whatever the level of uncertainty.",
+    "Rational expectations / evolutionary selection",
+    support=[("heiner1983", "Predictable, rule-governed behaviour originates in uncertainty about which actions "
+                            "are best."),
+             ("brock1997", "With performance-based switching between cheap simple and costly sophisticated "
+                           "predictors, simple rules can prevail and markets fluctuate around the equilibrium."),
+             ("anufriev2012", "In the laboratory, simple forecasting heuristics compete by past performance and "
+                              "their mix determines whether markets converge or oscillate.")],
+    alternative=[("muth1961", "Expectations converge on the model's prediction, so the most informed rule wins."),
+                 ("alchian1950", "Selection favours whichever behaviour earns most, not restriction as such."),
+                 ("vegaredondo1997", "Imitation of success drives oligopolies to the competitive outcome.")],
+    contribution="Turns Heiner's claim about the origin of predictable behaviour into an emergent outcome: rules are "
+                 "not imposed but chosen by performance (logit switching with an adjustable intensity of choice), "
+                 "and the resulting rule mix is linked to price volatility and the distance from equilibrium."))
+HYPOTHESES.append(Hypothesis(
+    "PATTERN", "The market reproduces documented field patterns",
+    "Field patterns",
+    "A market of boundedly rational firms reproduces several independent empirical patterns at once: cobweb cycles, "
+    "damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility "
+    "around equilibrium and positive markups.",
+    "Under rational expectations and flexible adjustment there are no systematic cycles and no stickiness, so these "
+    "patterns would reflect frictions outside the model.",
+    "Rational expectations / frictionless adjustment",
+    support=[("grimm2005", "Matching several patterns at once constrains agent-based models far more than fitting "
+                           "a single one."),
+             ("ezekiel1938", "Lagged supply response produces alternating price cycles."),
+             ("carlton1986", "Many transaction prices stay unchanged for long spells and then move in steps.")],
+    alternative=[("muth1961", "Rational expectations remove systematic, predictable price cycles."),
+                 ("samuelson1947", "Comparative statics treats markets as at equilibrium, adjusting smoothly.")],
+    contribution="Pattern-oriented validation: the market is judged by whether it reproduces documented patterns "
+                 "with criteria fixed in advance, so results cannot be dismissed as mere properties of the model."))
+HYPOTHESES.append(Hypothesis(
+    "CALIB", "Out of sample, simple and restricted rules predict laboratory behaviour",
+    "Calibration",
+    "Fitted to laboratory cobweb and Cournot data, simple rules, including rules that keep the previous decision "
+    "unless a condition is met, predict subjects' later choices better than the rational benchmark, and subjects "
+    "are heterogeneous in which rule fits best.",
+    "Subjects' choices are best predicted by rational expectations or best replies; deviations are noise.",
+    "Rational expectations / best reply",
+    support=[("hommes2011", "Heterogeneous simple heuristics explain laboratory expectations better than a single "
+                            "rational rule."),
+             ("huck1999", "In Cournot experiments, imitation and best-reply rules both describe behaviour, depending "
+                          "on the information given."),
+             ("heiner1983", "Behaviour that keeps to a narrow repertoire is predicted to be more regular than "
+                            "optimisation implies.")],
+    alternative=[("muth1961", "Expectations are model-consistent on average."),
+                 ("theocharis1960", "Best-reply dynamics describe how Cournot markets adjust."),
+                 ("hommes2007", "In stable cobweb treatments, average expectations come close to rational.")],
+    contribution="Fits every theory's decision rule to the same subjects and compares them out of sample (first half "
+                 "fitted, second half predicted), rather than in sample."))
+HYPOTHESES.append(Hypothesis(
+    "EXPER", "People deviate from their default less under uncertainty, and that helps them",
+    "Play the market · Experiment analysis",
+    "Participants change their output less often under high than under low uncertainty, and under high uncertainty "
+    "those who change less often earn more relative to their rivals.",
+    "People adjust more when conditions change more, and responsiveness pays; or deviations reflect noise and "
+    "anchoring biases unrelated to uncertainty.",
+    "Reinforcement learning / behavioural bias",
+    support=[("heiner1983", "Greater uncertainty narrows the repertoire of actions, making behaviour more "
+                            "predictable."),
+             ("bolton2008", "Restricting how often newsvendor orders may change improves performance in the "
+                            "laboratory."),
+             ("fischbacher2007", "Computerised market experiments with a fixed protocol make choices comparable "
+                                 "across participants.")],
+    alternative=[("erev1998", "Reinforcement learning explains experimental behaviour without any restriction "
+                              "rule."),
+                 ("schweitzer2000", "Newsvendor decisions are pulled toward mean demand and chase recent demand: "
+                                    "a bias, not a reliability-based restriction."),
+                 ("kahneman1979", "Choices under risk reflect reference dependence rather than reliability.")],
+    contribution="Puts human participants in the same market as the agents, classifies each person by the design "
+                 "that best predicts their choices, and tests Heiner's predictability claim within subjects."))
+HYPOTHESES.append(Hypothesis(
+    "GEN", "The reliability boundary holds beyond the market",
+    "Generalisation",
+    "In other decision tasks with a default, a flexible alternative and a gap between difficulty and competence "
+    "(an inventory task and a learning task with shifting payoffs), restriction pays only where the flexible rule is "
+    "unreliable, with the same error-to-signal boundary as in the market.",
+    "The optimal policy in each task uses all available information (an updated order level, a learner that tracks "
+    "volatility), so restricting the flexible rule never pays where it is used optimally.",
+    "Optimal inventory / Bayesian learning",
+    support=[("heiner1983", "The reliability condition is stated for any decision with a default and possible "
+                            "deviations, not for markets in particular."),
+             ("heiner1989", "The reliable adjustment speed falls as the error-to-signal ratio rises."),
+             ("gigerenzer2009", "Simple rules win where estimation error is large relative to what can be "
+                                "learned.")],
+    alternative=[("arrow1951b", "Optimal inventory policies follow from the demand distribution."),
+                 ("scarf1960", "Inaction in inventory policy arises from fixed ordering costs, not reliability."),
+                 ("behrens2007", "People raise their learning rate when the environment is volatile, as an optimal "
+                                 "learner does.")],
+    contribution="Shows that the finding is about decision making, not about cobweb markets: the same selection "
+                 "layers and the same error-to-signal boundary are tested in tasks with a different payoff "
+                 "structure."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 

@@ -36,7 +36,15 @@ pages = {
         st.Page("app_pages/theories.py", title="Competing theories", icon="🏆"),
         st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),
         st.Page("app_pages/mechanisms.py", title="Mechanisms", icon="🔬"),
+        st.Page("app_pages/rule_choice.py", title="Rule choice (emergence)", icon="🔄"),
         st.Page("app_pages/designer.py", title="Experiment designer", icon="🛠️"),
+    ],
+    "Validate & generalise": [
+        st.Page("app_pages/field_patterns.py", title="Field patterns", icon="📊"),
+        st.Page("app_pages/calibration.py", title="Calibration to experiments", icon="📏"),
+        st.Page("app_pages/play_market.py", title="Play the market", icon="🎮"),
+        st.Page("app_pages/experiment_analysis.py", title="Experiment analysis", icon="🧾"),
+        st.Page("app_pages/generalisation.py", title="Generalisation", icon="🌐"),
     ],
     "Reference": [
         st.Page("app_pages/literature.py", title="Research & contribution", icon="📚"),

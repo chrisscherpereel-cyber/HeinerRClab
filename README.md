@@ -49,6 +49,7 @@ many replications. For heavy research runs, use a local installation.
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
 | Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
+| Mechanisms | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardised effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
 | Experiment designer | Generic one- or two-parameter sweeps with CSV export |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
@@ -80,7 +81,7 @@ combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). He
 
 ## Agent tournament: registered results
 
-Registered plan `2e7bc47b726b5ba3`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
+Registered plan `15193603c3f8359b`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
 training environments; each theory enters with the design that scored higher on training data; evaluation on 40 × 2
 held-out environments (800 periods); six criteria; invasion with 4 residents + 1 mutant; three replications with
 fresh seeds.
@@ -125,6 +126,51 @@ None of the six pre-registered hypotheses was supported in the main run; PR2 was
 * *Criteria matter.* Ranking by profit alone, by downside risk or by survival gives different orders; seven of nine
   theories are Pareto-efficient in the main run, so claims of superiority must name the criterion.
 
+Adding the instrumentation used by the mechanism study changed the plan's hash (it covers the code) but not a single
+result: the registered run reproduces the earlier one exactly.
+
+## Mechanism study: registered results
+
+Study plan `fafb771393aab7fe` (120 environments drawn by Latin hypercube over separate sources of uncertainty, 800
+periods, oracle values from 3,200-period independent runs, background rivals tuned under tournament plan
+`15193603c3f8359b`). A focal firm aims at the same target as the always-adjusting rule and differs only in when it
+moves. Profit per period relative to always adjusting (95% CI):
+
+| Selection rule | Model-based target | Price-based target |
+|---|---|---|
+| Reliability condition, oracle (true reliability) | **+158 [91, 233]** | −29 [−58, −4] |
+| Reliability condition, learned with the true model | +18 [−39, 81] | −35 [−58, −10] |
+| Reliability condition, learned (own model) | −14 [−32, 2] | −132 [−173, −91] |
+| Inaction band | +28 [−5, 62] | −144 [−165, −122] |
+
+Cost of applying the principle (oracle − learned): model-based target +172 [102, 246], of which estimation from
+limited experience +140 [42, 238] and judging with a misspecified model +32 [−28, 94]; price-based target +103
+[64, 140], of which estimation +5 [−22, 30] and model bias +97 [61, 131]. Pooling more experience (memory up to
+0.999) moved the learned agent only from −14 to +1, far from the oracle's +158.
+
+Boundary: on the model-based target the oracle's gain rises with the flexible rule's error-to-signal ratio K (slope
++1,401 per unit of ln K, p = 0.011) and breaks even at K ≈ 0.97; the inaction band's gain breaks even at K ≈ 1.06
+(p < 0.001). Restriction pays once the flexible rule's error is about as large as the adjustment it should make. The
+gain is driven by misspecification (shift hazard +0.22 [0.05, 0.39], model lag +0.29 [0.12, 0.44], standardised)
+rather than by risk (volatility +0.06 [−0.14, 0.23]).
+
+Pre-registered verdicts: M1 (the principle pays with known reliability) **supported**; M2 (applying it is costly on
+both targets) **supported**; M3 (model bias on the model-based target) not supported; M4 (pooled boundary slope)
+not supported, p = 0.07, although the model-based slope alone is significant; M5 (misspecification minus risk
+coefficient) not supported, CI [−0.13, 0.46].
+
+Maps: the metamodels' cross-validated R² ranges from 0.0 (simple heuristics, reinforcement learning) to 0.6
+(adaptive expectations), so the winner maps are only partly predictable from the environment; the page reports the
+cross-validated R² with every map.
+
+**What the mechanism study adds.** Heiner's principle is sound: knowing when deviations are reliable is worth a
+large gain exactly where the flexible rule is error-prone, with a break-even near K = 1, and it is worth nothing (or
+slightly negative) where the flexible rule is already reliable. The tournament results are therefore not a failure
+of the principle but of its implementation: an agent that must learn its own reliability loses the whole gain, mostly
+because limited and non-stationary experience makes the estimates noisy (model-based target), or because it judges
+its past decisions with the wrong model (price-based target). More experience does not fix this when the environment
+keeps shifting. Fixed restrictions such as an inaction band recover part of the gain without estimation.
+
 The plan was revised during development, before it was frozen: a first version represented each theory by one
 design (and, earlier still, the reliability-condition agent used an unfiltered target). Both earlier versions also
 placed the reliability-condition agent in the lower half.
@@ -140,6 +186,7 @@ heiner_abm/experiments.py  sweeps with common random numbers, rigid-twin RC vali
 heiner_abm/theories.py     rival theories, their predictions, the tournament experiments and scoring
 heiner_abm/literature.py   references, research behind every hypothesis and alternative, contributions
 heiner_abm/arena.py        rival agents, shared-market simulator, equal-budget tuning, pre-registered tournament
+heiner_abm/mechanisms.py   oracle vs learned reliability condition, boundary test, uncertainty-type maps
 ui/common.py               sidebar base scenario, presets, caching, chart helpers
 app_pages/*.py             the Streamlit pages
 ```

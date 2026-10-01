@@ -4,7 +4,8 @@ import streamlit as st
 from heiner_abm.literature import (CONTRIBUTIONS, HYPOTHESES, HYPOTHESIS_BY_ID, METHOD_REFS, REFERENCES,
                                    THEORY_SOURCES, bibliography, cite, cited_keys)
 from heiner_abm.theories import THEORIES
-from ui.common import research_panel
+from heiner_abm.focal import FOCAL_KEYS, prediction, title as theory_title
+from ui.common import focal_theory, focal_title, research_panel
 
 st.title("Research basis and contribution")
 st.caption("Every hypothesis in this laboratory is grounded in published research, and so is its alternative. "
@@ -14,7 +15,9 @@ st.caption("Every hypothesis in this laboratory is grounded in published researc
 # ------------------------------------------------------------------------------------------------ contribution
 st.header("1 · Contribution to the literature", divider="gray")
 st.markdown(
-    "Heiner's reliability condition explains rule-governed behaviour as a response to uncertainty: when the gap "
+    "The laboratory tests eight theories of decision making under uncertainty on equal terms; the sidebar chooses "
+    "which one is highlighted. The question that unites them is the one Heiner's reliability condition answers "
+    "most directly. Heiner's reliability condition explains rule-governed behaviour as a response to uncertainty: when the gap "
     "between the difficulty of a problem and an agent's competence widens, restricting behaviour to simple rules "
     "can beat flexible, 'optimising' behaviour. The theory is widely cited but hard to test, because its quantities "
     "(how often deviations are right or wrong, and what they gain or lose) are rarely observable. The simulation "
@@ -27,11 +30,14 @@ for k, (title, text, keys) in enumerate(CONTRIBUTIONS, 1):
 
 # ------------------------------------------------------------------------------------------------ hypotheses
 st.header("2 · Hypotheses and the research behind them", divider="gray")
-st.caption("Each row is a hypothesis tested in the app. 'Supporting research' backs the reliability-condition "
-           "prediction; 'Alternative research' backs the rival prediction.")
+focal = focal_theory()
+st.caption(f"Each row is a hypothesis tested in the app. The first prediction column is the theory under test "
+           f"(⭐ {focal_title()}, chosen in the sidebar). 'Supporting research' backs the reliability-condition "
+           "prediction; 'Alternative research' backs the registered alternative.")
 matrix = pd.DataFrame([{
     "ID": h.hid, "Hypothesis": h.title, "Tested on": h.where,
-    "RC prediction": h.rc_prediction, "Alternative": f"{h.alt_label}: {h.alt_prediction}",
+    f"⭐ {focal_title()} predicts": prediction(h.hid, focal)[0],
+    "Reliability condition predicts": h.rc_prediction, "Alternative": f"{h.alt_label}: {h.alt_prediction}",
     "Supporting research": cite(*[k for k, _ in h.support]),
     "Alternative research": cite(*[k for k, _ in h.alternative]),
     "Contribution": h.contribution} for h in HYPOTHESES])
@@ -40,13 +46,9 @@ hid = st.selectbox("Show the full research basis for", [h.hid for h in HYPOTHESE
                    format_func=lambda k: f"{k} · {HYPOTHESIS_BY_ID[k].title}",
                    help="Pick a hypothesis to see how each study bears on it and the full references.")
 h = HYPOTHESIS_BY_ID[hid]
-c1, c2 = st.columns(2)
-with c1.container(border=True):
-    st.markdown("**Reliability condition predicts**")
-    st.markdown(h.rc_prediction)
-with c2.container(border=True):
-    st.markdown(f"**Alternative ({h.alt_label.lower()}) predicts**")
-    st.markdown(h.alt_prediction)
+st.dataframe(pd.DataFrame([dict(Theory=("⭐ " if k == focal else "") + theory_title(k),
+                                Prediction=prediction(hid, k)[0], Basis=prediction(hid, k)[1]) for k in FOCAL_KEYS]),
+             hide_index=True, width="stretch")
 research_panel(h, nested=True)
 
 # ------------------------------------------------------------------------------------------------ theories

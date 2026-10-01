@@ -11,7 +11,7 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
          "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/rule_choice.py", "app_pages/designer.py",
          "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/play_market.py",
-         "app_pages/experiment_analysis.py", "app_pages/generalisation.py",
+         "app_pages/experiment_analysis.py", "app_pages/generalisation.py", "app_pages/tracking.py",
          "app_pages/literature.py", "app_pages/model_docs.py"]
 
 
@@ -22,6 +22,7 @@ def _fast(at):
     at.session_state["mech_scale"] = "Quick check"
     at.session_state["choice_scale"] = "Quick check"
     at.session_state["gen_scale"] = "Quick check"
+    at.session_state["trk_scale"] = "Quick check"
     at.session_state["pat_envs"] = 4
     at.session_state["pat_periods"] = 200
     at.session_state["exa_src"] = "Synthetic demonstration"
@@ -33,8 +34,9 @@ def _fast(at):
 
 @pytest.mark.parametrize("page", PAGES)
 @pytest.mark.parametrize("preset", [{"cfg_horizon": 1}, {"cfg_rule": "Cournot", "cfg_horizon": 3},
-                                    {"cfg_selection": "Adaptive", "cfg_horizon": 3},
-                                    {"cfg_struct_on": True, "cfg_rule": "Cournot", "cfg_horizon": 3}])
+                                    {"cfg_selection": "Adaptive", "cfg_horizon": 3, "focal_theory": "options"},
+                                    {"cfg_struct_on": True, "cfg_rule": "Cournot", "cfg_horizon": 3,
+                                     "focal_theory": "rl"}])
 def test_page_runs(page, preset):
     at = _fast(AppTest.from_file(APP, default_timeout=600))
     for k, v in preset.items():

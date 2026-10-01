@@ -45,6 +45,7 @@ pages = {
         st.Page("app_pages/play_market.py", title="Play the market", icon="🎮"),
         st.Page("app_pages/experiment_analysis.py", title="Experiment analysis", icon="🧾"),
         st.Page("app_pages/generalisation.py", title="Generalisation", icon="🌐"),
+        st.Page("app_pages/tracking.py", title="Solvable benchmark (Muth–Kalman)", icon="📐"),
     ],
     "Reference": [
         st.Page("app_pages/literature.py", title="Research & contribution", icon="📚"),

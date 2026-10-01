@@ -6,9 +6,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from heiner_abm.arena import (DESIGNS, FEATURES, KEYS, PREREG, QUICK, THEORY_DESIGNS, THEORY_NAMES, Prereg,
-                              replicate, run_protocol)
+                              pairwise, replicate, run_protocol)
 from heiner_abm.literature import cite
-from ui.common import CAT, DIVERGING, download, hypothesis_card, style, verdict
+from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict
 
 st.title("Agent tournament: rival theories as competing agents")
 st.caption("Each theory of flexibility under uncertainty is implemented as decision rules. The rules compete in the "
@@ -133,7 +133,7 @@ st.header("5 · Head-to-head on several criteria", divider="gray")
 rk = res.ranking
 fig = go.Figure(go.Bar(
     y=rk["agent"][::-1], x=rk["rel_profit"][::-1], orientation="h",
-    marker_color=[CAT[0] if k == "heiner" else "#9aa0a6" for k in rk["key"][::-1]],
+    marker_color=[CAT[0] if k == focal_theory() else "#9aa0a6" for k in rk["key"][::-1]],
     error_x=dict(type="data", symmetric=False, array=(rk["hi"] - rk["rel_profit"])[::-1],
                  arrayminus=(rk["rel_profit"] - rk["lo"])[::-1], thickness=1.2, width=4),
     customdata=rk["design_name"][::-1], hovertemplate="%{y}<br>%{customdata}<br>profit vs market mean %{x:,.0f}"
@@ -164,8 +164,17 @@ st.dataframe(rk[cols].sort_values("aggregate_rank"), hide_index=True, width="str
     "change_rate": st.column_config.NumberColumn("Output changed", format="%.2f",
                                                  help="Share of periods in which output changed (predictability).")})
 st.caption("Sorted by aggregate rank across the six criteria. " + cite("rockafellar2000", "savage1951", "alchian1950"))
-st.markdown("**Reliability-condition agent against each rival** (profit, paired by market, Holm-adjusted)")
-st.dataframe(res.pairwise.drop(columns="key"), hide_index=True, width="stretch", column_config={
+_focal = focal_theory()
+if _focal == "heiner":
+    pw = res.pairwise
+    st.markdown("**⭐ Reliability-condition agent against each rival** (profit, paired by market, Holm-adjusted; "
+                "pre-registered as PR1)")
+else:
+    pw = pairwise(res.h2h, _focal, pr)
+    st.markdown(f"**⭐ {focal_title()} agent against each rival** (profit, paired by market, Holm-adjusted). "
+                "The pre-registered head-to-head (PR1) names the reliability-condition agent, so this comparison for "
+                "the theory chosen in the sidebar is exploratory.")
+st.dataframe(pw.drop(columns="key"), hide_index=True, width="stretch", column_config={
     "rival": "Rival", "diff": st.column_config.NumberColumn("Profit difference", format="%+.0f"),
     "lo": st.column_config.NumberColumn("95% lo", format="%.0f"), "hi": st.column_config.NumberColumn("95% hi", format="%.0f"),
     "p": st.column_config.NumberColumn("p", format="%.3f"), "holm_reject": "Significant (Holm)"})

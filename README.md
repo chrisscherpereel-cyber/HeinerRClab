@@ -38,6 +38,13 @@ many replications. For heavy research runs, use a local installation.
 
 ## Pages
 
+**Theory under test.** A selector at the top of the sidebar chooses which of the eight theories is highlighted. Every
+hypothesis card then shows that theory's prediction first (from the registry, the directional tournament, a statement
+derived from the theory's core claim, or, where it makes none, its general stance, labelled as such) with the
+competing predictions beside it; the research panels, the overview and research tables, the competing-theories
+verdicts and the agent tournament's head-to-head follow the same choice. Heiner's reliability condition is the
+default, not a privileged position.
+
 | Page | What it does |
 |---|---|
 | Theories · Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
@@ -58,7 +65,8 @@ many replications. For heavy research runs, use a local installation.
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labelled |
-| Generalisation | The same selection layers and boundary test in two other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand and a learning task with shifting payoffs. Frozen plan with four pre-registered hypotheses |
+| Generalisation | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
+| Solvable benchmark (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
 
@@ -234,30 +242,71 @@ ethics approval and informed consent are needed before collecting data.
 
 ## Generalisation: registered results
 
-Plan `ffaa66523475d466` (two tasks, 120 environments each by Latin hypercube over outcome noise, shift hazard,
+Plan `ee7faf1cff253ace` (three tasks, 120 environments each by Latin hypercube over outcome noise, shift hazard,
 observation error and the flexible rule's gain; 3,000 periods; band width tuned on 30 separate environments; oracle
 values from 30,000-period independent runs). Each task has a default (slow, long-memory estimate), a flexible
-alternative (fast re-estimate) and no cost of deviating. Gain over always deviating (95% CI):
+alternative (fast re-estimate) and no cost of deviating. In the investment task a project arrives every period, mean
+project quality shifts without warning between booms and busts, and a bad investment also costs a write-off of half
+its loss. Gain over always deviating (95% CI):
 
-| | Inventory (cost per period ≈ 41) | Learning with shifting payoffs (payoff per period ≈ 0.16) |
-|---|---|---|
-| Boundary slope of the oracle's gain on ln K | +5.5 (p < 0.001), break-even K* ≈ 0.68 | +0.18 (p < 0.001), K* ≈ 0.88 |
-| Oracle, top third of K | **+2.45 [1.32, 3.73]** | **+0.061 [0.041, 0.082]** |
-| Oracle, bottom third of K | −0.01 [−0.08, 0.06] | −0.001 [−0.005, 0.002] |
-| Learned RC, top third of K | **+2.42 [1.42, 3.61]** | **+0.047 [0.026, 0.068]** |
-| Rule B, bottom third of K | −10.6 [−11.7, −9.6] | −0.095 [−0.113, −0.078] |
-| Oracle − learned (all environments) | +0.04 [−0.09, 0.17] | +0.011 [0.004, 0.016] |
+| | Inventory (cost per period ≈ 41) | Learning with shifting payoffs (payoff ≈ 0.16) | Irreversible investment (payoff ≈ 1.3) |
+|---|---|---|---|
+| Boundary slope of the oracle's gain on ln K | +5.5 (p < 0.001), K* ≈ 0.68 | +0.18 (p < 0.001), K* ≈ 0.88 | +0.041 (p < 0.001), linear K* ≈ 0.15 (poor fit) |
+| Oracle, top third of K | **+2.45 [1.32, 3.73]** | **+0.061 [0.041, 0.082]** | **+0.191 [0.140, 0.242]** |
+| Oracle, bottom third of K | −0.01 [−0.08, 0.06] | −0.001 [−0.005, 0.002] | −0.004 [−0.012, 0.005] |
+| Learned RC, top third of K | **+2.42 [1.42, 3.61]** | **+0.047 [0.026, 0.068]** | **+0.186 [0.137, 0.236]** |
+| Rule B, bottom third of K | −10.6 [−11.7, −9.6] | −0.095 [−0.113, −0.078] | −0.070 [−0.093, −0.048] |
+| Oracle − learned (all environments) | +0.04 [−0.09, 0.17] | +0.011 [0.004, 0.016] | −0.002 [−0.006, 0.001] |
 
 Pre-registered verdicts: G1 (boundary in every task) **supported**; G2 (restriction pays only where K is high)
-**supported**; G3 (learning the reliability is costly in every task) not supported, because in the inventory task
-the learned rule does as well as the oracle; G4 (the learned RC beats always deviating where K is high) **supported**.
+**supported**; G3 (learning the reliability is costly in every task) not supported, because in the inventory and
+investment tasks the learned rule does as well as the oracle; G4 (the learned RC beats always deviating where K is
+high) **supported**. With binary actions K is 0 or infinite when one rule is never wrong over a run, so K is clipped
+to [0.05, 20] in the boundary analysis; in the investment task the linear fit on ln K is poor (R² 0.16), and the gain
+by tercile turns positive between K ≈ 0.9 and 1.6.
 
-**What generalisation adds.** In both tasks restriction pays where the flexible rule is unreliable and is worthless
-where it is reliable, with a break-even error-to-signal ratio below or near 1, as in the market (K ≈ 0.97). The
-boundary is therefore a property of decisions with a default, a flexible alternative and a difficulty–competence
+**What generalisation adds.** In all three tasks restriction pays where the flexible rule is unreliable and is
+worthless where it is reliable, with a break-even error-to-signal ratio near or below 1, as in the market (K ≈ 0.97).
+The boundary is therefore a property of decisions with a default, a flexible alternative and a difficulty–competence
 gap, not of cobweb markets. What differs is the cost of applying the principle: in these tasks the gain of a
-deviation can be judged exactly from what the agent observes, so a learner captures most of the oracle's gain; in
-the market, where outcomes depend on rivals and on a misspecified model, it does not.
+deviation can be judged exactly from what the agent observes, so a learner captures the oracle's gain; in the
+market, where outcomes depend on rivals and on a misspecified model, it does not.
+
+## Solvable benchmark: registered results
+
+Plan `e6c4f642f296c19b`. A single firm tracks a random walk (variance q per period) observed with noise (variance r)
+and loses the squared tracking error. With partial adjustment at speed φ the expected loss is
+E(φ) = [(1 − φ)²q + φ²r] / [φ(2 − φ)], minimised at the steady-state Kalman gain k = P/(P + r),
+P = (q + √(q² + 4qr))/2 (Muth 1960; Kalman 1960).
+
+**Exactness (T1, supported).** Over 96 speeds and q/r = 0.01, 0.1, 1 and 10 (8 paths × 50,000 periods), the
+simulated loss is within 0.9% of the formula everywhere, and the simulated best speed equals the Kalman gain to the
+grid step (0.095 → 0.10, 0.270 → 0.27, 0.618 → 0.62, 0.916 → 0.92).
+
+**Lopsided stakes.** Overshooting now costs ρ times as much as undershooting (weights normalised to average 1, so
+the filter's loss stays 0.271 at every ρ). The information (q/r = 0.1) is unchanged. Rules are tuned on 8 training
+paths and evaluated on 16 test paths (20,000 periods each). Loss reduction relative to the Kalman filter (95% CI):
+
+| ρ | Restricted filter (thresholds up/down) | Speeds up/down | Kalman + optimal offset (Bayes) | Upward moves of the restricted rule |
+|---|---|---|---|---|
+| 1 | 0.000 (threshold 0 = the filter) | −0.001 | 0.000 | 50% |
+| 2 | +0.005 [0.004, 0.005] | +0.016 | +0.020 | 25% |
+| 4 | +0.025 [0.023, 0.027] | +0.063 | +0.068 | 10% |
+| 8 | +0.058 [0.056, 0.060] | +0.113 | +0.124 | 6% |
+| 16 | +0.092 [0.090, 0.095] | +0.162 | +0.172 | 3% |
+
+Pre-registered verdicts: T1 **supported**; T2 (with symmetric stakes nothing beats the filter) **supported**; T3
+(restricting the filter's moves pays with lopsided stakes, more so as ρ rises; slope +0.043 per unit of ln ρ,
+p < 0.001) **supported**; T4 (restriction never beats the filter with the optimal offset) **supported**.
+
+**What the benchmark pins down.** Optimal filtering and Heiner agree whenever the stakes are symmetric: the best
+response to news is the Kalman gain and no restriction helps. With lopsided stakes they part: certainty equivalence
+says the stakes should shift the level of the action but not the response to news, whereas the reliability
+condition says moves in the costly direction should be restricted. With the same information, the restricted rule
+cuts the loss by up to a third, and upward moves fall from half of all periods to 3%. That is Heiner's unique
+prediction, and it holds. Its limit is equally clear: a Bayes-optimal agent that builds the stakes into its estimate
+(the filter plus the optimal offset) does better still, so restriction is the reliability condition's answer for
+agents whose flexible rule does not encode the stakes. That is the situation Heiner describes, but not the only one.
 
 ## Code layout
 
@@ -276,7 +325,9 @@ heiner_abm/patterns.py     pattern-oriented validation against documented field 
 heiner_abm/calibration.py  per-subject out-of-sample fitting of every theory's rule to laboratory data
 heiner_abm/stepper.py      a market that advances one period at a time, for human participants
 heiner_abm/experiment.py   human experiment protocol, classification and pre-registered tests
-heiner_abm/tasks.py        generalisation tasks: inventory and learning with shifting payoffs
+heiner_abm/tasks.py        generalisation tasks: inventory, learning with shifting payoffs, irreversible investment
+heiner_abm/tracking.py     single-firm tracking benchmark: exact Muth–Kalman solution and lopsided stakes
+heiner_abm/focal.py        the theory under test: every theory's prediction for every hypothesis
 heiner_abm/theory_content.py  the eight theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory

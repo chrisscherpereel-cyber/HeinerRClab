@@ -12,7 +12,7 @@ from ui.common import CAT, download, hypothesis_card, style, verdict
 
 st.title("Generalisation: beyond the market")
 st.caption("If restriction pays only where the flexible rule is unreliable in other decision tasks too, the finding "
-           "is about decision making, not about cobweb markets. Two tasks with the same structure but a different "
+           "is about decision making, not about cobweb markets. Three tasks with the same structure but a different "
            "payoff structure are tested with the same selection layers and the same boundary test.")
 
 hypothesis_card(
@@ -24,7 +24,7 @@ hypothesis_card(
     "decides whether to deviate from the default to the flexible action. No cost is charged for deviating, so any "
     "gain from restriction comes from reliability alone.")
 
-with st.expander("The two tasks and the selection layers", icon="ℹ️"):
+with st.expander("The three tasks and the selection layers", icon="ℹ️"):
     st.markdown(
         "* **Inventory (newsvendor with shifting demand).** Each period the agent sets an order level; unmet demand "
         "costs 4 per unit, leftover stock 1 per unit, so the best order level is the 80% quantile of demand. Mean "
@@ -32,7 +32,12 @@ with st.expander("The two tasks and the selection layers", icon="ℹ️"):
         "default smooths slowly, the flexible rule quickly.\n"
         "* **Learning with shifting payoffs.** Two options; one pays 1 more on average, and which one is better "
         "swaps without warning. The agent sees both payoffs every period (full feedback) with error. Both rules "
-        "pick the option with the higher smoothed payoff; the default smooths slowly, the flexible rule quickly.")
+        "pick the option with the higher smoothed payoff; the default smooths slowly, the flexible rule quickly.\n"
+        "* **Irreversible investment.** Each period one project arrives. Its value is the current mean project "
+        "quality, which shifts without warning between booms and busts, plus project-specific noise. Investing "
+        "commits the firm: a bad project also costs a write-off of half its loss. Both rules invest when the expected "
+        "payoff at their estimate of mean quality is positive; the default estimates slowly, the flexible rule "
+        "quickly.")
     st.dataframe(pd.DataFrame([dict(Layer=LAYER_LABELS[k], Rule=d) for k, d in (
         ("always", "Always take the flexible action (no restriction)."),
         ("band", "Deviate only when the flexible action differs from the default by more than b times the agent's "
@@ -120,11 +125,11 @@ st.dataframe(tt.rename(columns={"task": "Task", "tercile": "Tercile", "K_range":
 
 st.header("4 · Comparison with the market", divider="gray")
 st.markdown("In the market (Mechanisms page), " + MECHANISMS["heiner"][0].lower() + MECHANISMS["heiner"][1:])
-st.markdown("The same ordering appears in both tasks: restriction pays only where K is high, the break-even lies "
-            "below K = 1 here (an error-prone flexible rule must be reliable well before its error matches the "
-            "signal), and the cost of learning the reliability depends on the task: large in the market, small "
-            "or absent in these tasks, where the ex post gain of a deviation can be judged exactly from what the "
-            "agent observes.")
+st.markdown("The same ordering appears in every task: restriction pays only where K is high and is worth nothing "
+            "where K is low. The break-even from the linear fit lies below K = 1 (in the investment task the fit is "
+            "poor, and the gain by tercile turns positive between K ≈ 0.9 and 1.6). The cost of learning the "
+            "reliability depends on the task: large in the market, small or absent in these tasks, where the ex "
+            "post gain of a deviation can be judged exactly from what the agent observes.")
 
 st.header("5 · Where in the uncertainty space?", divider="gray")
 t = st.selectbox("Task", plan.tasks, format_func=TASKS.get, key="gen_task", help="Task to map.")

@@ -89,6 +89,24 @@ K = "cfg_"
 def _init_state():
     for k, v in DEFAULTS.items():
         st.session_state.setdefault(K + k, v)
+    if st.session_state.get("focal_theory") not in _focal().FOCAL_KEYS:
+        st.session_state["focal_theory"] = _focal().DEFAULT_FOCAL
+
+
+def _focal():
+    """The focal-theory module, looked up at call time (see _literature)."""
+    import heiner_abm.focal as focal
+    return focal
+
+
+def focal_theory() -> str:
+    """Key of the theory the user has chosen to test and highlight (default: Heiner's reliability condition)."""
+    key = st.session_state.get("focal_theory")
+    return key if key in _focal().FOCAL_KEYS else _focal().DEFAULT_FOCAL
+
+
+def focal_title() -> str:
+    return _focal().title(focal_theory())
 
 
 def apply_preset():
@@ -111,6 +129,11 @@ def v(key):
 def render_sidebar():
     _init_state()
     sb = st.sidebar
+    sb.markdown("### Theory under test")
+    sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
+                 help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "
+                      "research tables and in the tournament reviews. The others are shown as competitors. Heiner's "
+                      "reliability condition is one choice among eight.")
     sb.markdown("### Base scenario")
     sb.caption("Every page starts from this market. Experiments override only the parameters they sweep.")
     sb.selectbox("Preset", list(PRESETS), key="preset_choice",
@@ -393,10 +416,16 @@ def _literature():
     return lit
 
 
+_SOURCE_NOTE = {"tournament": "Stated in the directional tournament (Competing theories page).",
+                "theory": "Derived from the theory's core claim.",
+                "general": "This theory makes no specific prediction here; its general stance is shown."}
+
+
 def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: Optional[str] = None,
                     trad: Optional[str] = None):
-    """Hypothesis, the competing predictions, the research behind each, and the simulation's contribution.
-    Title and predictions come from the literature registry unless overridden."""
+    """Hypothesis, the prediction of the theory under test (chosen in the sidebar), the competing predictions, the
+    research behind them, and the simulation's contribution. Title and predictions come from the literature registry
+    unless overridden (rc: the reliability-condition prediction; trad: the registered alternative)."""
     h = _literature().HYPOTHESIS_BY_ID.get(hid)
     if h is None:      # never take a page down for a missing registry entry
         st.markdown(f"#### {title or hid}")
@@ -404,17 +433,39 @@ def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: O
         st.caption(f"Research basis for {hid} is unavailable. If the app was just updated, reboot it so that every "
                    "module is reloaded.")
         return
+    F = _focal()
+    focal = focal_theory()
     rc, trad = rc or h.rc_prediction, trad or h.alt_prediction
+    owners = F.alternative_owners(h.alt_label)
+    if focal == "heiner":
+        pred, src = rc, "registry"
+    elif focal in owners:
+        pred, src = trad, "registry"
+    else:
+        pred, src = F.prediction(hid, focal)
     title = title or (f"{hid}: {h.title}" if hid.startswith("H") else h.title)
     st.markdown(f"#### {title}")
     st.markdown(statement)
     c1, c2 = st.columns(2)
     with c1.container(border=True):
-        st.markdown("**Heiner / reliability condition predicts**")
-        st.markdown(rc)
+        st.markdown(f"**⭐ {F.title(focal)} predicts** (theory under test)")
+        st.markdown(pred)
+        if src in _SOURCE_NOTE:
+            st.caption(_SOURCE_NOTE[src])
     with c2.container(border=True):
-        st.markdown(f"**Alternative ({h.alt_label.lower()}) predicts**")
-        st.markdown(trad)
+        st.markdown("**Competing predictions**")
+        lines = []
+        if focal != "heiner":
+            lines.append(f"* **{F.title('heiner')}:** {rc}")
+        if focal not in owners:
+            lines.append(f"* **Alternative ({h.alt_label.lower()}):** {trad}")
+        st.markdown("\n".join(lines))
+        with st.popover("All eight theories", width="stretch"):
+            st.dataframe(pd.DataFrame([dict(Theory=("⭐ " if k == focal else "") + F.title(k),
+                                            Prediction=F.prediction(hid, k)[0], Basis=F.prediction(hid, k)[1])
+                                       for k in F.FOCAL_KEYS]), hide_index=True, width="stretch")
+            st.caption("Basis: registry = the hypothesis's registered predictions; tournament = the directional "
+                       "tournament; theory = derived from the theory's core claim; general = no specific prediction.")
     research_panel(h)
 
 
@@ -424,21 +475,34 @@ def _evidence_md(items) -> str:
 
 
 def research_panel(h: Hypothesis, nested: bool = False):
-    """Supporting research for the RC prediction and for the alternative, plus the simulation's contribution.
-    nested=True draws a bordered box instead of an expander (Streamlit does not allow nested expanders)."""
-    label = (f"📚 Research basis · {len(h.support)} studies support the RC prediction, "
-             f"{len(h.alternative)} support the alternative")
+    """Research supporting each side of the hypothesis, ordered so that the theory under test comes first, plus the
+    simulation's contribution. nested=True draws a bordered box instead of an expander (Streamlit does not allow
+    nested expanders)."""
+    F = _focal()
+    focal = focal_theory()
+    rc_side = (f"Supporting research: {F.title('heiner')}", h.support)
+    alt_side = (f"Supporting research: alternative ({h.alt_label.lower()})", h.alternative)
+    if focal != "heiner" and focal in F.alternative_owners(h.alt_label):
+        first, second = ((f"Supporting research: ⭐ {F.title(focal)} (the alternative)", h.alternative), rc_side)
+    elif focal == "heiner":
+        first, second = ((f"Supporting research: ⭐ {F.title('heiner')}", h.support), alt_side)
+    else:
+        first, second = rc_side, alt_side
+    label = (f"📚 Research basis · {len(first[1])} studies support the first position, {len(second[1])} the "
+             "second")
     box = st.container(border=True) if nested else st.expander(label)
     with box:
         if nested:
             st.markdown(f"**{label}**")
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("**Supporting research: reliability condition**")
-            st.markdown(_evidence_md(h.support))
+            st.markdown(f"**{first[0]}**")
+            st.markdown(_evidence_md(first[1]))
         with c2:
-            st.markdown(f"**Supporting research: alternative ({h.alt_label.lower()})**")
-            st.markdown(_evidence_md(h.alternative))
+            st.markdown(f"**{second[0]}**")
+            st.markdown(_evidence_md(second[1]))
+        if focal != "heiner" and focal not in F.alternative_owners(h.alt_label):
+            st.caption(f"Neither list was compiled for {F.title(focal)}; its own sources are on its theory page.")
         st.markdown("**References**")
         keys = list(dict.fromkeys(k for k, _ in h.support + h.alternative))
         st.markdown("\n".join(f"* {r.apa}" for r in _literature().bibliography(keys)))

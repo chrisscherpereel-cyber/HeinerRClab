@@ -797,7 +797,8 @@ HYPOTHESES.append(Hypothesis(
     "GEN", "The reliability boundary holds beyond the market",
     "Generalisation",
     "In other decision tasks with a default, a flexible alternative and a gap between difficulty and competence "
-    "(an inventory task and a learning task with shifting payoffs), restriction pays only where the flexible rule is "
+    "(an inventory task, a learning task with shifting payoffs and an irreversible investment task), restriction pays "
+    "only where the flexible rule is "
     "unreliable, with the same error-to-signal boundary as in the market.",
     "The optimal policy in each task uses all available information (an updated order level, a learner that tracks "
     "volatility), so restricting the flexible rule never pays where it is used optimally.",
@@ -814,6 +815,29 @@ HYPOTHESES.append(Hypothesis(
     contribution="Shows that the finding is about decision making, not about cobweb markets: the same selection "
                  "layers and the same error-to-signal boundary are tested in tasks with a different payoff "
                  "structure."))
+HYPOTHESES.append(Hypothesis(
+    "TRACK", "What is uniquely Heiner's: lopsided stakes call for restriction even with an optimal filter",
+    "Solvable benchmark",
+    "Holding the information (signal-to-noise ratio) fixed, lopsided stakes (a wrong move costs more than a right move "
+    "gains) make it pay to restrict the filter's moves in the costly direction, the more so the more lopsided the "
+    "stakes.",
+    "The best response to news depends only on the signal-to-noise ratio (the Kalman gain); stakes shift the level of "
+    "the action but not how much it responds to new information (certainty equivalence).",
+    "Optimal filtering",
+    support=[("heiner1983", "The tolerance limit for acting on a signal rises with the loss from a wrong action "
+                            "relative to the gain from a right one."),
+             ("heiner1989", "The reliable adjustment speed depends on the error-to-signal ratio and on the costs of "
+                            "errors."),
+             ("bookstaber1985", "Under uncertainty, coarse rules that ignore some information can be optimal.")],
+    alternative=[("muth1960", "Exponential smoothing with the signal-to-noise-optimal weight is the optimal forecast "
+                              "for a random walk observed with noise."),
+                 ("kalman1960", "The optimal filter's gain depends only on the noise variances."),
+                 ("brainard1967", "With additive uncertainty, certainty equivalence holds and responses are not "
+                                  "attenuated.")],
+    contribution="Pins down which prediction is uniquely Heiner's in a case with an exact solution: the simulation "
+                 "first reproduces the Muth–Kalman optimum, then shows that lopsided stakes, not information, drive "
+                 "restriction, and that the restriction becomes unnecessary once the stakes are built into the "
+                 "estimate."))
 HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 
 

@@ -9,8 +9,15 @@ import streamlit as st
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges
 from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
-from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, fmt_p, measure_opts,
-                       measurement, reps, research_panel, show_errors, style, to_json, verdict)
+from heiner_abm.focal import tournament_key
+from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
+                       fmt_p, measure_opts, measurement, reps, research_panel, show_errors, style, to_json, verdict)
+
+FOCAL = focal_theory()
+FKEY = tournament_key(FOCAL)                      # the focal theory's key in the directional tournament, if any
+FNAME = THEORY_NAMES.get(FKEY) if FKEY else None
+FORECASTS = {"heiner": ("rc", "K"), "optimiser": ("neoclassical",), "options": ("options",), "cobweb": ("cobweb",),
+             "heuristic": ("accuracy",), "rl": ("past",)}.get(FOCAL, ())
 
 st.title("Competing theories: a tournament of predictions")
 st.caption("Seven theories make directional predictions about when behavioural flexibility pays under uncertainty. "
@@ -95,7 +102,7 @@ if outcomes:
             "hit_rate": st.column_config.NumberColumn("Hit rate", format="%.0%")})
     with c2:
         fig = go.Figure(go.Bar(y=sb["theory"][::-1], x=sb["net"][::-1], orientation="h",
-                               marker_color=[CAT[0] if "Heiner" in t else "#9aa0a6" for t in sb["theory"][::-1]],
+                               marker_color=[CAT[0] if t == FNAME else "#9aa0a6" for t in sb["theory"][::-1]],
                                hovertemplate="%{y}<br>net score %{x}<extra></extra>"))
         fig.update_xaxes(title="Net score (matches − contradictions)")
         st.plotly_chart(style(fig, 300, "Net score"))
@@ -107,20 +114,24 @@ if outcomes:
             st.markdown(f"**Hypothesis {h.hid}: {h.title}**")
             research_panel(h, nested=True)
     top = sb.iloc[0]
-    h = sb[sb["theory"].str.startswith("Heiner")].iloc[0]
-    tied = sb[(sb["net"] == top["net"]) & (sb["matches"] == top["matches"])]["theory"].tolist()
-    misses = [e.title for e in EXPERIMENTS if score(e.predictions["heiner"], outcomes[e.key].observed) == "contradicted"]
-    if h["theory"] == top["theory"] and len(tied) == 1:
-        verdict("support", f"**Heiner's reliability condition has the best record** ({int(h['matches'])} of "
-                f"{int(h['predictions'])} predictions confirmed, {int(h['contradicted'])} contradicted).")
-    elif h["theory"] in tied:
-        verdict("neutral", f"Heiner's reliability condition **ties for the best record** with "
-                f"{', '.join(t for t in tied if not t.startswith('Heiner'))}.")
+    if FNAME is None or FNAME not in set(sb["theory"]):
+        verdict("neutral", f"**{focal_title()}** is not part of the directional tournament (it makes no directional "
+                f"predictions about these experiments). **{top['theory']}** has the best record.")
     else:
-        verdict("reject", f"**{top['theory']}** has a better record than Heiner's reliability condition in this "
-                "market.")
-    if misses:
-        st.caption("Heiner's predictions contradicted here: " + "; ".join(misses) + ".")
+        h = sb[sb["theory"] == FNAME].iloc[0]
+        tied = sb[(sb["net"] == top["net"]) & (sb["matches"] == top["matches"])]["theory"].tolist()
+        misses = [e.title for e in EXPERIMENTS
+                  if score(e.predictions.get(FKEY), outcomes[e.key].observed) == "contradicted"]
+        if h["theory"] == top["theory"] and len(tied) == 1:
+            verdict("support", f"**{FNAME} has the best record** ({int(h['matches'])} of {int(h['predictions'])} "
+                    f"predictions confirmed, {int(h['contradicted'])} contradicted).")
+        elif h["theory"] in tied:
+            verdict("neutral", f"{FNAME} **ties for the best record** with "
+                    f"{', '.join(t for t in tied if t != FNAME)}.")
+        else:
+            verdict("reject", f"**{top['theory']}** has a better record than {FNAME} in this market.")
+        if misses:
+            st.caption(f"Predictions of {FNAME} contradicted here: " + "; ".join(misses) + ".")
     download(res, "theory_tournament.csv")
 
 # ------------------------------------------------------------------------------------------------ horse race
@@ -190,15 +201,18 @@ if race:
             "cv_auc": st.column_config.NumberColumn("Cross-validated AUC", format="%.3f")})
         st.markdown(f"Gain from adding the RC's tolerance limit to all rivals: **{gain['gain']:+.3f}** AUC "
                     f"(95% CI {gain['lo']:+.3f} to {gain['hi']:+.3f}).")
-    theory_rows = hr[~hr["key"].isin(["past", "neoclassical"])]
-    best = theory_rows.iloc[0]
+    best = hr.iloc[0]
     rc = hr[hr["key"] == "rc"]
-    if best["key"] in ("rc", "K"):
-        verdict("support", f"Among forecasts derived from a theory, **Heiner's** is the most accurate "
-                f"({best['theory'].split(':')[0]}, AUC {best['auc']:.3f}).")
+    mine = hr[hr["key"].isin(FORECASTS)]
+    if mine.empty:
+        verdict("neutral", f"**{focal_title()}** makes no firm-level forecast in this horse race. The most accurate "
+                f"forecast is **{best['theory'].split(':')[0]}** (AUC {best['auc']:.3f}).")
+    elif best["key"] in FORECASTS:
+        verdict("support", f"The forecast of the theory under test, **{best['theory'].split(':')[0]}**, is the most "
+                f"accurate (AUC {best['auc']:.3f}).")
     else:
-        verdict("reject", f"**{best['theory'].split(':')[0]}** forecasts better than Heiner's reliability condition "
-                f"(AUC {best['auc']:.3f}).")
+        verdict("reject", f"**{best['theory'].split(':')[0]}** forecasts better than the theory under test "
+                f"(best: {mine.iloc[0]['theory'].split(':')[0]}, AUC {mine.iloc[0]['auc']:.3f}).")
     past = hr[hr["key"] == "past"]
     if len(past) and len(rc) and past["auc"].iloc[0] > rc["auc"].iloc[0]:
         st.caption(f"The atheoretical benchmark (did flexibility pay in the first window?) reaches AUC "
@@ -213,24 +227,32 @@ if race:
     download(hr, "theory_horse_race.csv")
 
 # ------------------------------------------------------------------------------------------------ verdict
-st.header("5 · Where does the reliability condition stand among its rivals?", divider="gray")
+st.header(f"5 · Where does {focal_title()} stand among its rivals?", divider="gray")
 if not (outcomes and race):
     st.info("Run the tournament (section 3) and the horse race (section 4) to fill in this verdict with this "
             "session's results.", icon="ℹ️")
 else:
     sb = scoreboard(outcomes)
-    h = sb[sb["theory"].str.startswith("Heiner")].iloc[0]
-    rank = int(sb.index[sb["theory"].str.startswith("Heiner")][0]) + 1
-    hr = race[0]
-    th = hr[~hr["key"].isin(["past", "neoclassical"])].reset_index(drop=True)
-    rrank = int(th.index[th["key"].isin(["rc", "K"])][0]) + 1
-    st.markdown(
-        f"* **Directional tests:** Heiner ranks **#{rank} of {len(sb)}** by net score, with {int(h['matches'])} "
-        f"matches, {int(h['contradicted'])} contradictions and {int(h['inconclusive'])} inconclusive tests out of "
-        f"{int(h['predictions'])} predictions.\n"
-        f"* **Forecasting:** Heiner's best forecast ranks **#{rrank} of {len(th)}** theory-based forecasts.\n"
-        f"* **Added value:** combining all rival forecasts and then adding the RC changes the cross-validated AUC by "
-        f"{race[2].get('gain', np.nan):+.3f}.")
+    hr = race[0].reset_index(drop=True)
+    lines = []
+    if FNAME in set(sb["theory"]):
+        h = sb[sb["theory"] == FNAME].iloc[0]
+        rank = int(sb.index[sb["theory"] == FNAME][0]) + 1
+        lines.append(f"* **Directional tests:** {FNAME} ranks **#{rank} of {len(sb)}** by net score, with "
+                     f"{int(h['matches'])} matches, {int(h['contradicted'])} contradictions and "
+                     f"{int(h['inconclusive'])} inconclusive tests out of {int(h['predictions'])} predictions.")
+    else:
+        lines.append(f"* **Directional tests:** {focal_title()} makes no directional predictions here.")
+    if hr["key"].isin(FORECASTS).any():
+        rrank = int(hr.index[hr["key"].isin(FORECASTS)][0]) + 1
+        lines.append(f"* **Forecasting:** its best forecast ranks **#{rrank} of {len(hr)}** forecasts.")
+    else:
+        lines.append("* **Forecasting:** it makes no firm-level forecast in the horse race.")
+    lines.append(f"* **Added value of the reliability condition:** combining all rival forecasts and then adding the "
+                 f"RC changes the cross-validated AUC by {race[2].get('gain', np.nan):+.3f}.")
+    st.markdown("\n".join(lines))
+st.markdown("**Reference results for the reliability condition.** The notes below summarise how Heiner's theory "
+            "fared in the reference runs; the rows above follow the theory chosen in the sidebar.")
 st.markdown(
     """
 **How to read this.** Heiner's theory makes more, and more specific, predictions than its rivals: it says when

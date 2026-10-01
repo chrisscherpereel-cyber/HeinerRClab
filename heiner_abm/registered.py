@@ -10,7 +10,8 @@ from typing import Dict, Optional, Tuple
 TOURNAMENT_PLAN = "15193603c3f8359b"
 STUDY_PLAN = "fafb771393aab7fe"
 CHOICE_PLAN = "e6df56611a66c23f"       # endogenous rule choice (Rule choice page)
-TASK_PLAN = "ffaa66523475d466"         # generalisation tasks (Generalisation page)
+TASK_PLAN = "ee7faf1cff253ace"         # generalisation tasks (Generalisation page)
+TRACK_PLAN = "e6c4f642f296c19b"        # single-firm tracking benchmark (Solvable benchmark page)
 EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the market / Experiment analysis)
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 9), main run and three

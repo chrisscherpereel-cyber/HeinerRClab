@@ -16,8 +16,14 @@ Tasks
     learning   Two options whose mean payoffs swap without warning (a restless two-armed task with full feedback;
                Behrens et al. 2007). Both rules pick the option with the higher smoothed payoff estimate, the default
                with slow and the flexible rule with fast smoothing.
+    investment Irreversible investment (Dixit & Pindyck 1994). Each period one project arrives; its value is the current
+               mean project quality (which shifts without warning between booms and busts) plus project-specific
+               noise. Investing commits the firm: a project worth V pays V, and a project that turns out bad also costs
+               a write-off of half its loss. Not investing pays 0. Both rules invest when the expected payoff at their
+               estimate of mean quality is positive, the default with a slow and the flexible rule with a fast
+               estimate.
 
-Selection layers, identical in both tasks
+Selection layers, identical in all tasks
     always       always take the flexible action (no restriction)
     band         deviate only when the flexible action differs from the default by more than b times the agent's own
                  noise estimate (inaction band; b tuned on separate training environments)
@@ -58,11 +64,15 @@ LAYERS = ("always", "band", "rc_learned", "rc_oracle", "ruleb")
 LAYER_LABELS = {"always": "Always deviate (flexible rule)", "band": "Inaction band", "rc_learned": "RC, learned",
                 "rc_oracle": "RC, oracle", "ruleb": "Rule B (never deviate)"}
 TASKS = {"inventory": "Inventory (newsvendor with shifting demand)",
-         "learning": "Learning with shifting payoffs (restless two-option task)"}
+         "learning": "Learning with shifting payoffs (restless two-option task)",
+         "investment": "Irreversible investment (projects in shifting booms and busts)"}
 RANGES = {
     "inventory": {"noise": (5.0, 40.0), "hazard": (0.002, 0.05), "obs_noise": (0.0, 40.0), "gain": (0.05, 0.6)},
     "learning": {"noise": (0.5, 5.0), "hazard": (0.002, 0.05), "obs_noise": (0.0, 5.0), "gain": (0.05, 0.6)},
+    "investment": {"noise": (0.5, 4.0), "hazard": (0.002, 0.05), "obs_noise": (0.0, 4.0), "gain": (0.05, 0.6)},
 }
+K_CLIP = (0.05, 20.0)       # range of K used in the boundary analysis
+WRITE_OFF = 0.5             # extra loss per unit of a bad investment's negative value (irreversibility)
 SLOW_GAIN = 0.01            # the default rule's smoothing (memory of about 100 periods)
 AXIS_LABELS = {"noise": "Difficulty: outcome noise", "hazard": "Difficulty: shift hazard",
                "obs_noise": "Competence: observation error (higher = less competent)",
@@ -99,8 +109,8 @@ class TaskEnv:
 
 @dataclass(frozen=True)
 class TaskPlan:
-    version: str = "1.0"
-    tasks: Tuple[str, ...] = ("inventory", "learning")
+    version: str = "1.1"
+    tasks: Tuple[str, ...] = ("inventory", "learning", "investment")
     n_envs: int = 120
     n_train: int = 30
     periods: int = 3000
@@ -114,7 +124,8 @@ class TaskPlan:
     hypotheses: Tuple[Tuple[str, str, str], ...] = TASK_HYPOTHESES
 
     def to_json(self) -> str:
-        return json.dumps({**asdict(self), "ranges": RANGES, "slow_gain": SLOW_GAIN, "code": task_code_digest()},
+        return json.dumps({**asdict(self), "ranges": RANGES, "slow_gain": SLOW_GAIN, "write_off": WRITE_OFF, "k_clip": K_CLIP,
+                           "code": task_code_digest()},
                           sort_keys=True, indent=1)
 
     @property
@@ -125,7 +136,8 @@ class TaskPlan:
 def task_code_digest() -> str:
     mod = sys.modules[__name__]
     src = "".join(inspect.getsource(f) for f in (mod._streams, mod._decisions, mod._layer, mod._env_set,
-                                                  mod.run_tasks, mod.inventory_payoff, mod.learning_payoff))
+                                                  mod.run_tasks, mod.inventory_payoff, mod.learning_payoff,
+                                                  mod.investment_payoff, mod.expected_investment_payoff))
     return hashlib.sha256(src.encode()).hexdigest()[:16]
 
 
@@ -155,6 +167,21 @@ def learning_payoff(a, pay):
     return pay[..., 1] * a + pay[..., 0] * (1 - a)
 
 
+def investment_payoff(a, v):
+    """Invest (a = 1) in a project worth v: v, plus a write-off on a bad project; not investing pays 0."""
+    return a * (v + WRITE_OFF * np.minimum(v, 0.0))
+
+
+def expected_investment_payoff(m, sd):
+    """Expected payoff of investing when project value ~ N(m, sd^2)."""
+    from math import erf, sqrt
+    m = np.asarray(m, float)
+    z = m / sd
+    Phi_neg = 0.5 * (1 + np.vectorize(erf)(-z / sqrt(2)))
+    pdf = np.exp(-0.5 * z * z) / np.sqrt(2 * np.pi)
+    return m + WRITE_OFF * (m * Phi_neg - sd * pdf)
+
+
 def _streams(env: TaskEnv, T: int, seed: int) -> Dict[str, np.ndarray]:
     """Exogenous paths: the true state, realised outcomes and what the agent observes."""
     rng = np.random.default_rng(seed)
@@ -168,6 +195,11 @@ def _streams(env: TaskEnv, T: int, seed: int) -> Dict[str, np.ndarray]:
             mu[t] = m
         d = np.maximum(0.0, mu + env.noise * rng.standard_normal(T))
         return dict(state=mu, outcome=d, obs=d + env.obs_noise * rng.standard_normal(T))
+    if env.task == "investment":
+        steps = np.where(jumps, rng.normal(0, 1.5, T), 0.0)
+        mq = np.clip(0.5 + np.cumsum(steps), -3.0, 3.0)           # mean project quality (booms and busts)
+        v = mq + env.noise * rng.standard_normal(T)
+        return dict(state=mq, outcome=v, obs=v + env.obs_noise * rng.standard_normal(T))
     adv = np.where(np.cumsum(jumps) % 2 == 0, 1.0, -1.0)        # mean advantage of option 1 over option 0
     pay = np.stack([-adv / 2, adv / 2], 1) + env.noise * rng.standard_normal((T, 2))
     return dict(state=adv, outcome=pay, obs=pay + env.obs_noise * rng.standard_normal((T, 2)))
@@ -193,6 +225,22 @@ def _decisions(env: TaskEnv, T: int, seed: int) -> Dict[str, np.ndarray]:
         sig = np.abs(x_act - d_act) / np.sqrt(var)
         pay_d, pay_x = inventory_payoff(d_act, s["outcome"]), inventory_payoff(x_act, s["outcome"])
         obs_gain = inventory_payoff(x_act, obs) - inventory_payoff(d_act, obs)
+    elif env.task == "investment":
+        slow, fast, var = np.empty(T), np.empty(T), np.empty(T)
+        ms, mf, v = 0.5, 0.5, env.noise ** 2 + env.obs_noise ** 2 + 0.1
+        for t in range(T):
+            slow[t], fast[t], var[t] = ms, mf, v
+            o = obs[t]
+            v += gs * ((o - ms) ** 2 - v)
+            ms += gs * (o - ms)
+            mf += g * (o - mf)
+        sd = np.sqrt(np.maximum(var - env.obs_noise ** 2, 0.01))      # the agent's estimate of project dispersion
+        ev_d, ev_x = expected_investment_payoff(slow, sd), expected_investment_payoff(fast, sd)
+        d_act, x_act = (ev_d > 0).astype(float), (ev_x > 0).astype(float)
+        opt = (expected_investment_payoff(s["state"], env.noise) > 0).astype(float)
+        sig = np.where(x_act != d_act, np.abs(ev_x) / np.sqrt(var), 0.0)
+        pay_d, pay_x = investment_payoff(d_act, s["outcome"]), investment_payoff(x_act, s["outcome"])
+        obs_gain = investment_payoff(x_act, obs) - investment_payoff(d_act, obs)
     else:
         slow, fast, var = np.empty((T, 2)), np.empty((T, 2)), np.empty(T)
         es, ef, v = np.zeros(2), np.zeros(2), 2 * (env.noise ** 2 + env.obs_noise ** 2) + 1.0
@@ -294,7 +342,8 @@ def wide(runs: pd.DataFrame, task: str) -> pd.DataFrame:
     d = runs[runs["task"] == task]
     w = d.pivot(index="env", columns="layer", values="payoff")
     k = d[d["layer"] == "always"].set_index("env")["K"]
-    w["lnK"] = np.log(k.clip(lower=1e-6))
+    # K is clipped to [0.05, 20]: with binary actions it is 0 or infinite when one rule is never wrong over a run
+    w["lnK"] = np.log(k.clip(lower=K_CLIP[0], upper=K_CLIP[1]))
     for c in ("noise", "hazard", "obs_noise", "gain"):
         w[c] = d[d["layer"] == "always"].set_index("env")[c]
     w["tercile"] = pd.qcut(w["lnK"].rank(method="first"), 3, labels=["low K", "middle K", "high K"])

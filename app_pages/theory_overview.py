@@ -10,12 +10,15 @@ st.markdown(
     "This laboratory implements each of them in the same cobweb oligopoly, where firms commit output before costs and "
     "prices are known, and tests them against one another on equal terms: directional experiments, out-of-sample "
     "forecasts, an agent tournament with equal tuning budgets, a mechanism study, endogenous rule choice, validation "
-    "against field patterns and laboratory data, and two further decision tasks. No theory is the default; each "
-    "has its own page with the same sections.")
+    "against field patterns and laboratory data, three further decision tasks and a benchmark solvable on paper. No "
+    "theory is privileged: choose the one to test in the sidebar, and each has its own page with the same sections.")
 
+st.info(f"**Theory under test:** ⭐ {next(t.title for t in THEORIES if t.key == st.session_state.get('focal_theory', 'heiner'))}. "
+        "Choose any of the eight in the sidebar; its predictions are then highlighted on every hypothesis card, in "
+        "the research tables and in the tournament reviews.", icon="🎯")
 st.header("1 · The theories at a glance", divider="gray")
 st.dataframe(pd.DataFrame([{
-    "Theory": f"{t.icon} {t.title}", "Core claim": t.tagline, "Uncertainty is…": t.uncertainty_view,
+    "Theory": ("⭐ " if t.key == st.session_state.get("focal_theory", "heiner") else "") + f"{t.icon} {t.title}", "Core claim": t.tagline, "Uncertainty is…": t.uncertainty_view,
     "Behaviour changes…": t.when_to_change, "More uncertainty makes flexibility…": t.more_uncertainty}
     for t in THEORIES]), hide_index=True, width="stretch")
 cols = st.columns(4)
@@ -41,7 +44,8 @@ st.caption(f"Agent tournament, registered plan `{TOURNAMENT_PLAN}`: mean rank am
 rows = []
 for key, r in sorted(TOURNAMENT.items(), key=lambda kv: kv[1]["profit"][0]):
     t = next((x for x in THEORIES if x.key == key), None)
-    rows.append({"Theory": f"{t.icon} {t.title}" if t else "Rule B (benchmark)", "Design": r["design"],
+    star = "⭐ " if t and t.key == st.session_state.get("focal_theory", "heiner") else ""
+    rows.append({"Theory": f"{star}{t.icon} {t.title}" if t else "Rule B (benchmark)", "Design": r["design"],
                  "Profit rank, main": r["profit"][0],
                  "Profit rank, replications": f"{min(r['profit'][1:]):.2f}–{max(r['profit'][1:]):.2f}",
                  "Aggregate rank (six criteria)": f"{min(r['aggregate']):.2f}–{max(r['aggregate']):.2f}"})
@@ -59,9 +63,13 @@ st.markdown(
     "* **When firms choose their own rules,** populations change output less often and abandon the flexible optimiser "
     "as uncertainty rises, but selection favours a simple target-margin heuristic as much as an explicit restriction "
     "(Rule choice).\n"
-    "* **The boundary generalises.** In an inventory task and a learning task with shifting payoffs, restriction pays "
-    "only where the flexible rule is unreliable, with a break-even error-to-signal ratio below or near 1 "
-    "(Generalisation).\n"
+    "* **The boundary generalises.** In an inventory task, a learning task with shifting payoffs and an irreversible "
+    "investment task, restriction pays only where the flexible rule is unreliable, with a break-even error-to-signal "
+    "ratio near or below 1 (Generalisation).\n"
+    "* **What is uniquely Heiner's.** In a single-firm benchmark the simulation reproduces the exact Muth–Kalman "
+    "optimum; with lopsided stakes, restricting the filter's costly moves cuts the loss by up to a third although the "
+    "information is unchanged, as the reliability condition predicts and certainty equivalence does not. A filter "
+    "that builds the stakes into its estimate does better still (Solvable benchmark).\n"
     "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment); the "
     "calibration and human-experiment pipelines are ready but have no human data yet (Validate & generalise).")
 
@@ -73,8 +81,12 @@ def _lit():
 
 lit = _lit()
 st.header("4 · Hypotheses and the research behind them", divider="gray")
+from heiner_abm.focal import prediction  # noqa: E402
+from ui.common import focal_theory, focal_title  # noqa: E402
+st.caption(f"The first prediction column is the theory under test, ⭐ {focal_title()}; change it in the sidebar.")
 st.dataframe(pd.DataFrame([{
-    "ID": h.hid, "Hypothesis": h.title, "Prediction tested": h.rc_prediction,
+    "ID": h.hid, "Hypothesis": h.title, f"⭐ {focal_title()} predicts": prediction(h.hid, focal_theory())[0],
+    "Reliability condition predicts": h.rc_prediction,
     "Alternative": f"{h.alt_label}: {h.alt_prediction}",
     "Supporting research": lit.cite(*[k for k, _ in h.support]),
     "Alternative research": lit.cite(*[k for k, _ in h.alternative]), "Where to test": h.where}

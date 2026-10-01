@@ -163,3 +163,60 @@ def test_play_through_experiment():
     assert len(frames) == len(PLAN.conditions)
     assert sum(len(f) for f in frames) == n
     assert any(b.label.startswith("Download your data") for b in at.get("download_button"))
+
+
+# ------------------------------------------------------------------------------------------------ focal theory
+def test_every_theory_has_a_prediction_for_every_hypothesis():
+    from heiner_abm.focal import FOCAL_KEYS, STATEMENTS, alternative_owners, prediction
+    import heiner_abm.literature as lit
+    for h in lit.HYPOTHESES:
+        for k in FOCAL_KEYS:
+            text, src = prediction(h.hid, k)
+            assert text and src in {"registry", "tournament", "theory", "general"}
+        assert prediction(h.hid, "heiner") == (h.rc_prediction, "registry")
+        for k in alternative_owners(h.alt_label):
+            assert prediction(h.hid, k) == (h.alt_prediction, "registry")
+    for theory, d in STATEMENTS.items():
+        assert theory in FOCAL_KEYS and set(d) <= set(lit.HYPOTHESIS_BY_ID), theory
+
+
+def test_focal_theory_changes_hypothesis_card():
+    from streamlit.testing.v1 import AppTest
+    app = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
+    at = AppTest.from_file(app, default_timeout=120)
+    at.session_state["focal_theory"] = "heuristic"
+    at.run()
+    at.switch_page("app_pages/tracking.py").run()
+    assert not at.exception
+    md = " ".join(m.value for m in at.markdown)
+    assert "Simple heuristics" in md and "(theory under test)" in md
+
+
+# ------------------------------------------------------------------------------------------------ tracking benchmark
+def test_kalman_gain_minimises_analytic_loss():
+    from heiner_abm.tracking import kalman_gain, loss_of_speed
+    for snr in (0.01, 0.1, 1.0, 10.0):
+        grid = np.linspace(0.001, 1.0, 100000)
+        assert abs(grid[np.argmin(loss_of_speed(grid, snr, 1.0))] - kalman_gain(snr, 1.0)) < 1e-3
+
+
+def test_optimal_offset_symmetric_and_lopsided():
+    from heiner_abm.tracking import optimal_offset
+    assert optimal_offset(1.0)[0] == pytest.approx(0.0, abs=1e-3)
+    assert optimal_offset(1.0)[1] == pytest.approx(1.0, abs=1e-3)
+    off, loss = optimal_offset(8.0)
+    assert off < 0 and loss < 1.0
+
+
+def test_tracking_quick_study():
+    from heiner_abm.tracking import QUICK_TRACK, TrackPlan, run_tracking
+    res = run_tracking(replace(TrackPlan(), **QUICK_TRACK))
+    assert list(res.verdicts["id"]) == ["T1", "T2", "T3", "T4"]
+    s = res.verify_summary
+    assert (np.abs(s["simulated_best"] - s["kalman_gain"]) <= 2 * s["grid_step"] + 0.06).all()
+    assert set(res.stakes["family"]) == {"filter", "filter_offset", "speed_sym", "speed_asym", "restrict"}
+
+
+def test_tracking_plan_registered():
+    from heiner_abm.tracking import TrackPlan
+    assert TrackPlan().digest == registered.TRACK_PLAN

@@ -18,7 +18,7 @@ st.markdown(
     "comparison), a *persistence* effect, and a *strategic feedback* effect.\n"
     "2. **Heiner (1989).** A firm partially adjusting toward an imperfectly perceived target has a maximal "
     "reliable adjustment speed. The bound is computed from measured decision errors and compared with the "
-    "profit-maximising flexibility.\n"
+    "profit-maximizing flexibility.\n"
     "3. **Signal detection.** Heiner's r and w are hit and false-alarm rates. The ROC curve shows how well a firm "
     "can tell preferred exceptions apart, and where its best deviation threshold lies.")
 
@@ -176,7 +176,7 @@ with tabs[1]:
         c2.plotly_chart(style(fk, 440, "Self-consistent bound: largest φ below the curve"))
         tb = pd.DataFrame(rows)
         st.dataframe(tb, hide_index=True, width="stretch", column_config={
-            "level": PARAMS[diff].label, "phi_star": st.column_config.NumberColumn("Profit-maximising φ*", format="%.2f"),
+            "level": PARAMS[diff].label, "phi_star": st.column_config.NumberColumn("Profit-maximizing φ*", format="%.2f"),
             "heiner_bound": st.column_config.NumberColumn("Heiner bound φ̂ (largest φ ≤ β₀(K(φ)))", format="%.2f"),
             "K_at_bound": st.column_config.NumberColumn("Measured K at φ̂", format="%.2f"),
             "stability_limit": st.column_config.NumberColumn("Stability limit 4/(n+1)", format="%.2f"),
@@ -185,7 +185,7 @@ with tabs[1]:
         within = (tb["phi_star"] <= tb["heiner_bound"] + 2 * step).mean()
         rho = stats.spearmanr(tb["level"], tb["phi_star"])[0] if tb["phi_star"].nunique() > 1 else 0.0
         if within >= 0.75:
-            verdict("support", f"The profit-maximising φ* lies at or below Heiner's bound (within two grid steps) in "
+            verdict("support", f"The profit-maximizing φ* lies at or below Heiner's bound (within two grid steps) in "
                     f"**{within:.0%}** of conditions. Full adjustment (φ = 1) is never optimal; beyond 4/(n+1) the market "
                     "becomes unstable, as the theory implies.")
         else:
@@ -236,7 +236,7 @@ with tabs[2]:
         m[0].metric("Discriminability (AUC of signal)", f"{disc_auc:.3f}", help="0.5 = the size of the recommended change "
                     "says nothing about whether deviating pays; 1 = perfectly diagnostic.")
         m[1].metric("π (share of opportunities that are exceptions)", f"{(gn > 0).mean():.3f}")
-        m[2].metric("Value-maximising threshold θ*", "deviate always" if np.isinf(best.theta) else f"{best.theta:.1f}")
+        m[2].metric("Value-maximizing threshold θ*", "deviate always" if np.isinf(best.theta) else f"{best.theta:.1f}")
         m[3].metric("Net value per opportunity at θ*", f"{best.net_per_opp:,.1f}")
         c1, c2 = st.columns(2)
         fr = go.Figure()
@@ -246,7 +246,7 @@ with tabs[2]:
                                 hovertemplate="θ = %{customdata[0]:.1f}<br>w = %{x:.2f}, r = %{y:.2f}<br>"
                                               "net/opp %{customdata[1]:.1f}<extra></extra>"))
         fr.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="Chance", line=dict(color="rgba(128,128,128,0.8)", dash="dot", width=1)))
-        fr.add_trace(go.Scatter(x=[best.w], y=[best.r], mode="markers", name="Value-maximising θ*",
+        fr.add_trace(go.Scatter(x=[best.w], y=[best.r], mode="markers", name="Value-maximizing θ*",
                                 marker=dict(size=13, color=CAT[1], symbol="star", line=dict(color="white", width=1.5))))
         fr.update_xaxes(title="w(θ) = false-alarm rate (type II errors)", range=[0, 1.02])
         fr.update_yaxes(title="r(θ) = hit rate (1 − type I)", range=[0, 1.02])

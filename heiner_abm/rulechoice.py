@@ -10,7 +10,7 @@ where U_k is the rule's fitness (exponentially weighted average profit of the fi
 minus a per-period cost of the rule), s is a running scale of profits (so that beta is dimensionless), and beta is the
 intensity of choice: beta = 0 means random choice, large beta means everyone moves to the best-performing rule.
 
-The question is Heiner's: do populations drift toward restricted, rule-governed behaviour as uncertainty rises, as
+The question is Heiner's: do populations drift toward restricted, rule-governed behavior as uncertainty rises, as
 something that emerges rather than something imposed? Market-level outcomes (price volatility, distance from the
 Cournot-Nash price) link rule choice to how far markets stay from equilibrium.
 """
@@ -32,7 +32,7 @@ from .arena import ALL_DESIGNS, P_MIN, Q_MIN, Env, Market, Tuned, cluster_ci, na
 RULES = ("ruleb", "options_p", "heiner_p", "opt_br", "cobweb_p", "heur_markup")
 RESTRICTED = ("ruleb", "options_p", "heiner_p")          # keep the default unless a condition is met
 RULE_LABELS = {"ruleb": "Rule B (keep output)", "options_p": "Inaction band (real options)",
-               "heiner_p": "Reliability condition (Heiner)", "opt_br": "Filtered best reply (optimisation)",
+               "heiner_p": "Reliability condition (Heiner)", "opt_br": "Filtered best reply (optimization)",
                "cobweb_p": "Adaptive price expectations (cobweb)", "heur_markup": "Target-margin rule (heuristic)"}
 
 RC_HYPOTHESES = (

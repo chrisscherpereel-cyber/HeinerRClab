@@ -1,4 +1,4 @@
-"""The readable agent model and the vectorised engine must produce identical trajectories."""
+"""The readable agent model and the vectorized engine must produce identical trajectories."""
 import os
 import sys
 

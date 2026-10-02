@@ -19,7 +19,7 @@ st.info(f"**Theory under test:** ⭐ {next(t.title for t in THEORIES if t.key ==
 st.header("1 · The theories at a glance", divider="gray")
 st.dataframe(pd.DataFrame([{
     "Theory": ("⭐ " if t.key == st.session_state.get("focal_theory", "heiner") else "") + f"{t.icon} {t.title}", "Core claim": t.tagline, "Uncertainty is…": t.uncertainty_view,
-    "Behaviour changes…": t.when_to_change, "More uncertainty makes flexibility…": t.more_uncertainty}
+    "Behavior changes…": t.when_to_change, "More uncertainty makes flexibility…": t.more_uncertainty}
     for t in THEORIES]), hide_index=True, width="stretch")
 cols = st.columns(4)
 for k, t in enumerate(THEORIES):
@@ -60,18 +60,18 @@ st.markdown(
     "* **Knowing when to hold back is the hard part.** Agents that must learn their own reliability lose that gain; "
     "fixed rules recover part of it.\n"
     "* **Criteria matter.** Rankings by profit, downside risk and survival differ; most theories are Pareto-efficient.\n"
-    "* **When firms choose their own rules,** populations change output less often and abandon the flexible optimiser "
-    "as uncertainty rises, but selection favours a simple target-margin heuristic as much as an explicit restriction "
+    "* **When firms choose their own rules,** populations change output less often and abandon the flexible optimizer "
+    "as uncertainty rises, but selection favors a simple target-margin heuristic as much as an explicit restriction "
     "(Rule choice).\n"
-    "* **The boundary generalises.** In an inventory task, a learning task with shifting payoffs and an irreversible "
+    "* **The boundary generalizes.** In an inventory task, a learning task with shifting payoffs and an irreversible "
     "investment task, restriction pays only where the flexible rule is unreliable, with a break-even error-to-signal "
-    "ratio near or below 1 (Generalisation).\n"
+    "ratio near or below 1 (Generalization).\n"
     "* **What is uniquely Heiner's.** In a single-firm benchmark the simulation reproduces the exact Muth–Kalman "
     "optimum; with lopsided stakes, restricting the filter's costly moves cuts the loss by up to a third although the "
     "information is unchanged, as the reliability condition predicts and certainty equivalence does not. A filter "
     "that builds the stakes into its estimate does better still (Solvable benchmark).\n"
     "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment). In five "
-    "public experimental datasets, behaviour is heterogeneous, simulated Cournot markets reach the human level of "
+    "public experimental datasets, behavior is heterogeneous, simulated Cournot markets reach the human level of "
     "competition and time pressure shifts people toward simple or restricted rules; but the learned reliability "
     "condition does not predict individual choices better than the flexible rules it restricts, and people change "
     "their decisions less often than any fitted rule implies (Empirical validation).")

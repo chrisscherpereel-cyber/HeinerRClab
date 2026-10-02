@@ -51,7 +51,7 @@ def rc_arrays(a: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
 
 
 def heiner_bound(K, n_firms):
-    """Heiner (1989, Theorem 2) maximal stabilising partial-adjustment coefficient, symmetric Cournot:
+    """Heiner (1989, Theorem 2) maximal stabilizing partial-adjustment coefficient, symmetric Cournot:
     beta0 = 1 / ((1 + K)(1 - f')),  with f' = -(n - 1)/2 the slope of the best-reply target map."""
     fprime = -(np.asarray(n_firms, float) - 1) / 2.0
     return 1.0 / ((1.0 + np.asarray(K, float)) * (1.0 - fprime))
@@ -227,7 +227,7 @@ def sdt_roc(signal, gain, n_thresholds: int = 60) -> pd.DataFrame:
     """ROC of the decision 'deviate when the signal |q* - q| exceeds theta' (selection rule SR2).
 
     For every threshold: r(theta) = P(deviate | exception), w(theta) = P(deviate | no exception),
-    the RC quantities, and the expected net gain per opportunity. The value-maximising threshold is
+    the RC quantities, and the expected net gain per opportunity. The value-maximizing threshold is
     where the ROC's local slope equals the tolerance limit (the signal-detection optimal criterion)."""
     signal = np.asarray(signal, float)
     gain = np.asarray(gain, float)
@@ -255,7 +255,7 @@ def sdt_roc(signal, gain, n_thresholds: int = 60) -> pd.DataFrame:
 # Event study around regime shifts (Heiner 1989, section 6: punctuated adjustment)
 # ------------------------------------------------------------------------------------------------
 def event_study(res: BatchResult, pre: int = 10, post: int = 40, group: str = "selection") -> pd.DataFrame:
-    """Average behaviour of firms around demand-regime shifts, relative to the shift period (k = 0).
+    """Average behavior of firms around demand-regime shifts, relative to the shift period (k = 0).
 
     Needs keep_steps=True. Reports deviation rate, |dq| relative to the firm's mean |dq|, the
     decision error |xi| (perceived vs true best reply), and profit relative to the firm's mean."""
@@ -292,7 +292,7 @@ def event_study(res: BatchResult, pre: int = 10, post: int = 40, group: str = "s
 # ------------------------------------------------------------------------------------------------
 def instability_index(scn) -> float:
     """Cobweb stability theory (Ezekiel 1938; Nerlove 1958; Theocharis 1960): spectral radius of the
-    linearised production dynamics q' = J q + const, ignoring noise, rounding and bounds.
+    linearized production dynamics q' = J q + const, ignoring noise, rounding and bounds.
 
     Cournot firm i: q_i' = (1 - phi_i/2) q_i - (phi_i/2) Q;  Bertrand firm i: q_i' = q_i - phi_i s Q.
     So J = diag(d) - u 1', and the market is stable when rho(J) < 1. Unit eigenvalues are neutral modes

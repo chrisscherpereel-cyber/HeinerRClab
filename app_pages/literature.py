@@ -17,9 +17,9 @@ st.header("1 · Contribution to the literature", divider="gray")
 st.markdown(
     "The laboratory tests eight theories of decision making under uncertainty on equal terms; the sidebar chooses "
     "which one is highlighted. The question that unites them is the one Heiner's reliability condition answers "
-    "most directly. Heiner's reliability condition explains rule-governed behaviour as a response to uncertainty: when the gap "
-    "between the difficulty of a problem and an agent's competence widens, restricting behaviour to simple rules "
-    "can beat flexible, 'optimising' behaviour. The theory is widely cited but hard to test, because its quantities "
+    "most directly. Heiner's reliability condition explains rule-governed behavior as a response to uncertainty: when the gap "
+    "between the difficulty of a problem and an agent's competence widens, restricting behavior to simple rules "
+    "can beat flexible, 'optimizing' behavior. The theory is widely cited but hard to test, because its quantities "
     "(how often deviations are right or wrong, and what they gain or lose) are rarely observable. The simulation "
     "makes them observable and puts the theory in competition with its rivals.")
 for k, (title, text, keys) in enumerate(CONTRIBUTIONS, 1):

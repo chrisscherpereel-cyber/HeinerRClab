@@ -7,7 +7,7 @@ from heiner_abm.registered import TOURNAMENT_PLAN, registered_tuned
 from ui.common import download, hypothesis_card, verdict
 
 st.title("Field patterns: does the market look like real markets?")
-st.caption("Pattern-oriented validation (Grimm et al. 2005). The market is stylised and not calibrated to any "
+st.caption("Pattern-oriented validation (Grimm et al. 2005). The market is stylized and not calibrated to any "
            "commodity, so it is judged qualitatively, by whether it reproduces several documented empirical "
            "patterns at once. Each criterion was fixed before the run.")
 
@@ -16,7 +16,7 @@ hypothesis_card(
     "Each pattern is produced by the population of agents that the literature associates with it (for example, "
     "naive price expectations for cobweb cycles), using the parameters tuned in the registered agent tournament "
     f"(plan `{TOURNAMENT_PLAN}`). A model that reproduces several independent patterns at once is much harder to "
-    "dismiss as an artefact of its assumptions than one fitted to a single pattern.")
+    "dismiss as an artifact of its assumptions than one fitted to a single pattern.")
 
 st.header("1 · Patterns and criteria", divider="gray")
 st.dataframe(pd.DataFrame([dict(Pattern=p.name, Evidence=p.evidence, Criterion=p.criterion, Population=p.population,

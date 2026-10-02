@@ -1,7 +1,7 @@
 """Loaders for the five public datasets, from the files as distributed by their repositories.
 
 Each loader returns a long table with one row per participant and period in the format the validation adapters expect
-(heiner_abm.empirical), plus the market parameters needed to analyse it. The mappings were derived from the files
+(heiner_abm.empirical), plus the market parameters needed to analyze it. The mappings were derived from the files
 themselves and are checked when loading:
 
 * Gomez-Martinez, Onderstal & Sonnemans (2016), Mendeley Data: phpMyAdmin SQL dumps, one per session ("sql files

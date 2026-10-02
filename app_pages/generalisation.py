@@ -8,9 +8,9 @@ import streamlit as st
 from heiner_abm.registered import MECHANISMS
 from heiner_abm.tasks import (AXIS_LABELS, LAYER_LABELS, LAYERS, QUICK_TASKS, RANGES, TASKS, TaskPlan, boundary,
                               run_tasks, tercile_table, wide)
-from ui.common import CAT, download, hypothesis_card, style, verdict
+from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
 
-st.title("Generalisation: beyond the market")
+st.title("Generalization: beyond the market")
 st.caption("If restriction pays only where the flexible rule is unreliable in other decision tasks too, the finding "
            "is about decision making, not about cobweb markets. Three tasks with the same structure but a different "
            "payoff structure are tested with the same selection layers and the same boundary test.")
@@ -53,6 +53,7 @@ with st.expander("The three tasks and the selection layers", icon="ℹ️"):
                 "how far the optimum lies from the default.")
 
 st.header("1 · Plan", divider="gray")
+prereg_explainer()
 scale = st.radio("Protocol", ["Registered", "Quick check"], horizontal=True, key="gen_scale",
                  help="Registered runs the frozen plan (120 environments per task, about 25 seconds). Quick check is "
                       "a small exploratory run.")
@@ -149,6 +150,6 @@ fig = go.Figure(go.Scatter(x=w[x], y=w[y], mode="markers",
 fig.update_xaxes(title=AXIS_LABELS[x])
 fig.update_yaxes(title=AXIS_LABELS[y])
 st.plotly_chart(style(fig, height=420), width="stretch")
-st.caption("Each point is one environment; colour is the oracle's gain from restriction over always deviating "
+st.caption("Each point is one environment; color is the oracle's gain from restriction over always deviating "
            "(blue: restriction pays).")
 download(res.runs, f"generalisation_{plan.digest}.csv", "Download runs (CSV)")

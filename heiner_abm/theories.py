@@ -5,7 +5,7 @@ experiment reports one statistic (usually the regression coefficient of the with
 slope on the manipulated variable) whose sign is read at the 5% level as '+', '-' or '0'. A theory's
 prediction is scored as a match, a contradiction or inconclusive.
 
-The predictions are stylised readings of each literature, not quotations. Where a theory is silent, or its
+The predictions are stylized readings of each literature, not quotations. Where a theory is silent, or its
 prediction depends on assumptions the model does not pin down, it makes no prediction (None).
 """
 from __future__ import annotations
@@ -33,25 +33,25 @@ class Theory:
 THEORIES: List[Theory] = [
     Theory("heiner", "Heiner: reliability condition", cite(*THEORY_SOURCES["heiner"]),
            "Flexibility pays only if the agent's reliability r/w exceeds the tolerance limit (D/G)(1−π)/π. "
-           "When the gap between difficulty and competence (the CD-gap) widens, rule-governed behaviour wins, "
+           "When the gap between difficulty and competence (the CD-gap) widens, rule-governed behavior wins, "
            "even when flexibility is free."),
-    Theory("neo", "Neoclassical optimisation", cite(*THEORY_SOURCES["neo"]),
-           "Relaxing a constraint cannot lower an optimiser's payoff, so free flexibility never hurts. Errors "
+    Theory("neo", "Neoclassical optimization", cite(*THEORY_SOURCES["neo"]),
+           "Relaxing a constraint cannot lower an optimizer's payoff, so free flexibility never hurts. Errors "
            "are unsystematic, and better information makes flexibility more valuable."),
     Theory("options", "Real options / value of flexibility", cite(*THEORY_SOURCES["options"]),
            "Flexibility is an option whose value rises with uncertainty. With adjustment costs the zone of "
            "inaction widens as uncertainty grows (hysteresis)."),
     Theory("cobweb", "Cobweb stability theory", cite(*THEORY_SOURCES["cobweb"]),
-           "Fast adjustment hurts only by destabilising the market. Stability depends on adjustment speed, "
+           "Fast adjustment hurts only by destabilizing the market. Stability depends on adjustment speed, "
            "demand slope and the number of firms, not on additive shocks such as cost volatility or noise."),
     Theory("biasvar", "Bias–variance / ecological rationality", cite(*THEORY_SOURCES["biasvar"]),
            "Simple rules beat flexible ones when estimation noise is high relative to the signal. Only "
            "accuracy matters; the payoff asymmetry (stakes) does not enter."),
     Theory("satisficing", "Satisficing / aspiration-level search", cite(*THEORY_SOURCES["satisficing"]),
-           "Firms change behaviour when performance falls below aspiration. Worse or more volatile "
+           "Firms change behavior when performance falls below aspiration. Worse or more volatile "
            "environments trigger more search and change."),
-    Theory("ecology", "Structural inertia (organisational ecology)", cite(*THEORY_SOURCES["ecology"]),
-           "Selection favours reliable, inert organisations in any environment, so rigidity is selected "
+    Theory("ecology", "Structural inertia (organizational ecology)", cite(*THEORY_SOURCES["ecology"]),
+           "Selection favors reliable, inert organizations in any environment, so rigidity is selected "
            "regardless of how volatile the environment is."),
 ]
 THEORY_NAMES = {t.key: t.name for t in THEORIES}
@@ -164,7 +164,7 @@ def run_predictability(base: Scenario, reps: int, horizon: int = 20, **_) -> Out
 
 
 def run_partial_adjustment(base: Scenario, reps: int, **_) -> Outcome:
-    """Symmetric Cournot industry: does the profit-maximising adjustment speed fall as errors grow?"""
+    """Symmetric Cournot industry: does the profit-maximizing adjustment speed fall as errors grow?"""
     s = base.copy()
     for f in s.firms:
         f.rule, f.selection = "Cournot", "Always"
@@ -200,7 +200,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="Relaxing a constraint cannot hurt.", options="An option is never worth less than zero.",
                     cobweb="Flexibility can only hurt in an unstable market; this one is stable.",
                     biasvar="Firms decide on last period's cost, so estimates are noisy: simple rules win.",
-                    ecology="Inert organisations are selected because they are reliable."), hid="H1"),
+                    ecology="Inert organizations are selected because they are reliable."), hid="H1"),
     Experiment("volatility", "E2 · Cost volatility Δ rises",
                "Δ = 2, 8, 16, 24, 32 (sidebar market otherwise).", "Coefficient of the slope on Δ",
                dict(heiner="-", neo="+", options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
@@ -218,7 +218,7 @@ EXPERIMENTS: List[Experiment] = [
                     neo="Better information complements flexibility.",
                     options="Less uncertainty about the future lowers the option value of flexibility.",
                     cobweb="Foresight shifts perceived cost but not the adjustment dynamics.",
-                    biasvar="Lower estimation error favours the flexible rule."), hid="H7"),
+                    biasvar="Lower estimation error favors the flexible rule."), hid="H7"),
     Experiment("noise", "E4 · Perception noise σ rises",
                "σ = 0, 5, 10, 15, 20.", "Coefficient of the slope on σ",
                dict(heiner="-", neo=None, options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
@@ -245,19 +245,19 @@ EXPERIMENTS: List[Experiment] = [
                "Coefficient of the deviation rate on Δ",
                dict(heiner="-", neo="+", options="-", cobweb=None, biasvar=None, satisficing="+", ecology=None),
                run_predictability,
-               dict(heiner="Heiner's core 1983 claim: greater uncertainty makes behaviour more rule-governed.",
-                    neo="Bigger shocks make re-optimising worthwhile more often.",
+               dict(heiner="Heiner's core 1983 claim: greater uncertainty makes behavior more rule-governed.",
+                    neo="Bigger shocks make re-optimizing worthwhile more often.",
                     options="The zone of inaction widens with uncertainty (Dixit 1989).",
                     satisficing="Volatility pushes results below aspiration more often, triggering change."), hid="H10"),
     Experiment("partial", "E8 · Best adjustment speed as errors grow (symmetric Cournot)",
                "Every firm uses the same φ from 0.05 to 1; perception noise σ = 0, 5, 10, 20.",
-               "Coefficient of the profit-maximising φ on σ",
+               "Coefficient of the profit-maximizing φ on σ",
                dict(heiner="-", neo="-", options="+", cobweb="0", biasvar="-", satisficing=None, ecology=None),
                run_partial_adjustment,
                dict(heiner="Heiner (1989) Theorem 2: β₀ = 1/((1+K)(1−f′)) falls as K rises.",
-                    neo="An optimiser that accounts for noise attenuates its response (optimal filtering; "
+                    neo="An optimizer that accounts for noise attenuates its response (optimal filtering; "
                         "Muth 1960, Kalman 1960, Brainard 1967). This prediction is shared with Heiner.",
-                    options="More uncertainty favours keeping and using flexibility.",
+                    options="More uncertainty favors keeping and using flexibility.",
                     cobweb="The best speed is set by the stability limit, which noise does not move.",
                     biasvar="Shrink estimates toward the default as noise rises."), hid="BOUND"),
     Experiment("evolution", "E9 · Which flexibility do industries evolve at different volatilities?",

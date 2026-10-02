@@ -21,7 +21,7 @@ from heiner_abm.literature import Hypothesis
 from heiner_abm.theories import run_tournament
 
 # ------------------------------------------------------------------------------------------------
-# Colours (reference palette): firms are ordered by flexibility -> one-hue sequential ramp
+# Colors (reference palette): firms are ordered by flexibility -> one-hue sequential ramp
 # ------------------------------------------------------------------------------------------------
 BLUE_RAMP = ["#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95",
              "#104281", "#0d366b"]
@@ -83,6 +83,103 @@ PRESETS: Dict[str, Dict[str, object]] = {
     "Knightian uncertainty: demand regime shifts (Bertrand)": dict(struct_on=True, delta=5.0),
 }
 
+# What each preset changes, why one would run it, and what a typical run shows (6 replications of 1,000 periods,
+# checked against the simulation; "slope" is the change in average profit from the most rigid to the most flexible
+# firm, per firm step).
+PRESET_INFO: Dict[str, Dict[str, str]] = {
+    "Baseline (Bertrand, 4 firms)": dict(
+        setup="Four firms with flexibility φ = 0.25, 0.50, 0.75 and 1.00. Each adjusts output to the observed margin "
+              "(price − cost estimate) relative to a desired margin m* = 5, without a model of demand (Bertrand rule). "
+              "Raw-material cost moves by up to Δ = 10 per period; no perception noise, no demand shifts, flexibility "
+              "is free.",
+        why="The reference point. Every other preset changes one or two settings relative to it, so differences can "
+            "be attributed to those settings.",
+        hypotheses="H1, H2, H3 (as the comparison case)",
+        typical="Average price ≈ 48.6 against cost ≈ 43.7; prices are smoother than costs; more flexible firms earn "
+                "somewhat more (slope ≈ +23)."),
+    "Cournot competition": dict(
+        setup="As the baseline, but each firm moves a share φ of the way toward its best reply on the believed demand "
+              "curve (a model-based Cournot rule).",
+        why="Checks whether conclusions depend on how firms decide: model-based (Cournot) versus model-free "
+            "(Bertrand). Model-based decisions interact through rivals' reactions and can overshoot.",
+        hypotheses="H6, H11, the Competing theories tournament (run under both rules)",
+        typical="Prices overshoot (oscillating regime), margins ≈ 11; more flexible firms earn less (slope ≈ −22)."),
+    "Low-profit Bertrand (fierce competition, m* = 0.5)": dict(
+        setup="Baseline with a desired margin of only 0.5, so firms compete fiercely and margins are close to zero.",
+        why="When margins are thin, a wrong move is costly relative to what a right move gains. The reliability "
+            "condition predicts that flexibility then hurts even though it is free; optimization predicts it cannot.",
+        hypotheses="H1 (free flexibility), H2 (profitability switch)",
+        typical="Margin ≈ 0.4 and profit ≈ 70 per period; more flexible firms earn less (slope ≈ −6)."),
+    "High-profit Bertrand (gentlemanly, m* = 14)": dict(
+        setup="Baseline with a desired margin of 14: firms compete softly and margins are wide.",
+        why="The mirror image of the low-profit case: mistakes are cheap relative to the gains from adjusting, so "
+            "flexibility should pay. Together they locate the profitability at which the effect of flexibility "
+            "switches sign.",
+        hypotheses="H2 (profitability switch), H5 (competition intensity)",
+        typical="Margin ≈ 14; flexibility pays strongly (slope ≈ +107)."),
+    "Volatile raw materials (Δ = 25)": dict(
+        setup="Baseline with cost volatility Δ = 25 instead of 10: the raw-material cost can move by up to 25 per "
+              "period.",
+        why="A harder, more volatile environment (risk). Theories disagree on its effect: real options and "
+            "optimization say volatility raises the value of flexibility, the reliability condition and bias–variance "
+            "reasoning say it lowers it.",
+        hypotheses="H3 (volatility), H10 (predictability), E2 in Competing theories",
+        typical="Flexibility's payoff turns negative (slope ≈ −14)."),
+    "Selection rules: SR2 'Large' (θ = 25)": dict(
+        setup="Firms keep last period's output unless the recommended change exceeds θ = 25: they act only on large, "
+              "clear signals and ignore small ones.",
+        why="Tests whether acting only on clear signals beats always adjusting: the selection rule, not the target, "
+            "is what differs.",
+        hypotheses="H9 (selection rules)",
+        typical="Profit rises with flexibility (slope ≈ +270): restraint on small signals makes flexibility pay."),
+    "Selection rules: SR1 'Small' (θ = 10)": dict(
+        setup="The opposite rule: firms adjust only when the recommended change is below θ = 10 and ignore large "
+              "recommended changes.",
+        why="A contrast to SR2: if the gain comes from ignoring noisy small signals, ignoring large signals instead "
+            "should hurt.",
+        hypotheses="H9 (selection rules)",
+        typical="Profit falls with flexibility (slope ≈ −171)."),
+    "Reliability-learning (Adaptive) agents, H = 25": dict(
+        setup="Every firm learns, for each size of recommended change, whether deviating from keeping its output has "
+              "paid off over the following 25 periods (judged against the counterfactual of not deviating), and "
+              "deviates only where it has. Nothing is imposed about how often to deviate.",
+        why="Lets restraint emerge from experience rather than imposing it. Needed for the predictability hypothesis "
+            "and for the reliability-condition validation, which measure how often firms choose to deviate.",
+        hypotheses="H10 (predictability), RC validation, CD-gap explorer",
+        typical="Similar prices to the baseline; learning firms deviate less where deviations have not paid."),
+    "Costly flexibility (a = 500, b = 100, in margin)": dict(
+        setup="Flexibility now costs F = 500·φ + 100 per period, and the fixed cost is included in the margin firms "
+              "react to (margin = P − c − F/q).",
+        why="Separates the traditional explanation (flexibility is costly) from the reliability explanation "
+            "(flexibility is free but error-prone), and tests whether higher fixed costs raise the profitability at "
+            "which flexibility starts to pay.",
+        hypotheses="H4 (fixed costs), E5 in Competing theories",
+        typical="Flexibility is strongly unprofitable (slope ≈ −875), mostly through its direct cost."),
+    "Ten firms (larger market)": dict(
+        setup="Ten firms with φ = 0.1, 0.2, …, 1.0 and a lower starting output (80 each) so total output starts near "
+              "the baseline level.",
+        why="More rivals make each firm's target move more with the others' choices (strategic difficulty). Heiner "
+            "(1989) and cobweb theory both predict the reliable adjustment speed falls with the number of firms.",
+        hypotheses="H11 (number of rivals), E6 in Competing theories",
+        typical="Lower profit per firm (≈ 410) with a mildly positive effect of flexibility (slope ≈ +15) under "
+                "Bertrand; rerun under Cournot to see the strategic effect."),
+    "Knightian uncertainty: demand regime shifts (Cournot, φ ≤ 0.4)": dict(
+        setup="Cournot firms (φ = 0.1–0.4, low enough to keep the market stable) face unannounced shifts of the "
+              "demand curve (hazard 0.02 per period, intercept s.d. 15, log-slope s.d. 0.4); their demand model is "
+              "updated only 20 periods after a shift. Cost volatility is lowered to Δ = 5 so that the shifts dominate.",
+        why="Model misspecification (Knightian uncertainty) rather than risk: firms that rely on a demand model act on "
+            "an outdated model after each shift. Compare with the volatile-costs preset at matched unpredictability.",
+        hypotheses="KNIGHT (risk vs Knightian uncertainty), H12 (model-updating lag), PUNCT (punctuated adjustment)",
+        typical="About 19 shifts per run; prices follow costs between shifts; flexibility hurts (slope ≈ −9)."),
+    "Knightian uncertainty: demand regime shifts (Bertrand)": dict(
+        setup="The same demand shifts with Bertrand (model-free) firms, which react to the observed margin and never "
+              "use a demand model.",
+        why="The control for the Cournot regime-shift preset: model-free firms are not misled by an outdated model, "
+            "so the theories that point to misspecification predict that flexibility still pays here.",
+        hypotheses="KNIGHT (risk vs Knightian uncertainty)",
+        typical="About 19 shifts per run; flexibility pays (slope ≈ +244)."),
+}
+
 K = "cfg_"
 
 
@@ -126,19 +223,60 @@ def v(key):
     return st.session_state.get(K + key, DEFAULTS[key])
 
 
-def render_sidebar():
-    _init_state()
+SECTION_NOTES = {
+    "Simulate": "Experiments in the shared market that test every theory on equal terms.",
+    "Special tests": "Tests of one theory's signature prediction, for Heiner and for each rival.",
+    "Validate & generalize": "Checks against field patterns, laboratory data and other decision tasks.",
+    "Reference": "How the agents work, the research behind the hypotheses, and the model's equations.",
+}
+
+
+def render_navigation(sections, current) -> None:
+    """Sidebar navigation: the theories first, then the theory under test, then the other sections as collapsed
+    groups (the group holding the current page opens)."""
     sb = st.sidebar
+    sb.markdown("## ⚖️ Decision under uncertainty lab")
+    sb.markdown("### Theories")
+    sb.caption("Eight theories of decision making under uncertainty, each implemented as agents and tested on equal "
+               "terms in the same simulated market.")
+    for page in sections["Theories"]:
+        sb.page_link(page, label=page.title, icon=page.icon)
     sb.markdown("### Theory under test")
     sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                  help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "
                       "research tables and in the tournament reviews. The others are shown as competitors. Heiner's "
                       "reliability condition is one choice among eight.")
+    for name, pages in sections.items():
+        if name == "Theories":
+            continue
+        here = any(p.url_path == current.url_path for p in pages)
+        with sb.expander(name, expanded=here):
+            if name in SECTION_NOTES:
+                st.caption(SECTION_NOTES[name])
+            for page in pages:
+                st.page_link(page, label=page.title, icon=page.icon)
+
+
+def render_sidebar(sections=None, current=None):
+    _init_state()
+    sb = st.sidebar
+    if sections is not None and current is not None:
+        render_navigation(sections, current)
+    else:
+        sb.markdown("### Theory under test")
+        sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
+                     help="The theory whose predictions are highlighted on every hypothesis card.")
     sb.markdown("### Base scenario")
     sb.caption("Every page starts from this market. Experiments override only the parameters they sweep.")
     sb.selectbox("Preset", list(PRESETS), key="preset_choice",
                  help="Ready-made scenarios. Pick one, then press **Apply preset** to load its values into every sidebar "
-                      "control; **Reset** restores the baseline calibration.")
+                      "control; **Reset** restores the baseline calibration. Every preset is described on the "
+                      "*Model & methods* page.")
+    info = PRESET_INFO.get(st.session_state.get("preset_choice", next(iter(PRESETS))))
+    if info:
+        with sb.popover("About this preset", width="stretch"):
+            st.markdown(f"**Setup.** {info['setup']}\n\n**Why run it.** {info['why']}\n\n"
+                        f"**Used for.** {info['hypotheses']}\n\n**Typical result.** {info['typical']}")
     c1, c2 = sb.columns(2)
     c1.button("Apply preset", on_click=apply_preset, width="stretch")
     c2.button("Reset", on_click=reset_defaults, width="stretch")
@@ -151,7 +289,7 @@ def render_sidebar():
                         help="Price floor of the hockey-stick demand curve, P = max(min price, …). Also the lower "
                              "reflecting bound for the raw-material cost.")
         st.number_input("Quantity range (sets demand slope)", 100.0, 20000.0, key=K + "q_range", step=100.0,
-                        help="Slope = (max price − min price) / quantity range. Steep demand destabilises the cobweb.")
+                        help="Slope = (max price − min price) / quantity range. Steep demand destabilizes the cobweb.")
         st.number_input("Initial raw-material cost c₀", 0.0, 500.0, key=K + "c0", step=1.0,
                         help="Raw-material cost in period 0; the cost random walk starts here. Must lie between "
                              "min price and max raw-material cost.")
@@ -160,7 +298,7 @@ def render_sidebar():
         st.slider("Cost volatility Δ (max change per period)", 0.0, 60.0, key=K + "delta", step=0.5,
                   help="Difficulty of the environment. c[t] = c[t−1] + Δ·U(−1,1), reflected at the bounds.")
 
-    with sb.expander("Firms", expanded=True):
+    with sb.expander("Firms", expanded=False):
         st.slider("Number of firms", 2, 12, key=K + "n_firms",
                   help="Firms in the market. Firm i gets flexibility φᵢ = intercept + slope·i, so firms are "
                        "ordered from most rigid (firm 1) to most flexible.")
@@ -242,7 +380,7 @@ def render_sidebar():
                   help="Forgetting factor of Adaptive firms' learned payoff to deviating: new estimate = "
                        "λ·old + (1 − λ)·latest gain. Closer to 1 = longer memory, slower learning.")
 
-    with sb.expander("Structural uncertainty (regime shifts)", expanded=bool(v("struct_on"))):
+    with sb.expander("Structural uncertainty (regime shifts)", expanded=False):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
                   help="Knightian uncertainty: the demand curve occasionally jumps to a new regime that "
                        "model-based (Cournot) firms don't know about until they update their model.")
@@ -259,8 +397,7 @@ def render_sidebar():
                             help="How many periods model-based (Cournot) firms keep using the old demand curve "
                                  "after a shift. 0 = they learn it one period later; −1 = they never update.")
     sb.markdown("---")
-    sb.caption("Eight theories of decision making under uncertainty, tested on equal terms. See the *Theories* "
-               "overview and *Research & contribution*.")
+    sb.caption("See the *Theories* overview and *Research & contribution* for the research behind every test.")
 
 
 def base_scenario() -> Scenario:
@@ -298,7 +435,7 @@ def measure_opts():
 
 
 def behaviour_horizon(scn: Scenario) -> int:
-    """Horizon needed when only profits are reported: H changes behaviour only through Adaptive agents'
+    """Horizon needed when only profits are reported: H changes behavior only through Adaptive agents'
     learning, so skip the (costly) counterfactual forks otherwise."""
     return int(v("horizon")) if any(f.selection == "Adaptive" for f in scn.firms) else 1
 
@@ -315,7 +452,7 @@ def show_errors(scn: Scenario) -> bool:
 
 
 # ------------------------------------------------------------------------------------------------
-# (De)serialisation for caching
+# (De)serialization for caching
 # ------------------------------------------------------------------------------------------------
 def to_json(scn: Scenario) -> str:
     return json.dumps(asdict(scn), sort_keys=True)
@@ -422,10 +559,13 @@ _SOURCE_NOTE = {"tournament": "Stated in the directional tournament (Competing t
 
 
 def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: Optional[str] = None,
-                    trad: Optional[str] = None):
+                    trad: Optional[str] = None, notes: Optional[Dict[str, str]] = None):
     """Hypothesis, the prediction of the theory under test (chosen in the sidebar), the competing predictions, the
-    research behind them, and the simulation's contribution. Title and predictions come from the literature registry
-    unless overridden (rc: the reliability-condition prediction; trad: the registered alternative)."""
+    research behind them, and the simulation's contribution. The statement describes the test neutrally; theory-
+    specific reasoning goes in `notes` ({theory key: text}) and is shown under that theory's prediction. Title and
+    predictions come from the literature registry unless overridden (rc: the reliability-condition prediction; trad:
+    the registered alternative)."""
+    notes = notes or {}
     h = _literature().HYPOTHESIS_BY_ID.get(hid)
     if h is None:      # never take a page down for a missing registry entry
         st.markdown(f"#### {title or hid}")
@@ -450,15 +590,20 @@ def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: O
     with c1.container(border=True):
         st.markdown(f"**⭐ {F.title(focal)} predicts** (theory under test)")
         st.markdown(pred)
+        if notes.get(focal):
+            st.markdown(f"*Reasoning:* {notes[focal]}")
         if src in _SOURCE_NOTE:
             st.caption(_SOURCE_NOTE[src])
     with c2.container(border=True):
         st.markdown("**Competing predictions**")
         lines = []
         if focal != "heiner":
-            lines.append(f"* **{F.title('heiner')}:** {rc}")
+            lines.append(f"* **{F.title('heiner')}:** {rc}" + (f" *Reasoning:* {notes['heiner']}"
+                                                                if notes.get("heiner") else ""))
         if focal not in owners:
-            lines.append(f"* **Alternative ({h.alt_label.lower()}):** {trad}")
+            extra = " ".join(notes[k] for k in owners if notes.get(k))
+            lines.append(f"* **Alternative ({h.alt_label.lower()}):** {trad}" + (f" *Reasoning:* {extra}" if extra
+                                                                                  else ""))
         st.markdown("\n".join(lines))
         with st.popover("All eight theories", width="stretch"):
             st.dataframe(pd.DataFrame([dict(Theory=("⭐ " if k == focal else "") + F.title(k),
@@ -507,6 +652,31 @@ def research_panel(h: Hypothesis, nested: bool = False):
         keys = list(dict.fromkeys(k for k, _ in h.support + h.alternative))
         st.markdown("\n".join(f"* {r.apa}" for r in _literature().bibliography(keys)))
     st.caption(f"**Contribution:** {h.contribution}")
+
+
+PREREG_TEXT = (
+    "**What it is.** Before a confirmatory study is run, its plan is fixed in writing: the hypotheses, the exact test "
+    "and decision rule for each (what result counts as support and what does not), the environments and sample sizes, "
+    "the tuning budget every agent receives, and the random seeds. The app turns the plan, together with the source "
+    "code of the agents and the analysis, into a short fingerprint (a hash, such as `9699f86a6a899cf7`).\n\n"
+    "**Why it matters.**\n"
+    "* *No moving the goalposts.* Tests, settings and thresholds cannot be chosen after seeing which ones favor a "
+    "theory (the 'garden of forking paths', p-hacking, or hypothesizing after the results are known).\n"
+    "* *Fairness between theories.* Every theory's agents get the same budget, environments and yardsticks, fixed "
+    "before any of them is run.\n"
+    "* *Verifiability.* The same hash means the same plan and the same code, so a reported result can be traced to "
+    "exactly what produced it. The plan can be downloaded as a file and deposited, with a time stamp, in a registry "
+    "such as OSF or AsPredicted before the study is run.\n\n"
+    "**Registered versus exploratory.** Changing any setting (or the code) changes the hash, and the app then labels "
+    "the run *exploratory*. Exploratory runs are useful for learning and for generating new hypotheses, but they are "
+    "not confirmatory evidence. Results reported in the README and on the theory pages are tied to the registered "
+    "hashes, and the test suite fails if the code changes them without the results being rerun (Nosek et al., 2018).")
+
+
+def prereg_explainer():
+    """An expander explaining pre-registered plans, for every page that runs a frozen plan."""
+    with st.expander("ℹ️ What is a pre-registered plan, and why use one?"):
+        st.markdown(PREREG_TEXT)
 
 
 def verdict(kind: str, text: str):

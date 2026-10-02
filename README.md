@@ -1,7 +1,7 @@
 # Decision making under uncertainty: an agent-based laboratory
 
 A Streamlit agent-based simulation laboratory that compares eight theories of when a decision maker should adapt
-and when it should stick to a rule: Heiner's reliability condition, neoclassical optimisation, real options, cobweb
+and when it should stick to a rule: Heiner's reliability condition, neoclassical optimization, real options, cobweb
 theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, and
 imitation and evolutionary selection. All are implemented in the same cobweb oligopoly and tested on equal terms.
 Every hypothesis, and every alternative to it, is grounded in published research (see *Research basis* below).
@@ -38,38 +38,92 @@ many replications. For heavy research runs, use a local installation.
 
 ## Pages
 
-**Theory under test.** A selector at the top of the sidebar chooses which of the eight theories is highlighted. Every
-hypothesis card then shows that theory's prediction first (from the registry, the directional tournament, a statement
-derived from the theory's core claim, or, where it makes none, its general stance, labelled as such) with the
-competing predictions beside it; the research panels, the overview and research tables, the competing-theories
-verdicts and the agent tournament's head-to-head follow the same choice. Heiner's reliability condition is the
-default, not a privileged position.
+The left panel lists the eight **theories** first. Directly beneath them is the **theory under test**: a selector that
+chooses which theory is highlighted. Every hypothesis card then shows that theory's prediction first (from the
+registry, the directional tournament, a statement derived from the theory's core claim, or, where it makes none, its
+general stance, labeled as such), with the competing predictions beside it and any theory-specific reasoning under its
+own prediction. The research panels, the overview and research tables, the competing-theories verdicts and the agent
+tournament's head-to-head follow the same choice. Heiner's reliability condition is the default, not a privileged
+position. The other sections (Simulate, Special tests, Validate & generalize, Reference) and the base-scenario
+settings are collapsed by default; the section holding the current page opens.
+
+**Theories**
 
 | Page | What it does |
 |---|---|
-| Theories · Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
-| Theories · one page per theory | Heiner, optimisation, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
+| Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
+| One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
+
+**Simulate** (experiments that test every theory on equal terms; hypotheses are stated as neutral questions)
+
+| Page | What it does |
+|---|---|
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
-| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behaviour · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
-| Does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
-| Dynamic RC (Heiner 1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximising flexibility. Signal-detection ROC of each firm's decisions |
+| Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behavior · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
 | Risk vs Knightian uncertainty | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot) and model-free (Bertrand) firms. Event study of punctuated slow–quick–slow adjustment |
-| CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
-| Competing theories | Heiner's RC against neoclassical optimisation, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
+| Competing theories | Heiner's RC against neoclassical optimization, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
-| Mechanisms | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardised effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
 | Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
-| Experiment designer | Generic one- or two-parameter sweeps with CSV export |
+| Experiment designer | Your own *what if* question: sweep one or two settings of the base market and plot any outcome, with common random numbers across conditions. The page explains its purpose, the steps, a worked example and what each outcome means; CSV export |
+
+**Special tests** (each theory's signature prediction)
+
+| Page | What it does |
+|---|---|
+| Signature tests by theory | One test per rival theory of the prediction that characterizes it, with a criterion fixed in advance (results below); Heiner's tab links to his five special-test pages |
+| Heiner: does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
+| Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
+| Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
+| Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
+| Heiner vs optimal filtering (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
+
+**Validate & generalize**
+
+| Page | What it does |
+|---|---|
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
-| Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licences and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
+| Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
-| Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labelled |
-| Generalisation | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
-| Solvable benchmark (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
+| Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
+| Generalization | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
+
+**Reference**
+
+| Page | What it does |
+|---|---|
+| Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the seventeen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
-| Model & methods | Equations, schedule, measurement, statistics, baseline calibration, verification |
+| Model & methods | Equations, schedule, measurement, statistics, baseline calibration, a full description of every preset scenario (setup, why to run it, the hypotheses it serves and a typical result), what a pre-registered plan is and why it is used, and verification |
+
+**Pre-registered plans.** Before a confirmatory study is run, its plan (hypotheses, tests and decision rules,
+environments, sample sizes, tuning budgets and seeds) is fixed and, together with the agent and analysis code, turned
+into a short hash. This prevents choosing tests or settings after seeing the results, makes the comparison between
+theories fair, and lets anyone verify that a reported result came from exactly that plan and code. Any change produces
+a new hash and the run is labeled exploratory. Every page with a plan explains this in an expandable note.
+
+## Signature tests by theory
+
+Each rival theory's distinctive prediction, tested with its own agents in the shared market (Full scale; deterministic
+given the code):
+
+| Theory | Signature prediction | Result | Verdict |
+|---|---|---|---|
+| Neoclassical optimization | Better information raises an optimizer's profit; full information yields Cournot–Nash | profit slope on foresight +40.6 per unit (p = 0.0116); with full information the rational market's price is within 0.13% of Cournot–Nash on average | **supported** |
+| Real options | The value of flexibility rises with volatility | value of flexibility changes by -11.2 per unit of volatility (p = 1.03e-15) | not supported |
+| Cobweb theory | Partial best-reply adjustment is stable only below φ = 4/(n + 1) | n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, simulated 0.55; n = 8: theory 0.44, simulated 0.45 | **supported** |
+| Simple heuristics | A simple rule beats the optimizer by more as estimation noise rises | heuristic's advantage changes by -26.0 per unit of noise (p = 8.1e-06); at the highest noise +684 [+564, +826] | not supported |
+| Satisficing | Harder (more volatile) conditions trigger more search | change rate changes by -0.0002 per unit of volatility (p = 0.386) | not supported |
+| Reinforcement learning | Performance improves with experience in a stationary environment | relative profit improves by -138 [-488, +230] from the first to the last third in a stationary market, and by -190 [-487, +112] with unannounced shifts | not supported |
+| Imitation | Imitating the best drives output above Cournot–Nash | imitate-the-best markets produce 1.24 [1.22, 1.26] × the Cournot–Nash output | **supported** |
+
+Three of seven signatures hold in this market. The cobweb stability boundary is reproduced almost exactly (0.95, 0.80,
+0.55 and 0.45 against 1.00, 0.80, 0.57 and 0.44), and imitation of the best pushes output 24% above Cournot–Nash, as
+Vega-Redondo (1997) predicts. Real options' signature fails: always adjusting loses more to its rigid twin as
+volatility rises. The heuristic beats the optimizer at every noise level, but its advantage shrinks rather than grows
+with noise; the aspiration searcher does not change more often in more volatile markets; and the tuned reinforcement
+learner does not improve with experience over 1,500 periods.
 
 ## Competing theories: reference results
 
@@ -82,7 +136,7 @@ Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
 | Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
 | Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
 | Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
-| Neoclassical optimisation | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
+| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
 
 Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
 perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
@@ -98,7 +152,9 @@ combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). He
 
 ## Agent tournament: registered results
 
-Registered plan `15193603c3f8359b`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
+> **Revision note (2 October 2026).** The text of the agents and hypotheses was converted to American spelling. Plan hashes include that text, so the tournament, mechanism-study, rule-choice, generalization and tracking hashes changed (from `15193603c3f8359b`, `fafb771393aab7fe`, `e6df56611a66c23f`, `ee7faf1cff253ace` and `e6c4f642f296c19b`). The computation did not change: every registered study was rerun under the new hashes and reproduced every number reported here exactly.
+
+Registered plan `9699f86a6a899cf7`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
 training environments; each theory enters with the design that scored higher on training data; evaluation on 40 × 2
 held-out environments (800 periods); six criteria; invasion with 4 residents + 1 mutant; three replications with
 fresh seeds.
@@ -109,7 +165,7 @@ fresh seeds.
 | Simple heuristics: target-margin rule | 2.79 / 3.30, 1.91, 1.65 | 4.00 / 4.17, 4.00, 3.83 |
 | Real options: inaction band, price-based target | 3.41 / 2.99, 3.24, 4.21 | 3.33 / 3.00, 3.83, 3.67 |
 | Heiner: reliability condition, price-based target | 3.98 / 4.89, 6.00, 5.42 | 4.17 / 5.00, 3.33, 6.00 |
-| Optimisation: rational expectations (Cournot–Nash) | 5.84 / 5.62, 5.90, 5.36 | 4.83 / 5.50, 6.83, 4.67 |
+| Optimization: rational expectations (Cournot–Nash) | 5.84 / 5.62, 5.90, 5.36 | 4.83 / 5.50, 6.83, 4.67 |
 | Reinforcement learning: softmax value learner | 6.20 / 6.65, 5.85, 6.20 | 8.17 / 6.33, 5.17, 6.67 |
 | Imitation (best or average) | 6.24 / 4.35, 5.32, 5.29 | 6.00 / 6.83, 7.00, 5.00 |
 | Rule B (rigid benchmark) | 6.28 / 6.41, 5.72, 5.62 | 5.50 / 5.83, 5.33, 5.67 |
@@ -138,7 +194,7 @@ None of the six pre-registered hypotheses was supported in the main run; PR2 was
 * *Heiner's own learned selection rule does not deliver that benefit robustly.* Estimating π, r, w, G and D
   case by case is itself a hard inference problem. The learned reliability condition is a flexible rule about when to
   be flexible, and it is noisy; simple fixed restrictions (an inaction band, a target margin) capture the gains
-  without the estimation error. This is consistent with Heiner's deeper argument that reliable behaviour comes from
+  without the estimation error. This is consistent with Heiner's deeper argument that reliable behavior comes from
   rules rather than case-by-case assessment, and it qualifies the use of the condition as an agent's decision rule.
 * *Criteria matter.* Ranking by profit alone, by downside risk or by survival gives different orders; seven of nine
   theories are Pareto-efficient in the main run, so claims of superiority must name the criterion.
@@ -148,9 +204,9 @@ result: the registered run reproduces the earlier one exactly.
 
 ## Mechanism study: registered results
 
-Study plan `fafb771393aab7fe` (120 environments drawn by Latin hypercube over separate sources of uncertainty, 800
+Study plan `e9b5cbda8a4c4ab7` (120 environments drawn by Latin hypercube over separate sources of uncertainty, 800
 periods, oracle values from 3,200-period independent runs, background rivals tuned under tournament plan
-`15193603c3f8359b`). A focal firm aims at the same target as the always-adjusting rule and differs only in when it
+`9699f86a6a899cf7`). A focal firm aims at the same target as the always-adjusting rule and differs only in when it
 moves. Profit per period relative to always adjusting (95% CI):
 
 | Selection rule | Model-based target | Price-based target |
@@ -168,7 +224,7 @@ limited experience +140 [42, 238] and judging with a misspecified model +32 [−
 Boundary: on the model-based target the oracle's gain rises with the flexible rule's error-to-signal ratio K (slope
 +1,401 per unit of ln K, p = 0.011) and breaks even at K ≈ 0.97; the inaction band's gain breaks even at K ≈ 1.06
 (p < 0.001). Restriction pays once the flexible rule's error is about as large as the adjustment it should make. The
-gain is driven by misspecification (shift hazard +0.22 [0.05, 0.39], model lag +0.29 [0.12, 0.44], standardised)
+gain is driven by misspecification (shift hazard +0.22 [0.05, 0.39], model lag +0.29 [0.12, 0.44], standardized)
 rather than by risk (volatility +0.06 [−0.14, 0.23]).
 
 Pre-registered verdicts: M1 (the principle pays with known reliability) **supported**; M2 (applying it is costly on
@@ -194,9 +250,9 @@ placed the reliability-condition agent in the lower half.
 
 ## Rule choice: registered results
 
-Plan `e6df56611a66c23f` (uncertainty levels u = 0, 0.25, 0.5, 0.75, 1, where cost volatility, perception error and
+Plan `0f7bb98f8f7e8e44` (uncertainty levels u = 0, 0.25, 0.5, 0.75, 1, where cost volatility, perception error and
 the demand-shift hazard rise together; intensities of choice β = 0, 1, 4, 16; 8 replications; 12 firms; 1,500
-periods; rules tuned under tournament plan `15193603c3f8359b`).
+periods; rules tuned under tournament plan `9699f86a6a899cf7`).
 
 | | E1 restricted share rises with uncertainty | E2 change rate falls with uncertainty | E3 selection raises the restricted share at u = 1 | E4 restricted share widens the distance from Nash |
 |---|---|---|---|---|
@@ -204,11 +260,11 @@ periods; rules tuned under tournament plan `15193603c3f8359b`).
 | Verdict | not supported | **supported** | not supported | **supported** |
 
 With moderate selection (β = 4) the restricted share rises from 51% at u = 0 to 60% at u = 1 and the change rate
-falls from 57% to 42%. Under strong selection (β = 16) the flexible optimiser (filtered best reply) is driven out as
+falls from 57% to 42%. Under strong selection (β = 16) the flexible optimizer (filtered best reply) is driven out as
 uncertainty rises (32% of firms at u = 0, under 1% at u = 1), but its place is taken by the target-margin heuristic
 (0.5% to 47%), a simple rule that ignores most market information but is not one of the three restricted rules.
-Populations become more predictable and move away from sophisticated optimisation under uncertainty, as Heiner
-argued, but performance-based selection favours a simple heuristic as much as an explicit restriction. Markets
+Populations become more predictable and move away from sophisticated optimization under uncertainty, as Heiner
+argued, but performance-based selection favors a simple heuristic as much as an explicit restriction. Markets
 with more rule-governed firms stay further from the Cournot–Nash price at every uncertainty level.
 
 ## Validation against data
@@ -243,10 +299,10 @@ ethics approval and informed consent are needed before collecting data.
 
 ## Empirical validation on public data: registered results
 
-Five public datasets were analysed under a protocol fixed in advance (plan `96b15ef4d9b78d56`): every rule is fitted on
-each participant's first half of periods and scored on the second half; every treatment is analysed separately with
+Five public datasets were analyzed under a protocol fixed in advance (plan `96b15ef4d9b78d56`): every rule is fitted on
+each participant's first half of periods and scored on the second half; every treatment is analyzed separately with
 the rules its information set allows; uncertainty is a participant-cluster bootstrap; a hypothesis tested on several
-datasets or treatments counts as supported only if it holds in every one. The data are not bundled (their licences
+datasets or treatments counts as supported only if it holds in every one. The data are not bundled (their licenses
 govern redistribution); the Empirical validation page reads the files exactly as distributed.
 
 | Data | Participants | What the files contain |
@@ -278,17 +334,17 @@ can be attributed to the announcement.
 
 **What the data say about the simulation.** The learned reliability condition, as implemented here, is not a better
 description of individual choices than the flexible rules it restricts, in any of the five datasets; fixed
-restrictions (an inaction band) do no better. The data do support the population-level claims: behaviour is
+restrictions (an inaction band) do no better. The data do support the population-level claims: behavior is
 heterogeneous, the documented newsvendor patterns are present, simulated Cournot markets reach the human level of
 competition, and lower competence (time pressure) shifts people toward simple or restricted rules. The generative
 check also shows a specific failure of the simulated rules: people keep their decision unchanged far more often than
-the fitted rules plus decision noise imply, so human behaviour is more inert than any of the flexible rules. As an
+the fitted rules plus decision noise imply, so human behavior is more inert than any of the flexible rules. As an
 exploratory, not pre-registered observation, restricted rules are the best description for more participants where
 information is poorer: 31% under aggregate and 11% under individual information in the Cournot data.
 
-## Generalisation: registered results
+## Generalization: registered results
 
-Plan `ee7faf1cff253ace` (three tasks, 120 environments each by Latin hypercube over outcome noise, shift hazard,
+Plan `b46c1f64a8250547` (three tasks, 120 environments each by Latin hypercube over outcome noise, shift hazard,
 observation error and the flexible rule's gain; 3,000 periods; band width tuned on 30 separate environments; oracle
 values from 30,000-period independent runs). Each task has a default (slow, long-memory estimate), a flexible
 alternative (fast re-estimate) and no cost of deviating. In the investment task a project arrives every period, mean
@@ -311,7 +367,7 @@ high) **supported**. With binary actions K is 0 or infinite when one rule is nev
 to [0.05, 20] in the boundary analysis; in the investment task the linear fit on ln K is poor (R² 0.16), and the gain
 by tercile turns positive between K ≈ 0.9 and 1.6.
 
-**What generalisation adds.** In all three tasks restriction pays where the flexible rule is unreliable and is
+**What generalization adds.** In all three tasks restriction pays where the flexible rule is unreliable and is
 worthless where it is reliable, with a break-even error-to-signal ratio near or below 1, as in the market (K ≈ 0.97).
 The boundary is therefore a property of decisions with a default, a flexible alternative and a difficulty–competence
 gap, not of cobweb markets. What differs is the cost of applying the principle: in these tasks the gain of a
@@ -320,16 +376,16 @@ market, where outcomes depend on rivals and on a misspecified model, it does not
 
 ## Solvable benchmark: registered results
 
-Plan `e6c4f642f296c19b`. A single firm tracks a random walk (variance q per period) observed with noise (variance r)
+Plan `f582721595727105`. A single firm tracks a random walk (variance q per period) observed with noise (variance r)
 and loses the squared tracking error. With partial adjustment at speed φ the expected loss is
-E(φ) = [(1 − φ)²q + φ²r] / [φ(2 − φ)], minimised at the steady-state Kalman gain k = P/(P + r),
+E(φ) = [(1 − φ)²q + φ²r] / [φ(2 − φ)], minimized at the steady-state Kalman gain k = P/(P + r),
 P = (q + √(q² + 4qr))/2 (Muth 1960; Kalman 1960).
 
 **Exactness (T1, supported).** Over 96 speeds and q/r = 0.01, 0.1, 1 and 10 (8 paths × 50,000 periods), the
 simulated loss is within 0.9% of the formula everywhere, and the simulated best speed equals the Kalman gain to the
 grid step (0.095 → 0.10, 0.270 → 0.27, 0.618 → 0.62, 0.916 → 0.92).
 
-**Lopsided stakes.** Overshooting now costs ρ times as much as undershooting (weights normalised to average 1, so
+**Lopsided stakes.** Overshooting now costs ρ times as much as undershooting (weights normalized to average 1, so
 the filter's loss stays 0.271 at every ρ). The information (q/r = 0.1) is unchanged. Rules are tuned on 8 training
 paths and evaluated on 16 test paths (20,000 periods each). Loss reduction relative to the Kalman filter (95% CI):
 
@@ -359,7 +415,7 @@ agents whose flexible rule does not encode the stakes. That is the situation Hei
 ```
 heiner_abm/params.py       scenario dataclasses and the baseline calibration
 heiner_abm/agents.py       readable agent implementation: Firm, Market, Industry
-heiner_abm/engine.py       vectorised batch engine (same model, same random streams) for Monte Carlo
+heiner_abm/engine.py       vectorized batch engine (same model, same random streams) for Monte Carlo
 heiner_abm/analysis.py     reliability metrics, market statistics, regressions
 heiner_abm/experiments.py  sweeps with common random numbers, rigid-twin RC validation, evolution, horse race
 heiner_abm/theories.py     rival theories, their predictions, the tournament experiments and scoring
@@ -373,9 +429,10 @@ heiner_abm/stepper.py      a market that advances one period at a time, for huma
 heiner_abm/experiment.py   human experiment protocol, classification and pre-registered tests
 heiner_abm/empirical.py    validation against public experimental data: protocol, adapters, generative check
 heiner_abm/datasets.py     loaders for the five public datasets, from the files as distributed
-heiner_abm/tasks.py        generalisation tasks: inventory, learning with shifting payoffs, irreversible investment
+heiner_abm/tasks.py        generalization tasks: inventory, learning with shifting payoffs, irreversible investment
 heiner_abm/tracking.py     single-firm tracking benchmark: exact Muth–Kalman solution and lopsided stakes
 heiner_abm/focal.py        the theory under test: every theory's prediction for every hypothesis
+heiner_abm/special.py      signature tests: each rival theory's distinctive prediction in the shared market
 heiner_abm/theory_content.py  the eight theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -383,9 +440,9 @@ ui/common.py               sidebar base scenario, presets, caching, chart helper
 app_pages/*.py             the Streamlit pages
 ```
 
-## Modelling notes
+## Modeling notes
 
-* The core model is a cobweb oligopoly: firms commit to output before a random raw-material cost is realised, using
+* The core model is a cobweb oligopoly: firms commit to output before a random raw-material cost is realized, using
   a Cournot best-reply rule (model-based) or a Bertrand margin-feedback rule (model-free), and a selection rule that
   decides when to deviate from rule B (keep last period's output).
 * **Features:**

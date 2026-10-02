@@ -8,7 +8,7 @@ import streamlit as st
 from heiner_abm.arena import KEYS, PREREG, QUICK, THEORY_NAMES, tune
 from heiner_abm.mechanisms import (AXES, MAP_RANGES, QUICK_STUDY, TARGETS, VARIANT_LABELS, StudyPlan, default_plan,
                                    gain_map, run_study, theory_maps)
-from ui.common import CAT, DIVERGING, download, hypothesis_card, style, verdict
+from ui.common import CAT, DIVERGING, download, hypothesis_card, style, verdict, prereg_explainer
 
 st.title("Mechanisms: when does restricting flexibility pay?")
 st.caption("Two experiments built on the agent tournament. The first separates Heiner's principle (restrict "
@@ -32,6 +32,7 @@ hypothesis_card(
 
 # ------------------------------------------------------------------------------------------------ plan
 st.header("1 · Plan", divider="gray")
+prereg_explainer()
 scale = st.radio("Protocol", ["Registered", "Quick check"], horizontal=True, key="mech_scale",
                  help="Registered runs the frozen study plan (about 30 seconds, plus tuning the rivals if the "
                       "registered tournament has not been run in this session). Quick check is a small exploratory "
@@ -169,7 +170,7 @@ for k, v in enumerate(["rc_oracle", "rc_learned", "band"]):
 ft.add_vline(x=0, line=dict(color="rgba(128,128,128,0.8)", width=1, dash="dot"))
 ft.update_layout(barmode="group")
 ft.update_yaxes(autorange="reversed")
-ft.update_xaxes(title="Standardised coefficient on the gain from restriction (95% bootstrap CI)")
+ft.update_xaxes(title="Standardized coefficient on the gain from restriction (95% bootstrap CI)")
 st.plotly_chart(style(ft, 420, "Sources of uncertainty and the value of restriction"))
 
 # ------------------------------------------------------------------------------------------------ maps
@@ -225,7 +226,7 @@ with c3:
 st.header("6 · Limits", divider="gray")
 st.markdown(
     "* The oracle knows the average reliability of each kind of deviation in its environment, estimated under the "
-    "true-model learner's behaviour. It is an upper benchmark for the principle, not the best conceivable policy.\n"
+    "true-model learner's behavior. It is an upper benchmark for the principle, not the best conceivable policy.\n"
     "* Heiner's comparison values one deviation followed by rule B. A rule that keeps adjusting values decisions "
     "differently, so even a perfectly informed reliability condition need not beat always adjusting.\n"
     "* Maps come from a quadratic metamodel; cells far from sampled environments, and models with low "

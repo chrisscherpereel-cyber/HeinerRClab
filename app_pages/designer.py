@@ -6,8 +6,41 @@ from heiner_abm.experiments import PARAMS, slope_summary
 from ui.common import CAT, base_scenario, behaviour_horizon, download, measurement, reps, run_sweep_ui, show_errors, slope_chart, style
 
 st.title("Experiment designer")
-st.caption("Sweep one or two parameters from the base scenario and plot any outcome. Every condition uses the same "
-           "cost shocks per replication. Download the firm-level and market-level data for your own analysis.")
+st.markdown(
+    "**Purpose.** The other pages run fixed experiments that test registered hypotheses. This page lets you ask your "
+    "own *what if* question: how does an outcome change when one or two settings of the market change? Use it to "
+    "explore a new idea, to check how robust a published result is to settings it did not vary, or to design an "
+    "experiment before writing it up as a hypothesis.")
+with st.expander("How to use it", expanded=True):
+    st.markdown(
+        "1. **Set the base market in the sidebar** (or apply a preset). Everything you do not vary here stays at those "
+        "values, including the number of firms, the production and selection rules, and the replications per "
+        "condition (*Simulation & measurement*).\n"
+        "2. **Choose parameter 1**, its range and the number of steps. It becomes the horizontal axis.\n"
+        "3. *Optionally* switch on **parameter 2** to cross it with parameter 1: each of its values becomes one line, "
+        "which shows whether the effect of parameter 1 depends on it (an interaction).\n"
+        "4. **Choose the outcome** to plot (see the definitions below), then press **Run sweep**.\n"
+        "5. **Read the chart and the table**, and download the firm- and market-level data for your own analysis.\n\n"
+        "Every condition uses the same cost shocks in a given replication (common random numbers), so differences "
+        "between conditions come from the parameter, not from luck. The run time grows with steps × lines × "
+        "replications × periods; the caption above the button shows the size of the sweep.\n\n"
+        "**Example.** *Does the payoff to flexibility depend on perception error, and does foresight change that?* "
+        "Parameter 1 = perception noise σ from 0 to 20 in 6 steps; parameter 2 = competence κ (foresight) at 0, 0.5 "
+        "and 1; outcome = payoff to flexibility. Lines that fall with σ mean noise makes flexibility less valuable; "
+        "lines that sit higher for larger κ mean competence restores it.")
+with st.expander("What the outcomes mean"):
+    st.markdown(
+        "* **Payoff to flexibility** — the slope of average profit on each firm's flexibility φ within a market, "
+        "averaged over replications with a 95% confidence interval. Positive: more flexible firms earn more.\n"
+        "* **Average firm profit**, **average margin P − c** — levels, averaged over firms and periods.\n"
+        "* **Rank correlation φ ~ profit**, **share: most flexible (rigid) firm best** — robust versions of the payoff "
+        "to flexibility.\n"
+        "* **π, r, w, G, D, reliability ratio r/w, tolerance limit, RC margin, share satisfying the RC, CD-gap** — the "
+        "quantities of Heiner's reliability condition, measured from counterfactuals over the horizon H set in the "
+        "sidebar (slower to compute). π is the share of periods in which deviating from keeping output would pay; r "
+        "and w are how often a firm deviates when it would and would not pay; G and D the average gain and loss.\n"
+        "* **Serial correlation of cost (price)** — how persistent costs and prices are; price smoother than cost "
+        "means a sluggish market, rougher means oscillation.")
 
 base = base_scenario()
 if not show_errors(base):

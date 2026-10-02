@@ -17,20 +17,20 @@ hypothesis_card(
     "For every subject and every rule, the rule's parameters are fitted on the **first half** of that subject's "
     "periods (grid search, squared error) and the rule then predicts the **second half**. Rules are ranked by "
     "out-of-sample error, and each subject is classified by the rule that predicts them best. Rules with more "
-    "parameters fit the first half better, but gain nothing out of sample unless they capture real behaviour.")
+    "parameters fit the first half better, but gain nothing out of sample unless they capture real behavior.")
 
 st.page_link("app_pages/empirical.py", label="Five public datasets, with a validation protocol fixed in advance, are on "
              "the Empirical validation page", icon="🗄️")
 with st.expander("Getting the published data", icon="📂"):
     st.markdown(
-        "The published datasets are not bundled with this app: their licences require a request to the authors or "
+        "The published datasets are not bundled with this app: their licenses require a request to the authors or "
         "the archive.\n\n"
         "* **Cournot oligopoly (Huck, Normann & Oechssler 1999):** archived in heiDATA, the Heidelberg research data "
         "repository, [doi:10.11588/data/10012](https://doi.org/10.11588/data/10012) (access on request).\n"
         "* **Cobweb learning-to-forecast (Hommes, Sonnemans, Tuinstra & van de Velden 2007):** available from the "
         "authors (CeNDEF, University of Amsterdam).\n\n"
         "Convert the data to one row per subject and period with the columns below, then upload it. Until then, the "
-        "synthetic data (clearly labelled) show that the pipeline recovers known rule types.")
+        "synthetic data (clearly labeled) show that the pipeline recovers known rule types.")
     st.markdown("**Forecasting format:** `group, subject, period, price, forecast`, where *forecast* is the "
                 "subject's forecast of that period's price, made before the price was known.  \n"
                 "**Cournot format:** `group, subject, period, quantity`, plus the market's inverse demand "
@@ -57,7 +57,7 @@ if src.startswith("Synthetic"):
         df, truth = synthetic_cournot_data(noise=noise, seed=int(seed))
         extra = dict(a=100.0, b=1.0, c=1.0, n=4)
     st.warning("Synthetic data: simulated subjects with known rules, used to check the method. Not evidence about "
-               "human behaviour.", icon="🧪")
+               "human behavior.", icon="🧪")
 else:
     up = st.file_uploader("CSV file", type="csv", key="cal_upload",
                           help="One row per subject and period, with the columns listed above.")

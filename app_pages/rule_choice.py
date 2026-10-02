@@ -8,12 +8,12 @@ import streamlit as st
 from heiner_abm.registered import TOURNAMENT_PLAN, registered_tuned
 from heiner_abm.rulechoice import (QUICK_CHOICE, RESTRICTED, RULE_LABELS, RULES, default_choice_plan, level_env,
                                    run_choice_study)
-from ui.common import CAT, download, hypothesis_card, style, verdict
+from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
 
-st.title("Rule choice: do firms drift toward rule-governed behaviour?")
+st.title("Rule choice: do firms drift toward rule-governed behavior?")
 st.caption("Firms are no longer assigned a decision rule. Each firm switches between six rules according to how well "
            "each rule has recently performed, with an adjustable intensity of choice (Brock & Hommes 1997). The "
-           "question is whether restricted, rule-governed behaviour emerges as uncertainty rises, and what that does "
+           "question is whether restricted, rule-governed behavior emerges as uncertainty rises, and what that does "
            "to the market.")
 
 hypothesis_card(
@@ -38,6 +38,7 @@ with st.expander("The uncertainty scale and the rules", icon="ℹ️"):
                f"(plan `{TOURNAMENT_PLAN}`), so no rule is handicapped by its settings.")
 
 st.header("1 · Plan", divider="gray")
+prereg_explainer()
 scale = st.radio("Protocol", ["Registered", "Quick check"], horizontal=True, key="choice_scale",
                  help="Registered runs the frozen plan (5 uncertainty levels × 4 intensities × 8 replications, about "
                       "20 seconds). Quick check is a small exploratory run.")

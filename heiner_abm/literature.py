@@ -363,17 +363,17 @@ class Hypothesis:
 
 HYPOTHESES: List[Hypothesis] = [
     Hypothesis(
-        "H1", "Less flexible firms can outperform more flexible ones, even when flexibility is free",
+        "H1", "Can less flexible firms outperform more flexible ones when flexibility is free?",
         "Hypothesis tests · H1",
         "When decision errors are costly, the profit–flexibility slope is negative even at zero cost of flexibility.",
-        "Relaxing a constraint cannot make an optimiser worse off, so free flexibility never lowers profit.",
-        "Neoclassical optimisation",
+        "Relaxing a constraint cannot make an optimizer worse off, so free flexibility never lowers profit.",
+        "Neoclassical optimization",
         support=[("heiner1983", "Imperfect agents do better by restricting their repertoire when the reliability "
                                 "condition fails; this holds without any cost of flexibility."),
                  ("bookstaber1985", "Under extended uncertainty, coarse rules that ignore information can be optimal."),
                  ("gigerenzer2009", "Less-is-more effects: simple heuristics beat flexible models when estimation "
                                     "error is large."),
-                 ("thompson1967", "Organisations buffer their technical core from environmental fluctuation.")],
+                 ("thompson1967", "Organizations buffer their technical core from environmental fluctuation.")],
         alternative=[("samuelson1947", "Le Chatelier principle: removing a constraint weakly improves the optimum."),
                      ("stigler1939", "Flexible plants trade static efficiency for adaptability, and adaptability "
                                      "has value when conditions vary."),
@@ -381,33 +381,33 @@ HYPOTHESES: List[Hypothesis] = [
                      ("leonardbarton1992", "Core capabilities can harden into core rigidities that hamper "
                                            "adaptation.")],
         contribution="Tests the 'harmful free flexibility' claim in a strategic market where flexibility is a "
-                     "behavioural parameter rather than a cost, and measures r, w, π, G and D for every decision "
+                     "behavioral parameter rather than a cost, and measures r, w, π, G and D for every decision "
                      "instead of inferring them."),
     Hypothesis(
-        "H2", "The flexibility–profit relationship switches sign as industry profitability rises",
+        "H2", "Does the flexibility–profit relationship change sign as industry profitability rises?",
         "Hypothesis tests · H2",
-        "Mistakes cost less in profitable markets, so the tolerance limit falls and flexibility becomes favoured "
+        "Mistakes cost less in profitable markets, so the tolerance limit falls and flexibility becomes favored "
         "above a switch point.",
         "Firms below aspiration search and change more; poor performance triggers change rather than rigidity.",
-        "Behavioural theory of the firm",
+        "Behavioral theory of the firm",
         support=[("heiner1983", "The tolerance limit (D/G)(1−π)/π rises when losses from mistakes are large "
                                 "relative to gains."),
                  ("march1987", "Managers attend to survival; near a survival point they avoid risky departures."),
                  ("staw1981", "Threat produces rigid, well-learned responses (threat-rigidity).")],
         alternative=[("cyert1963", "Problemistic search: performance below aspiration triggers search for change."),
-                     ("greve1998", "Performance below aspirations increases the likelihood of risky organisational "
+                     ("greve1998", "Performance below aspirations increases the likelihood of risky organizational "
                                    "change."),
                      ("kahneman1979", "Below a reference point decision makers become risk seeking.")],
         contribution="Separates what pays (the normative RC) from what firms do (descriptive aspiration theory) by "
                      "locating the profitability at which rigidity stops paying, under identical shocks."),
     Hypothesis(
-        "H3", "Flexibility's payoff falls as environmental volatility rises",
+        "H3", "How does environmental volatility affect the payoff to flexibility?",
         "Hypothesis tests · H3",
         "Volatility widens the gap between difficulty and competence (CD-gap), so reliability falls and the "
         "payoff to flexibility declines.",
         "Flexibility is an option whose value rises with volatility.",
         "Real options / value of flexibility",
-        support=[("heiner1983", "Greater uncertainty (a wider CD-gap) makes rule-governed behaviour optimal."),
+        support=[("heiner1983", "Greater uncertainty (a wider CD-gap) makes rule-governed behavior optimal."),
                  ("makridakis2000", "In forecasting competitions simple methods perform as well as or better than "
                                     "complex ones on noisy series."),
                  ("eisenhardt2000", "In high-velocity markets effective capabilities are simple, experiential "
@@ -415,11 +415,11 @@ HYPOTHESES: List[Hypothesis] = [
         alternative=[("stigler1939", "The value of productive flexibility grows with output variability."),
                      ("marschak1962", "Flexibility is valuable precisely because of uncertainty."),
                      ("dixit1994", "Option value increases with the volatility of the underlying."),
-                     ("volberda1996", "Hypercompetitive environments require flexible organisational forms.")],
+                     ("volberda1996", "Hypercompetitive environments require flexible organizational forms.")],
         contribution="Distinguishes volatility that raises decision difficulty from volatility that raises "
                      "option value by holding the decision rule fixed and measuring the CD-gap directly."),
     Hypothesis(
-        "H4", "Higher fixed costs raise the profitability at which flexibility starts to pay",
+        "H4", "Do higher fixed costs change the profitability at which flexibility starts to pay?",
         "Hypothesis tests · H4",
         "Fixed costs shrink the net gains from good decisions and enlarge losses from bad ones, raising the "
         "tolerance limit and moving the switch point up.",
@@ -434,7 +434,7 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Provides a controlled test in which fixed costs change decision stakes but not marginal "
                      "costs, with a built-in control condition in which decisions ignore fixed costs."),
     Hypothesis(
-        "H5", "More intense competition lowers the profit level at which flexibility becomes favoured",
+        "H5", "Does competition intensity change the profit level at which flexibility is favored?",
         "Hypothesis tests · H5",
         "Exploratory: competition changes the stakes of each decision, shifting the switch point.",
         "Competition intensity changes the level of profits but not the ranking of flexible versus rigid firms.",
@@ -443,21 +443,20 @@ HYPOTHESES: List[Hypothesis] = [
                                  "returns to adaptive effort."),
                  ("aghion2005", "The effect of competition on adaptive investment is non-monotone (inverted U).")],
         alternative=[("stigler1964", "Oligopoly outcomes are shaped by the difficulty of coordination rather than "
-                                     "by firms' adjustment behaviour."),
+                                     "by firms' adjustment behavior."),
                      ("vegaredondo1997", "Imitative adjustment drives oligopolies toward the competitive outcome "
-                                         "regardless of initial behaviour.")],
+                                         "regardless of initial behavior.")],
         contribution="Exploratory: maps how the switch point moves with competition intensity, a relationship the "
-                     "reliability literature has not formalised."),
+                     "reliability literature has not formalized."),
     Hypothesis(
-        "H6", "Industry-wide rigidity keeps markets away from equilibrium and keeps them profitable without "
-              "collusion",
+        "H6", "Does industry-wide rigidity keep markets away from equilibrium, and profitable, without collusion?",
         "Hypothesis tests · H6",
-        "When errors are punishing, rigid behaviour is individually rational and raises industry profit; no "
+        "When errors are punishing, rigid behavior is individually rational and raises industry profit; no "
         "coordination is needed.",
         "Margins above the competitive level require (tacit) collusion; learning drives markets to equilibrium.",
         "Oligopoly / collusion theory",
-        support=[("heiner1983", "Predictable, rule-governed behaviour arises from uncertainty, not agreement."),
-                 ("nerlove1958", "Slow (adaptive) adjustment stabilises cobweb markets."),
+        support=[("heiner1983", "Predictable, rule-governed behavior arises from uncertainty, not agreement."),
+                 ("nerlove1958", "Slow (adaptive) adjustment stabilizes cobweb markets."),
                  ("heiner1988b", "Delaying adjustment can be necessary for imperfect agents."),
                  ("carlson1968", "Cobweb markets with suitably formed price expectations are stable."),
                  ("carlton1986", "Many transaction prices are rigid for long periods."),
@@ -472,7 +471,7 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Shows how rigidity chosen for reliability reasons can produce collusion-like margins without "
                      "any coordination, a non-collusive account of sticky, profitable oligopoly."),
     Hypothesis(
-        "H7", "Competence restores the value of flexibility",
+        "H7", "Does competence change the value of flexibility?",
         "Hypothesis tests · H7",
         "Better foresight narrows the CD-gap: r rises, w falls, and the payoff to flexibility rises.",
         "Less uncertainty lowers the option value of flexibility, so its payoff falls as foresight improves.",
@@ -486,7 +485,7 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Crosses competence with difficulty in one design, separating the competence side of the "
                      "CD-gap from environmental uncertainty."),
     Hypothesis(
-        "H8", "Perception errors make flexibility harmful",
+        "H8", "How do perception errors affect the value of flexibility?",
         "Hypothesis tests · H8",
         "Noisy perception lowers competence, so the payoff to flexibility falls with noise.",
         "Noise can act as exploration, and uncertainty raises option value, so flexibility may gain.",
@@ -494,19 +493,19 @@ HYPOTHESES: List[Hypothesis] = [
         support=[("heiner1983", "Perception errors reduce reliability r/w."),
                  ("kalman1960", "Optimal filters put less weight on noisier signals."),
                  ("brainard1967", "Uncertainty about effects calls for attenuated responses."),
-                 ("geman1992", "Estimation variance penalises flexible models.")],
+                 ("geman1992", "Estimation variance penalizes flexible models.")],
         alternative=[("dixit1994", "Greater uncertainty raises option value."),
                      ("march1991", "Variability supports exploration, which can improve long-run adaptation."),
                      ("kirkpatrick1983", "Random perturbation helps a search process escape poor local states.")],
         contribution="Tests whether agent-side noise and environment-side volatility have the same effect; they "
                      "are often conflated as 'uncertainty'."),
     Hypothesis(
-        "H9", "Under rising uncertainty, rules that deviate less often or only on clear signals win",
+        "H9", "Under rising uncertainty, which selection rules win: always adjusting, or deviating rarely or only on clear signals?",
         "Hypothesis tests · H9",
         "Selective rules (act only on large, clear signals) and the default rule gain on the always-adjust rule "
         "as volatility rises.",
         "Incremental small adjustments are safest; or, without adjustment costs, always adjusting is optimal.",
-        "Incrementalism / frictionless optimisation",
+        "Incrementalism / frictionless optimization",
         support=[("heiner1986", "Reliable action requires acting only on signals that discriminate well (hit rate "
                                 "versus false-alarm rate)."),
                  ("green1966", "The optimal detection criterion rises when false alarms are costly or signals weak."),
@@ -519,24 +518,24 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Compares selection rules head to head on identical shocks, linking the RC to "
                      "signal-detection criteria and to (S, s) inaction bands."),
     Hypothesis(
-        "H10", "Greater uncertainty makes behaviour more predictable",
+        "H10", "Does greater uncertainty make behavior more or less predictable?",
         "Hypothesis tests · H10",
-        "Agents that learn when deviating pays deviate less often as uncertainty rises: behaviour becomes more "
+        "Agents that learn when deviating pays deviate less often as uncertainty rises: behavior becomes more "
         "rule-governed.",
-        "Performance shortfalls trigger search, so volatility increases change; or optimisers re-optimise more "
+        "Performance shortfalls trigger search, so volatility increases change; or optimizers re-optimize more "
         "often when shocks are larger.",
-        "Satisficing / optimisation",
-        support=[("heiner1983", "The origin of predictable behaviour is uncertainty about which action is best."),
+        "Satisficing / optimization",
+        support=[("heiner1983", "The origin of predictable behavior is uncertainty about which action is best."),
                  ("nelson1982", "Firms operate through routines that change slowly."),
                  ("friedman1960", "Rules outperform discretion when effects are uncertain and lagged."),
                  ("dixit1989", "The zone of inaction widens with uncertainty.")],
         alternative=[("cyert1963", "Search is triggered by performance below aspiration."),
                      ("greve1998", "Shortfalls increase risky change."),
                      ("kydland1977", "Rules can arise from commitment problems rather than from uncertainty.")],
-        contribution="Endogenises rule-following: agents learn from counterfactual payoffs when to deviate, so "
+        contribution="Endogenizes rule-following: agents learn from counterfactual payoffs when to deviate, so "
                      "predictability emerges rather than being imposed."),
     Hypothesis(
-        "H11", "More rivals make flexibility less valuable",
+        "H11", "Does the number of rivals change the value of flexibility?",
         "Hypothesis tests · H11",
         "A target that moves with more rivals is harder to hit, so the reliable adjustment speed and the payoff "
         "to flexibility fall with n.",
@@ -545,7 +544,7 @@ HYPOTHESES: List[Hypothesis] = [
         "Cobweb stability theory",
         support=[("heiner1989", "The maximal reliable adjustment speed falls as the slope of the target map "
                                 "steepens."),
-                 ("huck2004", "Behaviour in experimental oligopolies changes qualitatively with the number of "
+                 ("huck2004", "Behavior in experimental oligopolies changes qualitatively with the number of "
                               "firms.")],
         alternative=[("theocharis1960", "Full best-reply Cournot adjustment is not stable with three or "
                                         "more firms."),
@@ -553,7 +552,7 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Separates error-driven from stability-driven harm of flexibility by measuring the "
                      "error-to-signal ratio alongside the stability radius."),
     Hypothesis(
-        "H12", "The slower firms learn a structural change, the more flexibility hurts model-based firms",
+        "H12", "Does slower learning of a structural change affect how flexibility pays for model-based firms?",
         "Hypothesis tests · H12",
         "A persistent misspecification (Knightian uncertainty) widens the CD-gap, so the payoff to flexibility "
         "falls with the model-updating lag.",
@@ -568,36 +567,36 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Introduces model misspecification (unannounced demand-regime shifts) as a distinct source of "
                      "the CD-gap and tests it against risk at matched unpredictability."),
     Hypothesis(
-        "RC", "The reliability condition predicts, out of sample, which firms benefit from flexibility",
-        "Does the RC predict performance?",
+        "RC", "Does the reliability condition predict, out of sample, which firms benefit from flexibility?",
+        "Heiner: does the RC predict performance?",
         "Firms with a larger RC margin, estimated in one window, beat their rigid twin more often in the next "
         "window (AUC > 0.5).",
         "Flexibility always pays (a constant forecast, AUC = 0.5), or past performance alone predicts future "
         "performance.",
-        "Optimisation / reinforcement learning",
+        "Optimization / reinforcement learning",
         support=[("heiner1986", "r and w are hit and false-alarm rates, so the RC can be scored like a detector."),
                  ("hanley1982", "The AUC measures discrimination independently of base rates."),
                  ("stone1974", "Out-of-sample validation guards against overfitting.")],
-        alternative=[("erev1998", "Simple reinforcement learning predicts behaviour and payoffs well."),
+        alternative=[("erev1998", "Simple reinforcement learning predicts behavior and payoffs well."),
                      ("sutton2018", "Value estimates learned from experience guide action without a structural "
                                     "model.")],
         contribution="Turns the RC from an ex-post explanation into an ex-ante forecast, scored out of sample with "
                      "a rigid-twin counterfactual for each firm."),
     Hypothesis(
-        "DRC", "The one-period RC misjudges reliability when decisions persist and provoke reactions",
-        "Dynamic RC · ①",
+        "DRC", "Does a one-period valuation misjudge decisions that persist and provoke reactions?",
+        "Heiner: dynamic RC (1989) · ①",
         "The value of a decision includes persistence and strategic feedback; the one-period RC omits them.",
         "Decisions are made at the margin period by period, so the immediate effect is sufficient.",
         "Myopic marginal analysis",
-        support=[("heiner1989", "Imperfect agents facing moving targets must be analysed dynamically."),
+        support=[("heiner1989", "Imperfect agents facing moving targets must be analyzed dynamically."),
                  ("levinthal1993", "Learning is myopic: it overweights near-term and local consequences.")],
-        alternative=[("muth1961", "With rational expectations, period-by-period optimisation is consistent."),
+        alternative=[("muth1961", "With rational expectations, period-by-period optimization is consistent."),
                      ("ezekiel1938", "Cobweb dynamics are driven by period-by-period supply decisions.")],
         contribution="Decomposes a decision's value into immediate, persistence and strategic-feedback components, "
                      "extending the RC from a one-shot bet to a dynamic setting."),
     Hypothesis(
-        "BOUND", "Profit-maximising adjustment speed lies at or below Heiner's reliability bound",
-        "Dynamic RC · ②",
+        "BOUND", "Where does the profit-maximizing adjustment speed lie relative to Heiner's reliability bound?",
+        "Heiner: dynamic RC (1989) · ②",
         "The best partial-adjustment speed is at or below β₀ = 1/((1+K)(1−f′)) and falls as the error-to-signal "
         "ratio K rises.",
         "Full adjustment to the best reply is optimal; slower adjustment only matters for stability.",
@@ -610,12 +609,12 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Tests Heiner's dynamic bound quantitatively, with K measured from the agents' own decision "
                      "errors."),
     Hypothesis(
-        "SDT", "Discriminability falls as the CD-gap widens, and the best threshold rises",
-        "Dynamic RC · ③",
-        "The ROC area of the deviation signal falls with uncertainty; the value-maximising threshold rises.",
+        "SDT", "How do discriminability and the best decision threshold change as the CD-gap widens?",
+        "Heiner: dynamic RC (1989) · ③",
+        "The ROC area of the deviation signal falls with uncertainty; the value-maximizing threshold rises.",
         "A perfectly competent agent (AUC = 1) should always act on exceptions; thresholds reflect only "
         "adjustment costs.",
-        "Frictionless optimisation / (S, s) theory",
+        "Frictionless optimization / (S, s) theory",
         support=[("heiner1986", "The RC is a signal-detection criterion."),
                  ("green1966", "The optimal criterion depends on base rates and payoffs."),
                  ("swets1988", "ROC analysis separates discrimination from response bias.")],
@@ -624,13 +623,13 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Derives each firm's ROC curve from its own decisions and shows the tolerance limit acting as "
                      "the optimal detection criterion."),
     Hypothesis(
-        "KNIGHT", "Structural (Knightian) uncertainty harms model-based flexibility more than risk does",
+        "KNIGHT", "Does structural (Knightian) uncertainty affect model-based flexibility differently from risk?",
         "Risk vs Knightian uncertainty · ①",
         "At matched unpredictability, misspecified models make flexibility harmful for model-based firms but not "
         "for model-free firms.",
         "Uncertainty of either kind raises the option value of flexibility; or no theory can be formulated for "
         "genuine uncertainty.",
-        "Real options / Knight–Lucas scepticism",
+        "Real options / Knight–Lucas skepticism",
         support=[("knight1921", "Risk and uncertainty are different in kind."),
                  ("hansen2001", "Model uncertainty calls for robust rather than fine-tuned decisions."),
                  ("heiner1983", "The RC applies whatever the source of the CD-gap.")],
@@ -640,7 +639,7 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Compares risk and structural uncertainty at matched unpredictability in the same market, "
                      "for model-based and model-free decision rules."),
     Hypothesis(
-        "PUNCT", "Adjustment around structural shifts is punctuated: slow, then quick, then slow",
+        "PUNCT", "Is adjustment around structural shifts gradual or punctuated?",
         "Risk vs Knightian uncertainty · ②",
         "Imperfect agents keep adjusting slowly until they can locate the new equilibrium reliably, then jump.",
         "Adjustment is smooth and proportional to the shift (adaptive expectations).",
@@ -651,44 +650,44 @@ HYPOTHESES: List[Hypothesis] = [
                      ("muth1960", "Exponential smoothing adjusts by a constant share of each surprise.")],
         contribution="Provides an event-study test of punctuated adjustment around unannounced regime shifts."),
     Hypothesis(
-        "CDGAP", "Reliability falls as difficulty rises relative to competence",
-        "CD-gap explorer",
+        "CDGAP", "How does reliability change as difficulty rises relative to competence?",
+        "Heiner: CD-gap explorer",
         "r(U) falls and w(U) rises with the CD-gap; raising competence restores them.",
         "Information and flexibility are both valuable, with no systematic trade-off between them.",
         "Value of information",
         support=[("heiner1983", "Defines the CD-gap and its effect on r and w."),
                  ("heiner1988", "Imperfect decisions are unavoidable when competence falls short of difficulty."),
-                 ("simon1956", "Rational behaviour is shaped jointly by the environment and the agent's "
+                 ("simon1956", "Rational behavior is shaped jointly by the environment and the agent's "
                                "capacities.")],
         alternative=[("marschak1962", "Better information raises the value of flexibility."),
                      ("jones1984", "Information and flexibility are complements.")],
         contribution="Measures r and w on a grid of difficulty × competence, making the CD-gap an observable rather "
                      "than a construct."),
     Hypothesis(
-        "EVO", "Industries evolve toward rigidity when uncertainty is high",
+        "EVO", "Which flexibility do industries evolve toward as uncertainty rises?",
         "Endogenous flexibility",
         "Through imitation of successful rivals, evolved flexibility falls as volatility rises.",
-        "Selection favours flexibility where it is most valuable (high volatility); or inertia is selected "
+        "Selection favors flexibility where it is most valuable (high volatility); or inertia is selected "
         "everywhere.",
-        "Evolutionary economics / organisational ecology",
-        support=[("heiner1983", "Rule-governed behaviour is selected under greater uncertainty."),
-                 ("alchian1950", "Selection among firms can produce adaptive behaviour without optimisation.")],
-        alternative=[("hannan1984", "Selection favours structural inertia in any environment."),
-                     ("vegaredondo1997", "Imitation of the best leads to aggressive, competitive behaviour."),
+        "Evolutionary economics / organizational ecology",
+        support=[("heiner1983", "Rule-governed behavior is selected under greater uncertainty."),
+                 ("alchian1950", "Selection among firms can produce adaptive behavior without optimization.")],
+        alternative=[("hannan1984", "Selection favors structural inertia in any environment."),
+                     ("vegaredondo1997", "Imitation of the best leads to aggressive, competitive behavior."),
                      ("brock1997", "Agents switch toward costly sophisticated rules when they pay, which can "
-                                   "destabilise markets.")],
+                                   "destabilize markets.")],
         contribution="Lets flexibility evolve by social learning, testing whether reliability considerations "
-                     "shape industry structure without optimisation."),
+                     "shape industry structure without optimization."),
 ]
 HYPOTHESES.append(Hypothesis(
-    "ARENA", "When rival theories compete as agents, the reliability-condition agent earns more and resists invasion",
+    "ARENA", "When rival theories compete as agents, which earn most and which resist invasion?",
     "Agent tournament",
     "An agent that deviates from rule B only when its learned reliability condition holds out-earns rival decision "
     "rules in mixed markets, and a population of such agents cannot be invaded.",
     "The best-performing rule is the one that best fits the market's structure: model-free adaptation, imitation or "
-    "optimisation, depending on the environment.",
+    "optimization, depending on the environment.",
     "Rival decision rules",
-    support=[("heiner1983", "Rule-governed behaviour that deviates only when reliable should outperform under "
+    support=[("heiner1983", "Rule-governed behavior that deviates only when reliable should outperform under "
                             "uncertainty."),
              ("heiner1989", "Partial, reliability-limited adjustment toward a moving target outperforms full "
                             "adjustment."),
@@ -697,18 +696,18 @@ HYPOTHESES.append(Hypothesis(
                                  "structural model."),
                  ("vegaredondo1997", "Imitating the most profitable firm earns more than rivals in Cournot markets."),
                  ("erev1998", "Simple reinforcement learning predicts payoffs in repeated games."),
-                 ("kalman1960", "Optimal filtering yields the best forecasts for a model-based optimiser.")],
+                 ("kalman1960", "Optimal filtering yields the best forecasts for a model-based optimizer.")],
     contribution="Implements each rival theory as an agent with an equal tuning budget and pre-registered, held-out "
-                 "evaluation, so theories compete on behaviour rather than on predictions written by the modeller."))
+                 "evaluation, so theories compete on behavior rather than on predictions written by the modeler."))
 HYPOTHESES.append(Hypothesis(
-    "MECH1", "The principle of reliability-based restriction is sound; applying it is costly",
-    "Mechanisms · ①",
+    "MECH1", "Does restricting an unreliable flexible rule pay, and what does learning its reliability cost?",
+    "Heiner: mechanisms · ①",
     "With known reliability, restricting deviations beats always adjusting toward an error-prone target; an agent "
     "that must estimate its own reliability loses part or all of that gain, through limited experience and through "
     "judging its past decisions with a misspecified model.",
     "Always adjusting toward the best available target is optimal (no restriction needed), or learned estimates are "
     "as good as true ones, so the principle and its implementation coincide.",
-    "Optimisation / adaptive learning",
+    "Optimization / adaptive learning",
     support=[("heiner1983", "Restriction to rule B pays when the reliability ratio falls short of the tolerance "
                             "limit."),
              ("conlisk1996", "Deciding how to decide is itself costly and can regress without end."),
@@ -719,8 +718,8 @@ HYPOTHESES.append(Hypothesis(
                  "estimation from limited experience and judging with a misspecified model, using an oracle the "
                  "simulator can provide."))
 HYPOTHESES.append(Hypothesis(
-    "MECH2", "Restriction pays where the flexible rule is unreliable, and more under misspecification than risk",
-    "Mechanisms · ②",
+    "MECH2", "Where does restricting flexibility pay, and does the type of uncertainty matter?",
+    "Heiner: mechanisms · ②",
     "The gain from reliability-based restriction rises with the measured error-to-signal ratio K of the flexible rule, "
     "and model misspecification raises it more than cost volatility (risk) does.",
     "Uncertainty of any kind raises the value of flexibility, or only dynamic stability matters.",
@@ -735,28 +734,28 @@ HYPOTHESES.append(Hypothesis(
                  "reliability condition as a boundary prediction against the measured reliability of the flexible "
                  "rule."))
 HYPOTHESES.append(Hypothesis(
-    "EMERGE", "Rule-governed behaviour emerges when firms choose their own rules",
+    "EMERGE", "Which decision rules emerge when firms choose their own rules?",
     "Rule choice",
     "When firms switch between rules according to recent performance, populations drift toward restricted, "
     "rule-governed rules (and change output less often) as uncertainty rises, and such markets stay further from "
     "equilibrium.",
-    "Performance-based selection favours the most responsive, best-informed rule (or drives the market toward the "
+    "Performance-based selection favors the most responsive, best-informed rule (or drives the market toward the "
     "equilibrium), whatever the level of uncertainty.",
     "Rational expectations / evolutionary selection",
-    support=[("heiner1983", "Predictable, rule-governed behaviour originates in uncertainty about which actions "
+    support=[("heiner1983", "Predictable, rule-governed behavior originates in uncertainty about which actions "
                             "are best."),
              ("brock1997", "With performance-based switching between cheap simple and costly sophisticated "
                            "predictors, simple rules can prevail and markets fluctuate around the equilibrium."),
              ("anufriev2012", "In the laboratory, simple forecasting heuristics compete by past performance and "
                               "their mix determines whether markets converge or oscillate.")],
     alternative=[("muth1961", "Expectations converge on the model's prediction, so the most informed rule wins."),
-                 ("alchian1950", "Selection favours whichever behaviour earns most, not restriction as such."),
+                 ("alchian1950", "Selection favors whichever behavior earns most, not restriction as such."),
                  ("vegaredondo1997", "Imitation of success drives oligopolies to the competitive outcome.")],
-    contribution="Turns Heiner's claim about the origin of predictable behaviour into an emergent outcome: rules are "
+    contribution="Turns Heiner's claim about the origin of predictable behavior into an emergent outcome: rules are "
                  "not imposed but chosen by performance (logit switching with an adjustable intensity of choice), "
                  "and the resulting rule mix is linked to price volatility and the distance from equilibrium."))
 HYPOTHESES.append(Hypothesis(
-    "PATTERN", "The market reproduces documented field patterns",
+    "PATTERN", "Does the market reproduce documented field patterns?",
     "Field patterns",
     "A market of boundedly rational firms reproduces several independent empirical patterns at once: cobweb cycles, "
     "damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility "
@@ -773,7 +772,7 @@ HYPOTHESES.append(Hypothesis(
     contribution="Pattern-oriented validation: the market is judged by whether it reproduces documented patterns "
                  "with criteria fixed in advance, so results cannot be dismissed as mere properties of the model."))
 HYPOTHESES.append(Hypothesis(
-    "CALIB", "Out of sample, simple and restricted rules predict laboratory behaviour",
+    "CALIB", "Which decision rules predict laboratory behavior out of sample?",
     "Calibration",
     "Fitted to laboratory cobweb and Cournot data, simple rules, including rules that keep the previous decision "
     "unless a condition is met, predict subjects' later choices better than the rational benchmark, and subjects "
@@ -782,30 +781,30 @@ HYPOTHESES.append(Hypothesis(
     "Rational expectations / best reply",
     support=[("hommes2011", "Heterogeneous simple heuristics explain laboratory expectations better than a single "
                             "rational rule."),
-             ("huck1999", "In Cournot experiments, imitation and best-reply rules both describe behaviour, depending "
+             ("huck1999", "In Cournot experiments, imitation and best-reply rules both describe behavior, depending "
                           "on the information given."),
-             ("heiner1983", "Behaviour that keeps to a narrow repertoire is predicted to be more regular than "
-                            "optimisation implies.")],
+             ("heiner1983", "Behavior that keeps to a narrow repertoire is predicted to be more regular than "
+                            "optimization implies.")],
     alternative=[("muth1961", "Expectations are model-consistent on average."),
                  ("theocharis1960", "Best-reply dynamics describe how Cournot markets adjust."),
                  ("hommes2007", "In stable cobweb treatments, average expectations come close to rational.")],
     contribution="Fits every theory's decision rule to the same subjects and compares them out of sample (first half "
                  "fitted, second half predicted), rather than in sample."))
 HYPOTHESES.append(Hypothesis(
-    "EXPER", "People deviate from their default less under uncertainty, and that helps them",
+    "EXPER", "Do people deviate from their default less under uncertainty, and does it help them?",
     "Play the market · Experiment analysis",
     "Participants change their output less often under high than under low uncertainty, and under high uncertainty "
     "those who change less often earn more relative to their rivals.",
     "People adjust more when conditions change more, and responsiveness pays; or deviations reflect noise and "
     "anchoring biases unrelated to uncertainty.",
-    "Reinforcement learning / behavioural bias",
-    support=[("heiner1983", "Greater uncertainty narrows the repertoire of actions, making behaviour more "
+    "Reinforcement learning / behavioral bias",
+    support=[("heiner1983", "Greater uncertainty narrows the repertoire of actions, making behavior more "
                             "predictable."),
              ("bolton2008", "Restricting how often newsvendor orders may change improves performance in the "
                             "laboratory."),
-             ("fischbacher2007", "Computerised market experiments with a fixed protocol make choices comparable "
+             ("fischbacher2007", "Computerized market experiments with a fixed protocol make choices comparable "
                                  "across participants.")],
-    alternative=[("erev1998", "Reinforcement learning explains experimental behaviour without any restriction "
+    alternative=[("erev1998", "Reinforcement learning explains experimental behavior without any restriction "
                               "rule."),
                  ("schweitzer2000", "Newsvendor decisions are pulled toward mean demand and chase recent demand: "
                                     "a bias, not a reliability-based restriction."),
@@ -813,8 +812,8 @@ HYPOTHESES.append(Hypothesis(
     contribution="Puts human participants in the same market as the agents, classifies each person by the design "
                  "that best predicts their choices, and tests Heiner's predictability claim within subjects."))
 HYPOTHESES.append(Hypothesis(
-    "GEN", "The reliability boundary holds beyond the market",
-    "Generalisation",
+    "GEN", "Does the boundary between reliable and unreliable flexibility hold beyond the market?",
+    "Generalization",
     "In other decision tasks with a default, a flexible alternative and a gap between difficulty and competence "
     "(an inventory task, a learning task with shifting payoffs and an irreversible investment task), restriction pays "
     "only where the flexible rule is "
@@ -835,8 +834,8 @@ HYPOTHESES.append(Hypothesis(
                  "layers and the same error-to-signal boundary are tested in tasks with a different payoff "
                  "structure."))
 HYPOTHESES.append(Hypothesis(
-    "TRACK", "What is uniquely Heiner's: lopsided stakes call for restriction even with an optimal filter",
-    "Solvable benchmark",
+    "TRACK", "Do lopsided stakes call for restriction even with an optimal filter?",
+    "Heiner vs optimal filtering",
     "Holding the information (signal-to-noise ratio) fixed, lopsided stakes (a wrong move costs more than a right move "
     "gains) make it pay to restrict the filter's moves in the costly direction, the more so the more lopsided the "
     "stakes.",
@@ -858,15 +857,15 @@ HYPOTHESES.append(Hypothesis(
                  "restriction, and that the restriction becomes unnecessary once the stakes are built into the "
                  "estimate."))
 HYPOTHESES.append(Hypothesis(
-    "EMPVAL", "Restricted rules describe human choices in public experimental data",
+    "EMPVAL", "Which decision rules describe human choices in public experimental data?",
     "Empirical validation",
     "In public Cournot, learning-to-forecast and newsvendor data, rules that keep the previous decision unless a "
     "deviation has proved reliable predict participants' later choices at least as well as the flexible rules they "
-    "restrict; behaviour is heterogeneous; and markets simulated with the fitted rules reproduce how often people "
+    "restrict; behavior is heterogeneous; and markets simulated with the fitted rules reproduce how often people "
     "change and how competitive the markets become.",
     "Human choices are best described by best replies, adaptive learning or systematic biases (anchoring, "
     "pull-to-center); restricting adjustment adds nothing out of sample.",
-    "Adaptive learning / behavioural bias",
+    "Adaptive learning / behavioral bias",
     support=[("hommes2011", "Heterogeneous simple heuristics describe laboratory expectations better than a single "
                             "rational rule."),
              ("hommes2005", "Participants coordinate on common, simple forecasting rules."),
@@ -914,7 +913,7 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "twin. This moves the theory from post-hoc explanation to prediction, scored with the AUC.",
      ["hanley1982", "stone1974", "efron1993"]),
     ("Head-to-head adjudication of rival theories",
-     "Heiner's theory, optimisation, real options, cobweb stability, bias–variance reasoning, satisficing and "
+     "Heiner's theory, optimization, real options, cobweb stability, bias–variance reasoning, satisficing and "
      "structural inertia are confronted with the same discriminating experiments, and their forecasts are compared "
      "with encompassing tests.",
      ["chong1986", "diebold1995", "davis2007"]),

@@ -2,16 +2,23 @@
 
 These numbers come from the registered runs documented in the README. They are tied to the plan hashes below:
 tests/test_theory_pages.py fails when the code changes the hashes, so the numbers cannot silently go stale.
+
+Revision note (2 October 2026): the text of the agents and hypotheses was converted from British to American spelling.
+Plan hashes include that text, so five hashes changed (tournament 15193603c3f8359b, mechanism study fafb771393aab7fe,
+rule choice e6df56611a66c23f, generalization ee7faf1cff253ace, tracking benchmark e6c4f642f296c19b). The computation
+did not change: every registered study was rerun under the new hashes (the tournament main run and its three
+replications, the mechanism study, rule choice, generalization and the tracking benchmark) and reproduced every
+registered number exactly.
 """
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-TOURNAMENT_PLAN = "15193603c3f8359b"
-STUDY_PLAN = "fafb771393aab7fe"
-CHOICE_PLAN = "e6df56611a66c23f"       # endogenous rule choice (Rule choice page)
-TASK_PLAN = "ee7faf1cff253ace"         # generalisation tasks (Generalisation page)
-TRACK_PLAN = "e6c4f642f296c19b"        # single-firm tracking benchmark (Solvable benchmark page)
+TOURNAMENT_PLAN = "9699f86a6a899cf7"
+STUDY_PLAN = "e9b5cbda8a4c4ab7"
+CHOICE_PLAN = "0f7bb98f8f7e8e44"       # endogenous rule choice (Rule choice page)
+TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization page)
+TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
 EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the market / Experiment analysis)
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 9), main run and three
@@ -192,3 +199,22 @@ EMPIRICAL_RULES: Dict[str, Dict] = {'Cournot, aggregate information': {'particip
                                         'restricted': 0.115,
                                         'top_rule': 'Anchor on the pulled-to-center order, adjust toward last demand',
                                         'top_rmse': 17.374}}
+
+
+# Signature tests by theory (heiner_abm.special), reference run at the Full scale. Not a hashed plan: the tests are
+# deterministic given the code, so rerunning them on the page at the Full scale reproduces these lines.
+SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
+            'n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, simulated '
+            '0.55; n = 8: theory 0.44, simulated 0.45'),
+ 'heuristic': ('not supported',
+               "heuristic's advantage changes by -26.0 per unit of noise (p = 8.1e-06); at the highest noise +684 "
+               '[+564, +826]'),
+ 'imitation': ('supported', 'imitate-the-best markets produce 1.24 [1.22, 1.26] × the Cournot–Nash output'),
+ 'optimiser': ('supported',
+               "profit slope on foresight +40.6 per unit (p = 0.0116); with full information the rational market's "
+               'price is within 0.13% of Cournot–Nash on average'),
+ 'options': ('not supported', 'value of flexibility changes by -11.2 per unit of volatility (p = 1.03e-15)'),
+ 'rl': ('not supported',
+        'relative profit improves by -138 [-488, +230] from the first to the last third in a stationary market, and '
+        'by -190 [-487, +112] with unannounced shifts'),
+ 'satisficing': ('not supported', 'change rate changes by -0.0002 per unit of volatility (p = 0.386)')}

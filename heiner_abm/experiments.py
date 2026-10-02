@@ -44,7 +44,7 @@ PARAMS: Dict[str, Param] = {p.key: p for p in [
     Param("c0", "Initial raw-material cost", "market", "c0", 10, 99, 1,
           "Raw-material cost in period 0; the random walk starts here."),
     Param("q_range", "Demand quantity range (1/slope)", "market", "q_range", 300, 5000, 50,
-          "Larger = flatter demand. Steep demand destabilises cobweb markets."),
+          "Larger = flatter demand. Steep demand destabilizes cobweb markets."),
     Param("desired_margin", "Desired margin m* (Bertrand)", "firms", "desired_margin", -5, 25, 0.5,
           "Intensity of competition: small m* = fierce, large m* = gentlemanly."),
     Param("foresight", "Competence κ (cost foresight)", "firms", "foresight", 0, 1, 0.05,
@@ -366,7 +366,7 @@ def adjustment_bound_experiment(base: Scenario, phis: Sequence[float], difficult
                                 levels: Sequence[float], reps: int, progress=None) -> pd.DataFrame:
     """Symmetric Cournot industry (every firm uses the same partial-adjustment weight phi), crossed with a
     difficulty parameter. Per cell: industry profit, measured error-to-signal ratio K and Heiner's
-    stabilising bound beta0 = 2 / ((1 + K)(n + 1)). Heiner's Theorem 2 predicts profit-maximising
+    stabilizing bound beta0 = 2 / ((1 + K)(n + 1)). Heiner's Theorem 2 predicts profit-maximizing
     flexibility at or below beta0, falling as difficulty (K) rises."""
     scn = base.copy()
     for f in scn.firms:
@@ -413,7 +413,7 @@ def uncertainty_comparison(base: Scenario, risk_deltas: Sequence[float], hazards
 
 def regime_event_study(base: Scenario, reps: int, horizon: int = 1, continuation: str = "default",
                        pre: int = 10, post: int = 40, group: str = "selection") -> pd.DataFrame:
-    """Event study of behaviour around regime shifts (Heiner 1989, section 6: punctuated adjustment)."""
+    """Event study of behavior around regime shifts (Heiner 1989, section 6: punctuated adjustment)."""
     s0 = base.copy()
     s0.structural.enabled = True
     scns = [s0.copy(seed=s0.seed + r) for r in range(reps)]
@@ -495,7 +495,7 @@ def horse_race(df: pd.DataFrame, measure: str = "full", n_boot: int = 300) -> pd
     makes the same forecast for every firm, so its AUC is 0.5 by construction."""
     y = df["dyn_adv_eval"].to_numpy(float) > 0
     env = df["env"].to_numpy()
-    rows = [dict(key="neoclassical", theory="Neoclassical optimisation: flexibility always pays (constant)",
+    rows = [dict(key="neoclassical", theory="Neoclassical optimization: flexibility always pays (constant)",
                  auc=0.5, lo=np.nan, hi=np.nan, n=len(df))]
     for key, (lab, score) in theory_predictors(df, measure).items():
         ok = ~np.isnan(score)

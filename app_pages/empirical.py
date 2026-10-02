@@ -10,7 +10,7 @@ from heiner_abm.empirical import (DATASETS, EMPIRICAL_PLAN, NewsvendorSpec, appl
                                   evaluate_details, evaluate_empirical, read_table, run_cournot, run_forecast,
                                   run_newsvendor, run_time_pressure, synthetic_newsvendor_data)
 from heiner_abm.literature import REFERENCES
-from ui.common import CAT, download, hypothesis_card, style, verdict
+from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
 
 st.title("Empirical validation: public experimental datasets")
 st.caption("Five public datasets can test whether the simulated decision rules describe human choices. This page "
@@ -22,8 +22,8 @@ hypothesis_card(
     "The protocol follows the recommendations for these datasets: one primary Cournot validation, one independent "
     "forecasting validation and the newsvendor data as an extension, with the time-pressure data as supplementary "
     "evidence. Rules are fitted on each participant's earlier periods and evaluated on later ones, every treatment "
-    "is analysed with the rules its information set allows, and uncertainty is reported at the participant level. "
-    "A rule that predicts people well shows which decision rule describes their behaviour, not that they consciously "
+    "is analyzed with the rules its information set allows, and uncertainty is reported at the participant level. "
+    "A rule that predicts people well shows which decision rule describes their behavior, not that they consciously "
     "apply Heiner's reliability condition.")
 
 # ------------------------------------------------------------------------------------------------ sources
@@ -33,26 +33,27 @@ st.dataframe(pd.DataFrame([dict(Priority=d.priority, Dataset=d.title, Study=REFE
                            for d in DATASETS]), hide_index=True, width="stretch")
 for d in DATASETS:
     with st.expander(f"{d.priority} · {d.title}"):
-        st.markdown(f"**Source:** [{d.url}]({d.url})  \n**Access:** {d.access}  \n**Licence:** {d.licence}  \n"
+        st.markdown(f"**Source:** [{d.url}]({d.url})  \n**Access:** {d.access}  \n**License:** {d.licence}  \n"
                     f"**Files:** {d.files}")
         st.markdown(f"**What it can validate:** {d.validates}")
         st.markdown(f"**Qualification:** {d.qualification}")
         st.markdown(f"**Recommended use:** {d.recommended}")
         st.caption(f"Study: {REFERENCES[d.ref].apa}")
-st.info("The data are not bundled with the app: each repository's licence governs reuse and redistribution, and "
+st.info("The data are not bundled with the app: each repository's license governs reuse and redistribution, and "
         "two require a login. Download the files from the sources above and upload them below **as downloaded** "
-        "(the zip archives work): the app recognises each format and applies the market parameters derived from the "
+        "(the zip archives work): the app recognizes each format and applies the market parameters derived from the "
         "files. Other data can be uploaded with a column mapping.", icon="📂")
 
 # ------------------------------------------------------------------------------------------------ protocol
 st.header("2 · Validation protocol", divider="gray")
+prereg_explainer()
 c1, c2 = st.columns([2, 1])
 c1.markdown(f"**Plan hash:** `{EMPIRICAL_PLAN.digest}` · fit on the first {EMPIRICAL_PLAN.split:.0%} of each "
             f"participant's periods, evaluate on the rest · participant-cluster bootstrap ({EMPIRICAL_PLAN.n_boot} "
             f"draws) · generative check with {EMPIRICAL_PLAN.gen_reps} simulated replications")
 c2.download_button("Download protocol (.json)", EMPIRICAL_PLAN.to_json().encode(),
                    file_name=f"empirical_{EMPIRICAL_PLAN.digest}.json", mime="application/json", width="stretch",
-                   help="Register the protocol before analysing the data.")
+                   help="Register the protocol before analyzing the data.")
 st.dataframe(pd.DataFrame(EMPIRICAL_PLAN.hypotheses, columns=["ID", "Hypothesis", "Decision rule"]),
              hide_index=True, width="stretch")
 
@@ -130,7 +131,7 @@ def load_mapped(key: str, required: dict):
     if not tables:
         st.error("No usable table found in the file.")
         return None
-    name = st.selectbox("Table", list(tables), key=f"emp_{key}_table", help="Sheet or variable to analyse.")
+    name = st.selectbox("Table", list(tables), key=f"emp_{key}_table", help="Sheet or variable to analyze.")
     raw = tables[name]
     st.caption(f"{len(raw)} rows · columns: {', '.join(map(str, raw.columns[:30]))}")
     cols = [None] + list(raw.columns)
@@ -145,11 +146,11 @@ def load_mapped(key: str, required: dict):
         st.info("Map the required columns: " + ", ".join(missing) + ".", icon="ℹ️")
         return None
     treat = st.selectbox("Treatment column (optional)", cols, key=f"emp_{key}_treat",
-                         help="Analyse one treatment at a time so that rules match its information set.")
+                         help="Analyze one treatment at a time so that rules match its information set.")
     df = apply_mapping(raw, mapping, [treat] if treat else [])
     if treat:
-        val = st.selectbox("Treatment to analyse", sorted(df[treat].astype(str).unique()), key=f"emp_{key}_treatval",
-                           help="Only this treatment is analysed.")
+        val = st.selectbox("Treatment to analyze", sorted(df[treat].astype(str).unique()), key=f"emp_{key}_treatval",
+                           help="Only this treatment is analyzed.")
         df = df[df[treat].astype(str) == val]
     for col in ("group", "subject"):
         if col not in df:
@@ -201,7 +202,7 @@ tabs = st.tabs(["Cournot (primary)", "Forecasting (independent)", "Newsvendor (e
 
 with tabs[0]:
     st.markdown("**Data:** Gomez-Martinez, Onderstal & Sonnemans (2016). Only part 1 (periods 1–25, **no "
-                "communication**) is used; each information treatment is analysed separately.")
+                "communication**) is used; each information treatment is analyzed separately.")
     src = choose_source("cournot")
     df, truth, label, info, mkt = None, None, "", True, dict(GOS_MARKET)
     if src == SOURCES[0]:
@@ -243,7 +244,7 @@ with tabs[0]:
                                 "rule is excluded.")
     gen = st.checkbox("Run the generative check (V2)", value=True, key="emp_cournot_gen",
                       help="Re-run every market with each participant replaced by its best-fitting rule.")
-    if df is not None and len(df) and st.button("Analyse", type="primary", key="emp_cournot_run"):
+    if df is not None and len(df) and st.button("Analyze", type="primary", key="emp_cournot_run"):
         with st.spinner("Fitting rules and simulating markets"):
             keep("cournot", label, dict(run_cournot(df, mkt["a"], mkt["b"], mkt["c"], mkt["n"], info, gen,
                                                     gamma=mkt["gamma"]), synthetic=src == SOURCES[2], truth=truth))
@@ -289,7 +290,7 @@ with tabs[1]:
             df = load_mapped("forecast", {"group": ("Market / group", ("group", "market")),
                                           "subject": ("Participant", ("subject", "participant", "id")),
                                           "period": ("Period", ("period", "round")),
-                                          "price": ("Realised price", ("price",)),
+                                          "price": ("Realized price", ("price",)),
                                           "forecast": ("Forecast of that period's price", ("forecast", "expect"))})
             label = "Forecasting (uploaded)"
         else:
@@ -305,7 +306,7 @@ with tabs[1]:
         brk = c[2].number_input("Structural change in period (0 = none)", value=0, min_value=0,
                                 key="emp_forecast_break", help="Compares errors and forecast changes around it.")
         brk_df = df
-    if df is not None and len(df) and st.button("Analyse", type="primary", key="emp_forecast_run"):
+    if df is not None and len(df) and st.button("Analyze", type="primary", key="emp_forecast_run"):
         with st.spinner("Fitting rules"):
             out = run_forecast(df, int(h), fund)
             out["break"] = break_analysis(brk_df, int(brk)) if brk else None
@@ -357,7 +358,7 @@ with tabs[2]:
             df = load_mapped("nv", {"subject": ("Participant", ("subject", "participant", "id")),
                                     "period": ("Period", ("period", "round")),
                                     "order": ("Order quantity", ("order", "choice", "quantity")),
-                                    "demand": ("Realised demand", ("demand", "realization"))})
+                                    "demand": ("Realized demand", ("demand", "realization"))})
             label = "Newsvendor (uploaded)"
         else:
             df, truth = synthetic_newsvendor_data(spec, n_subjects=st.session_state.get("emp_nv_subjects", 12))
@@ -366,7 +367,7 @@ with tabs[2]:
     if df is not None and len(df):
         st.caption(f"Optimal order {spec.optimal:.1f}; mean demand {spec.mu:.1f}; critical fractile "
                    f"{spec.fractile:.2f}.")
-        if st.button("Analyse", type="primary", key="emp_nv_run"):
+        if st.button("Analyze", type="primary", key="emp_nv_run"):
             with st.spinner("Fitting rules"):
                 keep("newsvendor", label, dict(run_newsvendor(df, spec), synthetic=src == SOURCES[2], truth=truth))
     for lab, res in results_of("newsvendor").items():
@@ -397,7 +398,7 @@ with tabs[3]:
         df = load_mapped("time", {"group": ("Market / group", ("group", "market")),
                                   "subject": ("Participant", ("subject", "participant", "id")),
                                   "period": ("Period", ("period", "round")),
-                                  "price": ("Realised price", ("price",)),
+                                  "price": ("Realized price", ("price",)),
                                   "forecast": ("Forecast of that period's price", ("forecast", "expect")),
                                   "pressure": ("Time-pressure condition", ("pressure", "time", "treat"))})
         h = st.selectbox("Forecast horizon", [1, 2], index=1, key="emp_time_h", help="2 for asset-pricing designs.")
@@ -427,11 +428,11 @@ with tabs[3]:
 # ------------------------------------------------------------------------------------------------ verdicts
 st.header("5 · Verdicts for this session's analyses", divider="gray")
 if not store:
-    st.info("Run an analysis above to see the verdicts for the data analysed in this session.", icon="ℹ️")
+    st.info("Run an analysis above to see the verdicts for the data analyzed in this session.", icon="ℹ️")
 else:
     if any(r.get("synthetic") for v in store.values() for r in v.values()):
         st.warning("Some analyses use synthetic demonstration data. Their verdicts show how the protocol works and "
-                   "are not evidence about human behaviour.", icon="🧪")
+                   "are not evidence about human behavior.", icon="🧪")
     for _, r in evaluate_empirical(store).iterrows():
         kind = {"supported": "support", "not supported": "reject"}.get(r["verdict"], "neutral")
         verdict(kind, f"**{r['id']}** · {r['hypothesis']}  \n{r['verdict'].capitalize()}: {r['result']}")

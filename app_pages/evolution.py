@@ -10,11 +10,13 @@ from ui.common import (CAT, base_scenario, behaviour_horizon, cached_evolution, 
 st.title("Endogenous flexibility: what do firms choose?")
 hypothesis_card(
     "EVO",
-    "If firms could choose their flexibility, the reliability argument implies that decision errors would push them toward "
-    "constrained behaviour as uncertainty rises. They would compete less aggressively without colluding, and the "
-    "industry would settle at positive margins suited to its uncertainty. Here, every *K* periods each firm imitates "
-    "the most profitable rival's φ with some probability and then experiments (mutation). This is social learning, "
-    "with no optimisation.")
+    "Every *K* periods each firm imitates the most profitable rival's flexibility φ with some probability and then "
+    "experiments (mutation). This is social learning, with no optimization. The question is which flexibility the "
+    "industry evolves toward as cost volatility rises.",
+    notes={"heiner": "If firms can choose their flexibility, decision errors push them toward constrained behavior as "
+                     "uncertainty rises: they compete less aggressively without colluding, and the industry settles at "
+                     "positive margins suited to its uncertainty.",
+           "options": "More volatility raises the value of flexibility, so selection should favor flexible firms."})
 
 base = base_scenario()
 if not show_errors(base):
@@ -61,7 +63,7 @@ if run:
 if st.session_state.get("evo_key") != key:
     st.stop()
 if H > 1:
-    st.caption(f"Adaptive firms learn from counterfactuals over H = {H} periods. Evolution itself uses realised profits.")
+    st.caption(f"Adaptive firms learn from counterfactuals over H = {H} periods. Evolution itself uses realized profits.")
 with st.spinner("Evolving industries…"):
     paths, summ = cached_evolution(*key)
 

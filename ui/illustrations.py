@@ -53,7 +53,7 @@ def heiner():
     if ratio_now > tol:
         st.success(f"Reliability condition **holds** at U = {U:.1f}: flexibility pays.", icon="✅")
     else:
-        st.error(f"Reliability condition **fails** at U = {U:.1f}: the agent should constrain behaviour to rule B.",
+        st.error(f"Reliability condition **fails** at U = {U:.1f}: the agent should constrain behavior to rule B.",
                  icon="❌")
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=us, y=np.clip(ratio, 1e-2, 1e3), name="Reliability ratio r/w",
@@ -69,7 +69,7 @@ def heiner():
     st.plotly_chart(style(fig, 340))
 
 
-# ------------------------------------------------------------------------------------------------ optimisation
+# ------------------------------------------------------------------------------------------------ optimization
 def _ewma_mse(alpha, Q, R):
     """Steady-state squared error of exponential smoothing of a random walk (step variance Q) observed with noise R."""
     return ((1 - alpha) ** 2 * Q + alpha ** 2 * R) / (alpha * (2 - alpha))
@@ -97,7 +97,7 @@ def optimiser():
     fig.update_xaxes(title="Gain α (share of each surprise acted on)")
     fig.update_yaxes(title="Root-mean-square tracking error")
     st.plotly_chart(style(fig, 320))
-    st.caption("More noise relative to target volatility lowers the optimal gain: an optimiser attenuates its "
+    st.caption("More noise relative to target volatility lowers the optimal gain: an optimizer attenuates its "
                "response to noisy signals (Muth 1960; Kalman 1960), without any fixed rule.")
 
 
@@ -115,7 +115,7 @@ def options():
     bands = np.linspace(0.0, 12.0, 49)
 
     def costs_for(s):
-        """Average cost per period for every band at once (vectorised over bands)."""
+        """Average cost per period for every band at once (vectorized over bands)."""
         gap, total, n = np.zeros(len(bands)), np.zeros(len(bands)), np.zeros(len(bands))
         for z in steps * s:
             gap += z
@@ -213,14 +213,14 @@ def heuristic():
     better = [n for n, f_, t_ in zip(ns, fit, tally) if t_ > f_]
     st.caption(("The simple rule predicts better with up to " + str(max(better)) + " cases"
                 if better else "The fitted model predicts better at every sample size here")
-               + ". Less data, more noise and more equal true weights all favour the simple rule (Dawes 1979; "
+               + ". Less data, more noise and more equal true weights all favor the simple rule (Dawes 1979; "
                  "Gigerenzer & Brighton 2009).")
 
 
 # ------------------------------------------------------------------------------------------------ satisficing
 def satisficing():
     st.caption("A firm chooses among nine options of unknown value. It keeps its option while profit meets an "
-               "aspiration that adapts to experience, and tries a neighbouring option when profit falls short.")
+               "aspiration that adapts to experience, and tries a neighboring option when profit falls short.")
     c = st.columns(2)
     noise = c[0].slider("Noise in observed profit (s.d.)", 0.0, 5.0, 1.0, 0.1, key="th_s_noise",
                         help="How much profit varies around an option's true value.")

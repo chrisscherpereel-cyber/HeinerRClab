@@ -9,12 +9,12 @@ Part 1 · exact result (Muth 1960; Kalman 1960). Under quadratic loss, within th
     a_t = a_{t-1} + phi (y_t - a_{t-1})
 the expected loss per period is
     E(phi) = [(1 - phi)^2 q + phi^2 r] / [phi (2 - phi)],
-minimised at the steady-state Kalman gain
+minimized at the steady-state Kalman gain
     k = P / (P + r),  P = (q + sqrt(q^2 + 4 q r)) / 2,
 which depends only on the signal-to-noise ratio q / r. The simulation must reproduce this curve and its minimum.
 
 Part 2 · lopsided stakes. Overshooting the target (a > x) costs c_o per squared unit and undershooting costs c_u, with
-the stakes ratio rho = c_o / c_u (normalised so that (c_o + c_u) / 2 = 1, which keeps the loss of any symmetric error
+the stakes ratio rho = c_o / c_u (normalized so that (c_o + c_u) / 2 = 1, which keeps the loss of any symmetric error
 distribution unchanged). The two theories now part ways:
     * optimal filtering (certainty equivalence): the weight on new information depends only on q / r; stakes shift the
       level of the action (an offset), never how much the firm responds to news;
@@ -23,7 +23,7 @@ distribution unchanged). The two theories now part ways:
       moves in the costly direction, holding the information (q / r) fixed.
 Rules compared, all fed by the same observations:
     filter          Kalman filter mean (the optimal-filtering prescription; responds to every observation)
-    filter_offset   Kalman mean shifted by the loss-minimising offset (Bayes-optimal under these stakes)
+    filter_offset   Kalman mean shifted by the loss-minimizing offset (Bayes-optimal under these stakes)
     speed_sym       partial adjustment toward y_t with one speed, tuned for the stakes
     speed_asym      partial adjustment with separate speeds up and down, tuned for the stakes
     restrict        move to the Kalman mean only when the move exceeds a threshold, with separate thresholds up and
@@ -149,7 +149,7 @@ def expected_asym_loss(mu, rho: float):
 
 
 def optimal_offset(rho: float) -> Tuple[float, float]:
-    """Loss-minimising mean error (in posterior s.d.) under the stakes, and the minimal loss (per unit variance).
+    """Loss-minimizing mean error (in posterior s.d.) under the stakes, and the minimal loss (per unit variance).
     Under certainty equivalence the firm sets a = posterior mean + offset * posterior s.d."""
     grid = np.linspace(-3, 3, 6001)
     L = expected_asym_loss(grid, rho)

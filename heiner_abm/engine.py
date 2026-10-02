@@ -1,4 +1,4 @@
-"""Vectorised batch engine: simulates B independent markets (scenarios) at once.
+"""Vectorized batch engine: simulates B independent markets (scenarios) at once.
 
 Same model and same random streams as `agents.Industry`; used for Monte-Carlo
 replications and parameter sweeps. All scenarios in a batch must share the number
@@ -317,7 +317,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         cur = learned[b_idx, n_idx, bins]
         learned[b_idx, n_idx, bins] = np.where(opp, mem * cur + (1 - mem) * g_full, cur)
 
-        # Heiner (1989) true target: ex-post best reply to rivals' actual output, realised cost, true demand
+        # Heiner (1989) true target: ex-post best reply to rivals' actual output, realized cost, true demand
         br_true = (col(pm) - col(sl) * (col(Qn) - new_q) - col(c_now)) / (2 * col(sl))
         st["q"][:, t], st["q_prev"][:, t], st["rec"][:, t], st["profit"][:, t] = new_q, q, rec, profit
         st["g_static"][:, t], st["g_full"][:, t] = g_static, g_full

@@ -1,17 +1,17 @@
 """Validation against public experimental datasets.
 
 Five public sources can support validation (see DATASETS). None is bundled: each must be downloaded from its
-repository under its own licence and mapped to the columns the adapters expect. The protocol is fixed in advance and
+repository under its own license and mapped to the columns the adapters expect. The protocol is fixed in advance and
 hashed (EMPIRICAL_PLAN):
     * rules are fitted on each participant's earlier periods and evaluated on the later periods they have not seen;
-    * each treatment is analysed separately and only rules consistent with the treatment's information set are used
+    * each treatment is analyzed separately and only rules consistent with the treatment's information set are used
       (for example, no imitate-the-best rule where participants never saw rivals' individual outcomes);
     * uncertainty is reported at the participant level (participant-cluster bootstrap);
     * one primary Cournot validation, one independent forecasting validation, and the newsvendor data as an
       extension; the time-pressure data are supplementary and treated as a competence manipulation, not as a test of
       the simulation's uncertainty parameter.
 Rules that predict human choices well do not show that people consciously apply Heiner's reliability condition; they
-show which decision rules describe behaviour, out of sample.
+show which decision rules describe behavior, out of sample.
 """
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ DATASETS: List[Dataset] = [
             "brokesova2022", "https://doi.org/10.1371/journal.pone.0264183.s002",
             "PLOS ONE supporting information (XLSX)", "As published with the article (PLOS ONE)",
             "Raw data: 105 participants, 100 decision periods each, newsvendor and mathematically equivalent pricing "
-            "treatments, with feedback on realised demand (or threshold) and profit", "newsvendor",
+            "treatments, with feedback on realized demand (or threshold) and profit", "newsvendor",
             "Inventory decisions: order adjustment, demand chasing, deviations from the optimal quantity and "
             "performance under asymmetric overage and underage costs.",
             "Needs the inventory adapter, and the experiment's own demand distribution and costs must be entered "
@@ -96,7 +96,7 @@ DATASETS: List[Dataset] = [
     Dataset("ltf_time", 5, "Pushed to perform: Time pressure in long run Learning-to-Forecast experiments",
             "creed2021", "https://uvaauas.figshare.com/articles/dataset/Pushed_to_perform_Time_pressure_in_long_"
             "run_Learning-to-Forecast_experiments/13948409",
-            "University of Amsterdam figshare, 'Download all' (4.7 MB)", "Restrictive licence: check reuse terms",
+            "University of Amsterdam figshare, 'Download all' (4.7 MB)", "Restrictive license: check reuse terms",
             "Raw data for 13 treatments", "forecast",
             "Whether time pressure changes reliance on simple or restricted forecasting rules.",
             "Time pressure manipulates competence (time to think), not uncertainty; a time-pressure effect is not a "
@@ -416,7 +416,7 @@ def _nv_band(d, g, p, x):
 
 def _nv_rc(d, g, p, x):
     """Reliability condition over demand chasing: keep last period's order unless moves of that size have paid off
-    in the past (cost saved against the realised demand, learned with exponential memory)."""
+    in the past (cost saved against the realized demand, learned with exponential memory)."""
     s = x["spec"]
     q, tgt, dem = d["own_prev"].to_numpy(), _nv_chase_target(d, p), d["demand"].to_numpy()
     edges = p["theta"] * s.sigma * np.array([0.5, 1.0, 2.0, 4.0]) / 4
@@ -424,15 +424,15 @@ def _nv_rc(d, g, p, x):
     for t in range(len(d)):
         b = int((abs(tgt[t] - q[t]) > edges).sum())
         out[t] = tgt[t] if E[b] >= 0 else q[t]
-        gain = nv_cost(q[t], dem[t], s) - nv_cost(tgt[t], dem[t], s)       # known once demand is realised
+        gain = nv_cost(q[t], dem[t], s) - nv_cost(tgt[t], dem[t], s)       # known once demand is realized
         E[b] = p["memory"] * E[b] + (1 - p["memory"]) * gain
     return out
 
 
 NEWSVENDOR_RULES: List[Rule] = [
-    Rule("optimal", "Optimal (critical-fractile) order", "Neoclassical optimisation", {}, _nv_optimal),
+    Rule("optimal", "Optimal (critical-fractile) order", "Neoclassical optimization", {}, _nv_optimal),
     Rule("mean", "Order mean demand", "Simple heuristics", {}, _nv_mean),
-    Rule("ptc", "Pull-to-center (between optimal and mean)", "Behavioural bias", {"alpha": np.linspace(0, 1, 21)},
+    Rule("ptc", "Pull-to-center (between optimal and mean)", "Behavioral bias", {"alpha": np.linspace(0, 1, 21)},
          _nv_ptc),
     Rule("chase", "Demand chasing (adjust toward last demand)", "Cobweb theory", {"beta": np.linspace(0.05, 1, 20)},
          _nv_chase),
@@ -555,13 +555,13 @@ def evaluate_details(results: Dict, plan: EmpiricalPlan = EMPIRICAL_PLAN) -> pd.
 
 def evaluate_empirical(results: Dict, plan: EmpiricalPlan = EMPIRICAL_PLAN) -> pd.DataFrame:
     """Verdict per hypothesis. A hypothesis tested on several datasets or treatments counts as supported only if it
-    is supported in every one analysed (plan.aggregation); without data it is 'not tested'."""
+    is supported in every one analyzed (plan.aggregation); without data it is 'not tested'."""
     det = evaluate_details(results, plan)
     out = []
     for hid, hyp, rule in plan.hypotheses:
         d = det[(det["id"] == hid) & det["ok"].notna()]
         if d.empty:
-            verdict, text = "not tested", "no data analysed"
+            verdict, text = "not tested", "no data analyzed"
         else:
             verdict = "supported" if bool(d["ok"].all()) else "not supported"
             text = "; ".join((f"{r.data}: " if r.data else "") + r.result for r in d.itertuples())

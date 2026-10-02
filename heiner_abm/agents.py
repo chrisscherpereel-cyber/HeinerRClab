@@ -12,14 +12,14 @@ cost. The Industry schedules one round:
     3. its selection rule decides whether to deviate from the default rule B
        ("keep producing q") and adopt q*;
     4. the market clears on the *true* demand curve, P[t] = max(Pmin, Pmax[t] - s[t]*Q[t]),
-       and the new cost c[t] is realised (firms decided before seeing it: the CD-gap);
+       and the new cost c[t] is realized (firms decided before seeing it: the CD-gap);
     5. every firm books profit (P[t]-c[t])*q - F and evaluates the counterfactual:
        what it would have earned over the next H periods (discount gamma) had it made the
        other choice. The market is forked and every agent keeps following its rules.
        With H = 1 this is Heiner's one-shot comparison with rivals held fixed.
        This is how Heiner's quantities pi, r, w, G and D are measured.
 
-`heiner_abm.engine` is a vectorised twin of this module used for Monte-Carlo
+`heiner_abm.engine` is a vectorized twin of this module used for Monte-Carlo
 experiments; tests/test_equivalence.py checks that the two agree exactly.
 """
 from __future__ import annotations

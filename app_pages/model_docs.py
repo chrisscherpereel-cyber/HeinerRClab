@@ -2,10 +2,11 @@ import pandas as pd
 import streamlit as st
 
 from heiner_abm.literature import bibliography
+from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT
 
 MODEL_REFS = ["heiner1983", "heiner1986", "heiner1988", "heiner1988b", "heiner1989", "ezekiel1938", "nerlove1958",
               "theocharis1960", "carlson1967", "carlson1968", "knight1921", "green1966", "scarf1960", "lindblom1959",
-              "erev1998", "hanley1982", "efron1993", "tesfatsion2006"]
+              "erev1998", "hanley1982", "efron1993", "tesfatsion2006", "nosek2018"]
 
 st.title("Model & methods")
 
@@ -22,7 +23,7 @@ $n$ firm agents. Each period $t = 1,\dots,T$ runs in this order:
 3. **Select.** The firm's selection rule decides whether to deviate from the default rule
    **B: $q_{i,t} = q_{i,t-1}$** and adopt $q^*$.
 4. **Clear.** $Q_t = \sum_i q_{i,t}$, $P_t = \max\{P_{min},\ P_{max} - sQ_t\}$ with $s = (P_{max}-P_{min})/Q_{range}$.
-5. **Shock.** The new raw-material cost is realised:
+5. **Shock.** The new raw-material cost is realized:
    $c_t = \text{reflect}(c_{t-1} + \Delta\, U_t)$ with $U_t\sim\mathcal U(-1,1)$ and reflecting bounds $[P_{min}, c_{max}]$.
 6. **Book.** Profit $\pi_{i,t} = (P_t - c_t)\,q_{i,t} - F_i$ with $F_i = a\varphi_i + b$.
 7. **Evaluate & learn.** The counterfactual payoff of the other choice is computed (below). Adaptive agents update
@@ -51,8 +52,8 @@ st.markdown(
     """
 | Selection rule | Deviates from B when… | Grounded in |
 |---|---|---|
-| **Always** | always (maximally flexible) | frictionless optimisation |
-| **Never** | never (rule B only, rigid) | rule-governed behaviour (Heiner 1983) |
+| **Always** | always (maximally flexible) | frictionless optimization |
+| **Never** | never (rule B only, rigid) | rule-governed behavior (Heiner 1983) |
 | **Small** (SR1) | \\|q* − q\\| < θ ("change is risky") | incrementalism (Lindblom 1959) |
 | **Large** (SR2) | \\|q* − q\\| > θ ("big imbalances send clear signals") | signal detection, (S, s) inaction bands (Green & Swets 1966; Scarf 1960) |
 | **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins) | reinforcement learning (Erev & Roth 1998) |
@@ -62,7 +63,7 @@ st.header("Measuring Heiner's quantities", divider="gray")
 st.markdown(
     r"""
 An **opportunity** is a period in which $q^* \ne q_{t-1}$. For each opportunity, the payoff of adopting $q^*$ is compared
-with the payoff of following B (keeping $q_{t-1}$) under the realised cost:
+with the payoff of following B (keeping $q_{t-1}$) under the realized cost:
 
 * **H = 1 (Heiner's one-shot comparison).** One-period profit, rivals' period-$t$ choices held fixed:
   $\text{gain} = \pi_i(q^*) - \pi_i(q_{t-1})$.
@@ -110,7 +111,7 @@ that resamples whole environments.
 
 **Heiner (1989) error-to-signal ratio.** For each firm and period, the perceived target is the Cournot best reply
 computed with the firm's cost estimate and believed demand, $\hat x_t$. The true target $x^*_t$ is the ex-post best
-reply to rivals' actual output, the realised cost and the true demand. $\xi_t = \hat x_t - x^*_t$ and
+reply to rivals' actual output, the realized cost and the true demand. $\xi_t = \hat x_t - x^*_t$ and
 $\Delta^*_t = x^*_t - q_{t-1}$. The reported $K = \mathrm{RMS}(\xi)/\mathrm{RMS}(\Delta^*)$ is a robust version of
 the theorem's bound on $|\xi/\Delta^*|$. The bound is $\beta_0 = 1/((1+K)(1-f'))$ with $f' = -(n-1)/2$.
 
@@ -121,7 +122,7 @@ observed prices. Regime draws come from a separate random stream, so switching t
 exactly.
 
 **Signal-detection ROC.** For the decision signal $|q^* - q|$ and preferred-exception labels, sweeping a threshold θ
-gives $(w(\theta), r(\theta))$. The signal's AUC is the firm's discriminability, and the value-maximising θ is the
+gives $(w(\theta), r(\theta))$. The signal's AUC is the firm's discriminability, and the value-maximizing θ is the
 optimal SR2 threshold.
 """)
 
@@ -155,11 +156,28 @@ st.dataframe(pd.DataFrame([
     ("Measurement", "Burn-in, horizon H, discount γ, estimation window", "25 periods, H 20, γ 1, 50%"),
 ], columns=["Element", "Specification", "Baseline"]), hide_index=True, width="stretch")
 
+st.header("Preset scenarios", divider="gray")
+st.markdown("The sidebar's presets are ready-made variations of the baseline. Pick one, press **Apply preset**, then "
+            "run any page: each preset changes only the settings listed, so its effect can be read against the "
+            "baseline. The typical results come from six replications of 1,000 periods; *slope* is the change in "
+            "average profit per period from one firm to the next more flexible firm (positive: flexibility pays).")
+rows = []
+for name, over in PRESETS.items():
+    info = PRESET_INFO.get(name, {})
+    changes = ", ".join(f"{k} = {v}" for k, v in over.items() if DEFAULTS.get(k) != v) or "none (the baseline)"
+    rows.append({"Preset": name, "Settings changed": changes, "Setup": info.get("setup", ""),
+                 "Why run it": info.get("why", ""), "Used for": info.get("hypotheses", ""),
+                 "Typical result": info.get("typical", "")})
+st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+st.header("Pre-registered plans", divider="gray")
+st.markdown(PREREG_TEXT)
+
 st.header("Verification", divider="gray")
 st.markdown(
     """
 The model exists twice: a readable object-oriented agent implementation (`heiner_abm/agents.py`: `Firm`, `Market`,
-`Industry`) and a vectorised batch engine (`heiner_abm/engine.py`) for Monte Carlo work. The test suite
+`Industry`) and a vectorized batch engine (`heiner_abm/engine.py`) for Monte Carlo work. The test suite
 (`pytest tests`) checks that they produce **identical** trajectories and counterfactuals for Bertrand, Cournot and
 mixed markets, with and without forks, evolution, discounting and demand-regime shifts. The persistence
 measure is checked against a brute-force loop, and the estimation and evaluation windows are checked to partition

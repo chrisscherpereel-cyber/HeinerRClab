@@ -37,7 +37,7 @@ def render(key: str):
         st.markdown(t.flexibility)
         c = st.columns(3)
         c[0].markdown(f"**Uncertainty is…**  \n{t.uncertainty_view}")
-        c[1].markdown(f"**Behaviour changes…**  \n{t.when_to_change}")
+        c[1].markdown(f"**Behavior changes…**  \n{t.when_to_change}")
         c[2].markdown(f"**More uncertainty makes flexibility…**  \n{t.more_uncertainty}")
 
     st.header("4 · Explore", divider="gray")

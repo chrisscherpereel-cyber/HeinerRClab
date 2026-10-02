@@ -1,4 +1,4 @@
-"""Rule choice, field patterns, calibration, the human experiment and the generalisation tasks."""
+"""Rule choice, field patterns, calibration, the human experiment and the generalization tasks."""
 import os
 from dataclasses import replace
 
@@ -114,7 +114,7 @@ def test_calibration_recovers_quantity_rules():
     assert (fits["test_rmse"] >= 0).all() and set(rank["rule"]) == {r.key for r in QUANTITY_RULES}
 
 
-# ------------------------------------------------------------------------------------------------ generalisation
+# ------------------------------------------------------------------------------------------------ generalization
 @pytest.mark.parametrize("task", ["inventory", "learning"])
 def test_task_layers_consistent(task):
     env = _env_set(task, 4, 99)[1]

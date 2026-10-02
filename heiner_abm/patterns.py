@@ -2,7 +2,7 @@
 
 Each pattern is stated as it appears in the literature, with a qualitative criterion fixed in advance and the
 population of agents that should produce it. A model that reproduces several independent patterns at once is harder
-to dismiss as an artefact of its assumptions. The criteria are deliberately qualitative: the market is stylised and is
+to dismiss as an artifact of its assumptions. The criteria are deliberately qualitative: the market is stylized and is
 not calibrated to any particular commodity.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ PATTERNS: List[Pattern] = [
             "alternating price cycles, as in the classic hog and potato cycles.", ("ezekiel1938", "nerlove1958"),
             "Lag-1 autocorrelation of price below −0.3 when every firm uses naive price expectations with full "
             "adjustment.", "Naive expectations (adaptive price expectations with λ = 1, φ = 1)"),
-    Pattern("damping", "Adaptive adjustment dampens cycles", "Adaptive expectations and partial adjustment stabilise "
+    Pattern("damping", "Adaptive adjustment dampens cycles", "Adaptive expectations and partial adjustment stabilize "
             "cobweb markets.", ("nerlove1958", "carlson1968"),
             "With slow adaptive expectations (λ = 0.3, φ = 0.3), price volatility is lower and lag-1 autocorrelation "
             "higher than with naive expectations.", "Adaptive expectations (λ = 0.3, φ = 0.3)"),

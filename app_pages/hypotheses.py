@@ -97,7 +97,7 @@ def run_state(key, params):
 
 tabs = st.tabs(["H1 · Free flexibility", "H2 · Profitability switch", "H3 · Volatility", "H4 · Fixed costs",
                 "H5 · Competition intensity", "H6 · Regimes & equilibrium", "H7 · Competence",
-                "H8 · Perception noise", "H9 · Selection rules", "H10 · Predictable behaviour",
+                "H8 · Perception noise", "H9 · Selection rules", "H10 · Predictable behavior",
                 "H11 · Number of rivals", "H12 · Model-updating lag"])
 rule = base.firms[0].rule
 
@@ -105,9 +105,13 @@ rule = base.firms[0].rule
 with tabs[0]:
     hypothesis_card(
         "H1",
-        "The decisive test sets the cost of flexibility to zero (a = b = 0). Relaxing a constraint on behaviour can then "
-        "only help an optimiser, so any market in which rigid firms out-earn flexible ones contradicts the optimising "
-        "view. The statistic is the within-market slope of profit on φ.")
+        "The decisive test sets the cost of flexibility to zero (a = b = 0), so any difference in profit between more "
+        "and less flexible firms comes from how they use their flexibility. The statistic is the within-market slope "
+        "of profit on φ: negative means rigid firms out-earn flexible ones.",
+        notes={"optimiser": "Relaxing a constraint on behavior can only help an optimizer, so a market in which rigid "
+                            "firms out-earn flexible ones would contradict the optimizing view.",
+               "heiner": "When decision errors are costly, flexibility used imperfectly can lower profit even when it "
+                         "costs nothing."})
     c1, c2 = st.columns(2)
     lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h1_lever",
                          help=LEVER_HELP)
@@ -201,8 +205,10 @@ with tabs[1]:
 with tabs[2]:
     hypothesis_card(
         "H3",
-        "Volatility of the raw-material cost is the *difficulty* side of the CD-gap. It is also reported as the serial "
-        "correlation of cost (lower = less predictable), a common empirical proxy for predictability.")
+        "The volatility of the raw-material cost makes the environment harder to predict. It is also reported as the "
+        "serial correlation of cost (lower = less predictable), a common empirical proxy for predictability.",
+        notes={"heiner": "Volatility is the *difficulty* side of the CD-gap (the gap between the difficulty of a "
+                         "problem and the agent's competence)."})
     c1, c2 = st.columns(2)
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 30.0), key="h3_rng",
                       help="Lowest and highest cost volatility Δ (max raw-material cost change per period) to sweep.")
@@ -257,7 +263,7 @@ with tabs[3]:
                                      "(and one switch point) per level."), [0, 500, 1500])
     incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl",
                      help="On = margin P − c − F/q, so fixed costs change decisions. Off = baseline "
-                          "margin P − c: the control, where fixed costs cannot change behaviour.")
+                          "margin P − c: the control, where fixed costs cannot change behavior.")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     scn = base.copy()
     scn.firm_globals.margin_includes_fixed = incl
@@ -289,7 +295,7 @@ with tabs[3]:
 with tabs[4]:
     hypothesis_card(
         "H5",
-        "Exploratory. In more competitive markets (smaller desired margin m*), does the switch to favouring flexible "
+        "Exploratory. In more competitive markets (smaller desired margin m*), does the switch to favoring flexible "
         "firms happen at a *lower* level of industry profit? A profitability lever is swept at several competition "
         "intensities.")
     if rule != "Bertrand":
@@ -317,7 +323,7 @@ with tabs[4]:
                 "Switch point (avg firm profit)", format="%.0f")})
             ok = spd.dropna()
             if len(ok) >= 2 and np.all(np.diff(ok.sort_values("m")["switch_profit"]) > 0):
-                verdict("support", "More intense competition (lower m*) switches to favouring flexibility at **lower** profit "
+                verdict("support", "More intense competition (lower m*) switches to favoring flexibility at **lower** profit "
                         "levels, as H5 predicts.")
             elif len(ok) >= 2:
                 verdict("warn", "Switch points found, but the ordering differs from H5.")
@@ -377,8 +383,9 @@ with tabs[5]:
 with tabs[6]:
     hypothesis_card(
         "H7",
-        "Competence is the other side of the CD-gap. Raising cost foresight κ lets firms anticipate part of the coming "
-        "cost change, so their recommendations are right more often.")
+        "Raising cost foresight κ lets firms anticipate part of the coming cost change, so their recommendations are "
+        "right more often.",
+        notes={"heiner": "Competence is the other side of the CD-gap: more competence narrows the gap."})
     trend_test("h7", base, "foresight", "competence κ", (0.0, 1.0), (0.0, 1.0), 5, "+",
                rng_help="Lowest and highest cost foresight κ: the share of the coming cost change firms anticipate.")
 
@@ -386,8 +393,9 @@ with tabs[6]:
 with tabs[7]:
     hypothesis_card(
         "H8",
-        "Perception noise σ adds a random error to every firm's estimate of the coming cost. It widens the CD-gap from "
-        "the agent's side without changing the environment (Δ stays fixed).")
+        "Perception noise σ adds a random error to every firm's estimate of the coming cost without changing the "
+        "environment (Δ stays fixed).",
+        notes={"heiner": "Perception noise widens the CD-gap from the agent's side (lower competence)."})
     trend_test("h8", base, "noise", "perception noise σ", (0.0, 20.0), (0.0, 20.0), 5, "-",
                rng_help="Lowest and highest standard deviation of the error in firms' cost estimates.")
 
@@ -454,10 +462,13 @@ with tabs[8]:
 with tabs[9]:
     hypothesis_card(
         "H10",
-        "Heiner's (1983) central claim, 'The origin of predictable behavior': imperfect agents facing more uncertainty "
-        "restrict themselves to fewer, more rule-governed actions. Here every firm uses the **Adaptive** selection "
-        "rule, which learns from counterfactual payoffs when deviating from rule B pays. No rule is imposed on how "
-        "often to deviate.")
+        "Every firm uses the **Adaptive** selection rule, which learns from counterfactual payoffs when deviating from "
+        "keeping its output pays; no rule is imposed on how often to deviate. Cost volatility is swept and the share "
+        "of periods in which firms change their output is measured.",
+        notes={"heiner": "This is Heiner's (1983) central claim, 'The origin of predictable behavior': imperfect "
+                         "agents facing more uncertainty restrict themselves to fewer, more rule-governed actions.",
+               "satisficing": "More volatile results fall below aspiration more often, which triggers more search and "
+                              "change."})
     c1, c2 = st.columns(2)
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h10_rng",
                       help="Lowest and highest cost volatility Δ to sweep.")
@@ -497,10 +508,10 @@ with tabs[9]:
         st.markdown(f"**Regression of the deviation rate on Δ** ({len(per)} markets): coefficient = {coef:.4f}, "
                     f"p = {fmt_p(pv)}, R² = {r2:.3f}")
         if coef < 0 and pv < 0.05:
-            verdict("support", "Reliability-learning firms **deviate less** as uncertainty rises: behaviour becomes "
+            verdict("support", "Reliability-learning firms **deviate less** as uncertainty rises: behavior becomes "
                     "more predictable, as Heiner (1983) argued.")
         elif coef > 0 and pv < 0.05:
-            verdict("reject", "Firms **deviate more** as uncertainty rises, as the optimising and satisficing views "
+            verdict("reject", "Firms **deviate more** as uncertainty rises, as the optimizing and satisficing views "
                     "predict.")
         else:
             verdict("neutral", "No significant trend in how often firms deviate.")
@@ -510,10 +521,11 @@ with tabs[9]:
 with tabs[10]:
     hypothesis_card(
         "H11",
-        "With more firms the target each firm aims at moves more with its rivals' choices. In Heiner (1989) the slope "
-        "of the target map is f′ = −(n−1)/2 in symmetric Cournot, so the reliable adjustment speed "
-        "β₀ = 1/((1+K)(1−f′)) falls as n rises. Flexibility ranges stay the same; total initial output is held "
-        "comparable.")
+        "Markets with more firms are compared, with the same range of flexibility and comparable total initial output. "
+        "With more firms, the output each firm should aim at moves more with its rivals' choices.",
+        notes={"heiner": "In Heiner (1989) the slope of the target map is f′ = −(n−1)/2 in symmetric Cournot, so the "
+                         "reliable adjustment speed β₀ = 1/((1+K)(1−f′)) falls as n rises.",
+               "cobweb": "More firms shrink the stability region of simultaneous adjustment (φ < 4/(n + 1))."})
     trend_test("h11", base, "n_firms", "number of firms n", (2.0, 12.0), (2.0, 12.0), 6, "-",
                rng_help="Smallest and largest number of firms; each market spreads φ over the sidebar's range.")
 

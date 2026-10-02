@@ -227,8 +227,8 @@ with tab_dist:
                             textposition="top center", marker=dict(size=12, color=colors, line=dict(color="white", width=2)),
                             hovertemplate="%{text}<br>avg |Δq| %{x:.1f}<br>avg profit %{y:.1f}<extra></extra>",
                             showlegend=False))
-    fs.update_xaxes(title="Realised flexibility: avg |Δq| per period"); fs.update_yaxes(title="Average profit")
-    c2.plotly_chart(style(fs, 340, "Profit vs realised flexibility"))
+    fs.update_xaxes(title="Realized flexibility: avg |Δq| per period"); fs.update_yaxes(title="Average profit")
+    c2.plotly_chart(style(fs, 340, "Profit vs realized flexibility"))
     ts = pd.DataFrame(dict(period=np.arange(T), price=P, cost=C, quantity=Q))
     for i in range(N):
         ts[f"q_{labels[i]}"] = hist["q"][:, i]

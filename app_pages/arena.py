@@ -8,22 +8,24 @@ import streamlit as st
 from heiner_abm.arena import (DESIGNS, FEATURES, KEYS, PREREG, QUICK, THEORY_DESIGNS, THEORY_NAMES, Prereg,
                               pairwise, replicate, run_protocol)
 from heiner_abm.literature import cite
-from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict
+from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict, prereg_explainer
 
 st.title("Agent tournament: rival theories as competing agents")
 st.caption("Each theory of flexibility under uncertainty is implemented as decision rules. The rules compete in the "
            "same cobweb market, with the same information and the same random shocks, under a fairness protocol "
-           "fixed in advance. This replaces predictions written by the modeller with behaviour that can win or lose.")
+           "fixed in advance. This replaces predictions written by the modeler with behavior that can win or lose.")
 
 hypothesis_card(
     "ARENA",
     "Every theory is represented by **two designs**, and enters the tournament with whichever design did better on "
     "the training environments. Most designs combine a **target** (a model-based best reply, or a price-based "
     "adaptive expectation that needs no demand model) with a **selection rule** that decides when to move: always "
-    "(optimisation, cobweb theory), outside an inaction band (real options), when the learned reliability condition "
+    "(optimization, cobweb theory), outside an inaction band (real options), when the learned reliability condition "
     "holds (Heiner), or when profit falls below aspiration (satisficing). Because the targets are shared, the "
-    "selection-rule experiment isolates Heiner's claim: does deciding *when* to deviate by reliability beat always "
-    "adjusting toward the same target?")
+    "selection-rule experiment isolates the role of the selection rule: which way of deciding *when* to move works "
+    "best toward the same target?",
+    notes={"heiner": "Deciding when to deviate by its reliability should beat always adjusting toward the same "
+                     "target where the target is error-prone."})
 
 st.header("1 · The fairness protocol", divider="gray")
 st.markdown(
@@ -38,7 +40,7 @@ st.markdown(
     "volatility, regret and worst case; a target × selection-rule experiment; invasion tests; global sensitivity "
     "analysis; and replication of the whole protocol with fresh seeds.\n"
     "5. **A frozen plan.** Ranges, budgets, hypotheses, decision rules and the agent and analysis code are hashed. A "
-    "run with any change is labelled exploratory.")
+    "run with any change is labeled exploratory.")
 st.caption("Methods: " + cite("axelrod1984", "maynardsmith1973", "mckay1979", "bergstra2012", "holm1979",
                                "rockafellar2000", "savage1951", "saltelli2008", "nosek2018"))
 
@@ -51,6 +53,7 @@ st.dataframe(pd.DataFrame([dict(Theory=THEORY_NAMES[t], Design=DESIGNS[d].name, 
 
 # ------------------------------------------------------------------------------------------------ plan
 st.header("2 · Pre-registered plan", divider="gray")
+prereg_explainer()
 scale = st.radio("Protocol", ["Pre-registered", "Quick check", "Custom"], horizontal=True, key="arena_scale",
                  help="Pre-registered runs the frozen plan (about 1.5 minutes). Quick check is a small exploratory "
                       "run for trying things out. Custom lets you change the settings; the run is then exploratory.")
@@ -230,7 +233,7 @@ st.markdown("**Uninvadable populations:** " + (", ".join(resist) if resist else 
 
 # ------------------------------------------------------------------------------------------------ robustness
 st.header("8 · Robustness across environments", divider="gray")
-st.caption("Global sensitivity analysis: standardised regression coefficients of each agent's profit relative to the "
+st.caption("Global sensitivity analysis: standardized regression coefficients of each agent's profit relative to the "
            "market mean on the environment parameters. Blue = the agent does relatively better as the parameter "
            "rises.")
 rb = res.robustness
@@ -294,4 +297,4 @@ st.markdown(
     "* Survival is measured against a fixed capital buffer without removing ruined firms, so market composition stays "
     "comparable across agents.\n"
     "* A frozen plan is only a registration once a third party time-stamps it, for example on OSF.\n"
-    "* The market is a stylised cobweb oligopoly; conclusions are about these mechanisms, not about real firms.")
+    "* The market is a stylized cobweb oligopoly; conclusions are about these mechanisms, not about real firms.")

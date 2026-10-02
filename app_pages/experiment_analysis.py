@@ -5,7 +5,7 @@ import streamlit as st
 
 from heiner_abm.arena import ALL_DESIGNS
 from heiner_abm.experiment import PLAN, by_condition, classify, evaluate_experiment, synthetic_participants
-from ui.common import CAT, download, hypothesis_card, style, verdict
+from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
 
 st.title("Experiment analysis")
 st.caption("Pools the files downloaded from Play the market, classifies each participant by the agent design that "
@@ -20,6 +20,7 @@ hypothesis_card(
     "uncertainty, profit relative to rivals against that share, across participants.")
 
 st.header("1 · Plan", divider="gray")
+prereg_explainer()
 st.markdown(f"**Experiment plan hash:** `{PLAN.digest}` · {PLAN.periods_per_block} periods per block · conditions "
             f"{', '.join(PLAN.conditions)} · rivals {', '.join(ALL_DESIGNS[k].name for k in PLAN.rivals)}")
 st.dataframe(pd.DataFrame(PLAN.hypotheses, columns=["ID", "Hypothesis", "Decision rule"]), hide_index=True,
@@ -43,7 +44,7 @@ if src.startswith("Upload"):
         st.error("These files do not look like Play the market downloads (missing participant or shadow columns).")
         st.stop()
     if "plan" in df.columns and set(df["plan"].astype(str)) != {PLAN.digest}:
-        st.warning("Some files were collected under a different experiment plan hash. Analyse them separately.",
+        st.warning("Some files were collected under a different experiment plan hash. Analyze them separately.",
                    icon="⚠️")
 else:
     c1, c2 = st.columns(2)
@@ -52,7 +53,7 @@ else:
                       help="Standard deviation of the noise added to each simulated participant's design.")
     df, truth = synthetic_participants(n, noise)
     st.warning("Synthetic demonstration: simulated participants with known designs. Not evidence about human "
-               "behaviour.", icon="🧪")
+               "behavior.", icon="🧪")
 st.caption(f"{df['participant'].nunique()} participants · {len(df)} decisions")
 
 st.header("3 · Pre-registered hypotheses", divider="gray")

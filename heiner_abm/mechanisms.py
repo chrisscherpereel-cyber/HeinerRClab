@@ -18,7 +18,7 @@ Two experiments on top of the agent tournament (heiner_abm.arena):
 2. Maps by type of uncertainty. Environments are drawn by Latin hypercube over separate sources of uncertainty (risk,
    perception error, model misspecification, competence, stakes). The gain from restriction is related to the
    measured error-to-signal ratio K of the flexible rule (the boundary test), to each source of uncertainty
-   (standardised regression), and a quadratic ridge metamodel maps which theory's agent does best where.
+   (standardized regression), and a quadratic ridge metamodel maps which theory's agent does best where.
 
 The plan is frozen and hashed together with the code, like the tournament plan.
 """
@@ -63,7 +63,7 @@ STUDY_HYPOTHESES = (
      "OLS of (rc_oracle − always) on ln K of the always-adjusting rule, with a target indicator, pooled over both "
      "targets. Supported if the ln K slope is positive with p < α."),
     ("M5", "Type of uncertainty: misspecification raises the gain from restriction more than risk does.",
-     "Standardised regression of (rc_oracle − always) on the model-based target on all uncertainty axes. Supported "
+     "Standardized regression of (rc_oracle − always) on the model-based target on all uncertainty axes. Supported "
      "if the bootstrap CI of (hazard coefficient − volatility coefficient) lies above 0."),
 )
 
@@ -253,7 +253,7 @@ def _src(y: np.ndarray, X: pd.DataFrame) -> np.ndarray:
 
 
 def uncertainty_types(focal: pd.DataFrame, plan: StudyPlan) -> pd.DataFrame:
-    """Standardised regression of each restriction gain on the uncertainty axes, with bootstrap CIs."""
+    """Standardized regression of each restriction gain on the uncertainty axes, with bootstrap CIs."""
     rows = []
     axes = list(MAP_RANGES)
     rng = np.random.default_rng(0)
@@ -313,7 +313,7 @@ def _ridge(Xd, y, lam):
 
 
 def fit_metamodel(df: pd.DataFrame, y: str, folds: int = 5, seed: int = 0) -> Dict:
-    """Quadratic ridge metamodel of y on the standardised uncertainty axes. The penalty is chosen by k-fold
+    """Quadratic ridge metamodel of y on the standardized uncertainty axes. The penalty is chosen by k-fold
     cross-validation, and the reported fit is the cross-validated R² (out-of-fold), not the in-sample R²."""
     axes = list(MAP_RANGES)
     mu, sd = df[axes].mean().to_numpy(), df[axes].std().to_numpy() + 1e-12

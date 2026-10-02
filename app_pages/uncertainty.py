@@ -11,16 +11,19 @@ from ui.common import (CAT, base_scenario, cached_event, cached_uncertainty, dow
 st.title("Risk versus genuine (Knightian) uncertainty")
 hypothesis_card(
     "KNIGHT",
-    "Knight separated **risk** (known probabilities) from **uncertainty** (the structure itself is unknown). Arrow "
-    "and Lucas concluded that economic reasoning fails under the latter. Heiner claims the RC applies whatever "
-    "the source of the CD-gap. This page compares two families of environments with rising unpredictability:\n\n"
+    "Knight separated **risk** (known probabilities) from **uncertainty** (the structure itself is unknown). This "
+    "page compares two families of environments with rising unpredictability:\n\n"
     "* **Risk:** raw-material cost volatility Δ rises. Its distribution is stationary and bounded; firms' models "
     "are correct, only the draws are unknown.\n"
     "* **Structural uncertainty:** unannounced **demand-regime shifts** (intercept and slope jump at random). "
     "*Model-based* firms (Cournot best replies) keep using an outdated demand curve until they update it, "
     "L periods later. *Model-free* firms (Bertrand margin feedback) react only to observed prices.\n\n"
     "The two families are compared at **matched unpredictability** (the RMS period-to-period price change, or the "
-    "Cournot target error ξ).")
+    "Cournot target error ξ).",
+    notes={"heiner": "The reliability condition applies whatever the source of the CD-gap, so both families should "
+                     "lower the payoff to flexibility once firms' decisions become unreliable.",
+           "options": "Arrow and Lucas argued that economic reasoning fails under structural uncertainty, while option "
+                      "theory treats more uncertainty of either kind as raising the value of flexibility."})
 
 base = base_scenario()
 if not show_errors(base):
@@ -140,7 +143,7 @@ st.subheader("② Punctuated adjustment around regime shifts (Heiner 1989, §6)"
 st.markdown(
     "Heiner argued that when the equilibrium itself shifts unpredictably, imperfect agents first keep adjusting "
     "slowly until they can locate the new equilibrium reliably, then **jump**, then return to slow adjustment. "
-    "Below, every regime shift is aligned at k = 0 and each firm's behaviour is averaged, relative to its own "
+    "Below, every regime shift is aligned at k = 0 and each firm's behavior is averaged, relative to its own "
     "normal level (1.0 = normal).")
 with st.form("evt"):
     c = st.columns(5)

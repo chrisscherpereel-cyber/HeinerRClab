@@ -10,7 +10,7 @@ A theory's prediction for a hypothesis is taken, in this order of precedence, fr
        and the reason for it;
     3. the statements below, written from the theory's core claim for hypotheses the first two sources do not cover;
     4. otherwise the theory's general stance (what triggers change, and what more uncertainty does to flexibility),
-       labelled as such.
+       labeled as such.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ _ALT_PATTERNS = (
     (r"optimis|marginal|rational expectations|value of information|optimal|frictionless", "optimiser"),
     (r"real options|preference for flexibility|\(s, s\)", "options"),
     (r"cobweb|adaptive expectations|best.reply dynamics", "cobweb"),
-    (r"satisficing|behavioural theory", "satisficing"),
+    (r"satisficing|behavioral theory", "satisficing"),
     (r"reinforcement|bayesian learning|adaptive learning", "rl"),
     (r"evolutionary|ecology|imitation", "imitation"),
 )
@@ -43,19 +43,19 @@ def alternative_owners(alt_label: str) -> List[str]:
 STATEMENTS: Dict[str, Dict[str, str]] = {
     "optimiser": {
         "EMPVAL": "Best replies and rational expectations predict human choices best out of sample.",
-        "H2": "Flexibility pays at every profit level: an optimiser uses it only when it raises expected profit.",
+        "H2": "Flexibility pays at every profit level: an optimizer uses it only when it raises expected profit.",
         "H5": "Competition changes margins, not the value of responding optimally to new information.",
         "H6": "Markets converge to the Cournot–Nash equilibrium; rigidity only delays convergence.",
-        "H8": "An optimiser filters noise optimally, so noise lowers the value of responding but never makes it negative.",
+        "H8": "An optimizer filters noise optimally, so noise lowers the value of responding but never makes it negative.",
         "H9": "The rule that moves to the best available target every period does best.",
         "H11": "More rivals change the target, not the value of best-responding to it.",
-        "H12": "A correctly specified optimiser updates its model at once; lags are a misspecification, not a feature.",
+        "H12": "A correctly specified optimizer updates its model at once; lags are a misspecification, not a feature.",
         "SDT": "Decisions follow a likelihood-ratio criterion; no separate restriction to rules is needed.",
-        "KNIGHT": "Structural uncertainty is one more risk to average over; it does not change the case for optimising.",
+        "KNIGHT": "Structural uncertainty is one more risk to average over; it does not change the case for optimizing.",
         "PUNCT": "Adjustment is smooth and proportional to the size of the shock.",
         "CDGAP": "Competence raises the value of flexibility; difficulty lowers it but never below zero.",
-        "ARENA": "The optimising design earns at least as much as every rival in held-out markets.",
-        "MECH2": "No kind of uncertainty makes restriction pay for a correctly specified optimiser.",
+        "ARENA": "The optimizing design earns at least as much as every rival in held-out markets.",
+        "MECH2": "No kind of uncertainty makes restriction pay for a correctly specified optimizer.",
         "PATTERN": "Under rational expectations there are no systematic cycles or stickiness; such patterns reflect "
                    "frictions.",
         "CALIB": "Choices are best predicted by rational expectations or best replies; deviations are noise.",
@@ -81,7 +81,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "MECH1": "An inaction band captures the gain from not chasing noise without estimating any reliability.",
         "MECH2": "Volatility (risk) raises the value of waiting more than anything else.",
         "EMERGE": "Firms drift toward band rules as volatility rises, because waiting gains value.",
-        "PATTERN": "Inaction bands produce sticky, lumpy adjustment ((S, s) behaviour).",
+        "PATTERN": "Inaction bands produce sticky, lumpy adjustment ((S, s) behavior).",
         "CALIB": "Subjects adjust only when the gap to their target is large.",
         "EXPER": "People wait more under high uncertainty because waiting has option value, and waiting pays.",
         "GEN": "Inaction pays where volatility is high relative to adjustment costs; without adjustment costs a band "
@@ -91,7 +91,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
     },
     "cobweb": {
         "EMPVAL": "Adaptive expectations and demand chasing predict human choices best.",
-        "H1": "Free flexibility hurts only by destabilising the market; in a stable market it does not.",
+        "H1": "Free flexibility hurts only by destabilizing the market; in a stable market it does not.",
         "H2": "Profitability does not affect stability; only adjustment speed relative to the stability limit does.",
         "H4": "Fixed costs do not change the adjustment dynamics.",
         "H5": "Steeper competitive responses shrink the stability region, so fast adjusters suffer.",
@@ -104,8 +104,8 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "PUNCT": "Adjustment is continuous and geometric, not punctuated.",
         "CDGAP": "Difficulty and competence matter only through the stability of adjustment.",
         "ARENA": "Adaptive price expectations, needing no demand model, do well whenever the market is stable.",
-        "MECH1": "Restriction pays only by slowing adjustment enough to stabilise the market.",
-        "EMERGE": "Selection favours slow adjusters in unstable markets and fast ones in stable markets.",
+        "MECH1": "Restriction pays only by slowing adjustment enough to stabilize the market.",
+        "EMERGE": "Selection favors slow adjusters in unstable markets and fast ones in stable markets.",
         "PATTERN": "Naive expectations produce cobweb cycles; adaptive expectations damp them.",
         "CALIB": "Subjects' forecasts follow adaptive expectations.",
         "EXPER": "People adjust by a fraction of the latest error every period; uncertainty does not change how often "
@@ -117,12 +117,12 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "EMPVAL": "Simple heuristics (anchoring, trend following) predict best, and people differ in which.",
         "H2": "Accuracy, not profitability, decides between simple and flexible rules.",
         "H9": "Simple rules that ignore information win when estimation noise is high.",
-        "H10": "Simple rules make behaviour predictable, and their use rises with noise.",
-        "H12": "Slower learning raises estimation error, which favours simple rules.",
+        "H10": "Simple rules make behavior predictable, and their use rises with noise.",
+        "H12": "Slower learning raises estimation error, which favors simple rules.",
         "RC": "Who gains from flexibility is predicted by accuracy (estimation error) alone; stakes do not matter.",
         "SDT": "Only discrimination accuracy matters; how the decision criterion depends on stakes is not part of the "
                "theory.",
-        "KNIGHT": "Any source of estimation error favours simple rules.",
+        "KNIGHT": "Any source of estimation error favors simple rules.",
         "CDGAP": "The gap matters only through estimation error (variance).",
         "ARENA": "A simple target-margin heuristic does as well as complex rules out of sample.",
         "MECH1": "Simple fixed rules capture most of the gain without estimating reliability.",
@@ -141,7 +141,7 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "RC": "Who gains from flexibility is predicted by performance relative to aspiration.",
         "CDGAP": "Harder environments lower performance relative to aspiration and raise search.",
         "ARENA": "The aspiration-based design is robust but not the most profitable.",
-        "EMERGE": "Under uncertainty more firms fall below aspiration and search, so behaviour becomes less "
+        "EMERGE": "Under uncertainty more firms fall below aspiration and search, so behavior becomes less "
                   "predictable.",
         "PATTERN": "Change comes in bursts after poor results.",
         "CALIB": "Subjects update only after a large error or a disappointing result.",
@@ -164,11 +164,11 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
         "EMERGE": "Selection on recent payoffs is itself reinforcement: rules that paid recently spread.",
         "CALIB": "Subjects' choices follow reinforcement of past payoffs.",
         "GEN": "A learner that tracks volatility adapts its learning rate, so restriction is unnecessary.",
-        "TRACK": "A learner that optimises the true loss learns the stakes; restriction becomes unnecessary.",
+        "TRACK": "A learner that optimizes the true loss learns the stakes; restriction becomes unnecessary.",
     },
     "imitation": {
         "EMPVAL": "Where people see rivals' outcomes, imitating the most successful predicts their choices.",
-        "H10": "Selection favours inert, reliable organisations regardless of uncertainty.",
+        "H10": "Selection favors inert, reliable organizations regardless of uncertainty.",
         "ARENA": "Imitating successful rivals performs as well as the rules being imitated.",
         "PATTERN": "Imitating the most profitable firm pushes output above the Cournot–Nash level.",
         "CALIB": "Subjects imitate the most successful group member when they see others' profits.",
@@ -204,7 +204,7 @@ def prediction(hid: str, theory: str) -> Tuple[str, str]:
                 return head + e.why[t.tournament_key], "tournament"
     if hid in STATEMENTS.get(theory, {}):
         return STATEMENTS[theory][hid], "theory"
-    return (f"No prediction specific to this hypothesis. General stance: behaviour changes "
+    return (f"No prediction specific to this hypothesis. General stance: behavior changes "
             f"{t.when_to_change[0].lower() + t.when_to_change[1:]}. Effect of more uncertainty on the value of "
             f"flexibility: {t.more_uncertainty[0].lower() + t.more_uncertainty[1:]}."), "general"
 

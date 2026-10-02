@@ -22,7 +22,7 @@ Fairness protocol (see PREREG):
        in mixed markets; a target x selection-rule experiment; invasion tests; global sensitivity analysis; and
        replication of the whole protocol with fresh seeds.
 
-Everything is vectorised over markets: a batch holds B markets, and every agent parameter is an array over markets,
+Everything is vectorized over markets: a batch holds B markets, and every agent parameter is an array over markets,
 so a whole tuning grid runs as one batch.
 """
 from __future__ import annotations
@@ -277,7 +277,7 @@ class Composite(Agent):
     def update(self):
         """Record the target's error against the ex-post best reply. Reliability-condition learning: judge the decision
         made h periods ago by holding the candidate vs holding the old level (rule B) for h periods, rivals on their
-        actual path, prices from the believed (or true) demand curve and realised costs."""
+        actual path, prices from the believed (or true) demand curve and realized costs."""
         mk, t = self.mk, self.mk.t
         R, i = mk.R_hist[self.idx, t, self.i], self.idx
         br_true = (mk.PM[i, t] - mk.SL[i, t] * R - mk.cost[i, t]) / (2 * mk.SL[i, t])
@@ -332,7 +332,7 @@ class RuleB(Agent):
 
 
 class NashRE(Agent):
-    key, name, theory = "opt_nash", "Rational expectations (Cournot–Nash)", "Neoclassical optimisation"
+    key, name, theory = "opt_nash", "Rational expectations (Cournot–Nash)", "Neoclassical optimization"
     rule = ("Expects every rival to be rational and moves toward the static Cournot–Nash output for its filtered cost "
             "estimate on the believed demand curve.")
     sources = ("muth1961", "theocharis1960")
@@ -477,7 +477,7 @@ DESIGNS: Dict[str, type] = {d.key: d for d in (
               ("heiner1983", "heiner1989")),
     composite("heiner_p", "Reliability condition · price-based target", "Heiner: reliability condition", "price", "rc",
               ("heiner1983", "heiner1989")),
-    composite("opt_br", "Filtered best reply", "Neoclassical optimisation", "model", "always",
+    composite("opt_br", "Filtered best reply", "Neoclassical optimization", "model", "always",
               ("muth1960", "kalman1960")),
     NashRE,
     composite("options_m", "Inaction band · model-based target", "Real options / value of flexibility", "model",
@@ -500,7 +500,7 @@ THEORY_DESIGNS: Dict[str, Tuple[str, ...]] = {
     "cobweb": ("cobweb_p", "cobweb_q"), "heuristic": ("heur_wsls", "heur_markup"),
     "satisficing": ("satis_m", "satis_p"), "rl": ("rl_softmax", "rl_erevroth"), "imitation": ("imit_best", "imit_avg"),
     "ruleb": ("ruleb",)}
-THEORY_NAMES = {"heiner": "Heiner: reliability condition", "optimiser": "Neoclassical optimisation",
+THEORY_NAMES = {"heiner": "Heiner: reliability condition", "optimiser": "Neoclassical optimization",
                 "options": "Real options", "cobweb": "Cobweb / adaptive expectations",
                 "heuristic": "Simple heuristics (bias–variance)", "satisficing": "Satisficing",
                 "rl": "Reinforcement learning", "imitation": "Imitation / evolutionary selection",
@@ -600,9 +600,9 @@ HYPOTHESES = (
     ("PR1", "Head-to-head: in held-out mixed markets the reliability-condition agent earns more than each rival.",
      "Paired profit difference per market; 95% cluster-bootstrap CI over environments, Holm-adjusted across rivals. "
      "Supported if the reliability-condition agent is significantly better than every rival."),
-    ("PR2", "Conditional advantage: the reliability-condition agent's advantage over the optimiser grows with "
+    ("PR2", "Conditional advantage: the reliability-condition agent's advantage over the optimizer grows with "
             "environmental difficulty.",
-     "OLS of the paired difference on a difficulty index (mean of standardised Δ, σ and hazard). Supported if the "
+     "OLS of the paired difference on a difficulty index (mean of standardized Δ, σ and hazard). Supported if the "
      "slope is positive with p < α."),
     ("PR3", "Evolutionary stability: a population of reliability-condition agents cannot be invaded by any rival.",
      "For each rival mutant, the mutant's profit minus the residents' mean profit. Supported if no mutant is "
@@ -912,7 +912,7 @@ FEATURES = ["delta", "c_max", "q_range", "noise", "foresight", "hazard", "belief
 
 
 def robustness(h2h: pd.DataFrame) -> pd.DataFrame:
-    """Standardised regression coefficients of each agent's relative profit on the environment parameters (a global
+    """Standardized regression coefficients of each agent's relative profit on the environment parameters (a global
     sensitivity analysis over the sampled environment space)."""
     rows = []
     for key in KEYS:

@@ -20,7 +20,7 @@ FORECASTS = {"heiner": ("rc", "K"), "optimiser": ("neoclassical",), "options": (
              "heuristic": ("accuracy",), "rl": ("past",)}.get(FOCAL, ())
 
 st.title("Competing theories: a tournament of predictions")
-st.caption("Seven theories make directional predictions about when behavioural flexibility pays under uncertainty. "
+st.caption("Seven theories make directional predictions about when behavioral flexibility pays under uncertainty. "
            "This page states what each predicts in this market, runs the experiments that tell them apart, and "
            "scores every theory against the results. A second test asks which theory best *forecasts*, out of "
            "sample, whether a firm's flexibility will beat its own rigid twin. Each theory has its own page under "
@@ -48,8 +48,8 @@ with st.expander("📚 Research behind each theory"):
 st.header("2 · What each theory predicts", divider="gray")
 st.caption("Each experiment reports one statistic; a theory predicts its sign. For E1 the statistic is the payoff "
            "to flexibility itself (a negative value means rigid firms earn more); for the others it is how that "
-           "payoff, or behaviour, changes with the manipulated variable. '—' means the theory makes no clear "
-           "prediction. These are stylised readings of each literature, open to debate.")
+           "payoff, or behavior, changes with the manipulated variable. '—' means the theory makes no clear "
+           "prediction. These are stylized readings of each literature, open to debate.")
 pred = pd.DataFrame([{"Experiment": e.title, "Statistic": e.statistic,
                       **{t.name: SYM[e.predictions.get(t.key)] for t in THEORIES}} for e in EXPERIMENTS])
 st.dataframe(pred, hide_index=True, width="stretch")
@@ -147,7 +147,7 @@ st.markdown(
     "* **Bias–variance / ecological rationality:** accuracy alone, ln(r/w), without the stakes.\n"
     "* **Stakes only:** a low tolerance limit, without accuracy.\n"
     "* **Real options:** high volatility Δ.\n"
-    "* **Cobweb stability:** a stable market (small spectral radius of the linearised dynamics).\n"
+    "* **Cobweb stability:** a stable market (small spectral radius of the linearized dynamics).\n"
     "* **Reinforcement learning (atheoretical benchmark):** flexibility paid off in the first window.\n"
     "* **Neoclassical:** flexibility always pays, the same forecast for everyone (AUC = 0.5 by construction).")
 if H < 2:
@@ -251,12 +251,12 @@ else:
     lines.append(f"* **Added value of the reliability condition:** combining all rival forecasts and then adding the "
                  f"RC changes the cross-validated AUC by {race[2].get('gain', np.nan):+.3f}.")
     st.markdown("\n".join(lines))
-st.markdown("**Reference results for the reliability condition.** The notes below summarise how Heiner's theory "
+st.markdown("**Reference results for the reliability condition.** The notes below summarize how Heiner's theory "
             "fared in the reference runs; the rows above follow the theory chosen in the sidebar.")
 st.markdown(
     """
 **How to read this.** Heiner's theory makes more, and more specific, predictions than its rivals: it says when
-flexibility helps *and* when it hurts, through the CD-gap and the stakes. Neoclassical optimisation and real
+flexibility helps *and* when it hurts, through the CD-gap and the stakes. Neoclassical optimization and real
 options cannot explain free flexibility being harmful, and cobweb stability theory cannot explain effects of
 volatility or noise that leave the market stable. Bias–variance reasoning comes closest, and differs mainly in
 ignoring the stakes. In the reference runs (Bertrand and Cournot markets, two seeds each, 20 replications, H = 20;
@@ -269,8 +269,8 @@ see the README), "superior" holds in one sense and not the other:
   one-period RC did no better than cobweb stability or accuracy alone.
 
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual
-bookkeeping follow his framework. The rival predictions are stylised, and several rivals (satisficing,
-organisational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
+bookkeeping follow his framework. The rival predictions are stylized, and several rivals (satisficing,
+organizational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
 Results depend on the base scenario (Bertrand versus Cournot in particular), so rerun the tournament under both.
 A simulated market can show that a theory is internally coherent and discriminating. It cannot show that real
 firms behave this way.

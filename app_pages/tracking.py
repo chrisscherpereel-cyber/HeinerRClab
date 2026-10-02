@@ -7,7 +7,7 @@ import streamlit as st
 
 from heiner_abm.tracking import (FAMILY_LABELS, QUICK_TRACK, TrackPlan, gains, kalman_gain, loss_of_speed,
                                  optimal_offset, run_tracking, weights)
-from ui.common import CAT, download, hypothesis_card, style, verdict
+from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
 
 st.title("A benchmark solvable on paper")
 st.caption("One firm tracks a moving target that it observes with noise. Here the best adjustment speed can be "
@@ -29,7 +29,7 @@ snr = c1.select_slider("Signal-to-noise ratio q / r", options=[0.001, 0.01, 0.03
                        value=0.1, key="trk_snr",
                        help="Variance of the target's movement relative to the variance of the observation error.")
 k = kalman_gain(snr, 1.0)
-c1.metric("Kalman gain (best speed)", f"{k:.3f}", help="The adjustment speed that minimises expected squared error.")
+c1.metric("Kalman gain (best speed)", f"{k:.3f}", help="The adjustment speed that minimizes expected squared error.")
 c1.metric("Minimum loss", f"{loss_of_speed(k, snr, 1.0):.3f}", help="Expected squared error at the best speed (r = 1).")
 ph = np.linspace(0.02, 1.0, 99)
 fig = go.Figure(go.Scatter(x=ph, y=loss_of_speed(ph, snr, 1.0), mode="lines", line=dict(color=CAT[0]),
@@ -42,7 +42,7 @@ c2.plotly_chart(style(fig, height=320), width="stretch")
 st.header("2 · Where the theories part: lopsided stakes", divider="gray")
 hypothesis_card(
     "TRACK",
-    "Overshooting the target now costs ρ times as much as undershooting it (weights normalised so that the average "
+    "Overshooting the target now costs ρ times as much as undershooting it (weights normalized so that the average "
     "weight is 1, which leaves the loss of any symmetric error unchanged). The information is the same as before. "
     "Optimal filtering says the response to news should not change; the stakes only shift the level of the action "
     "(certainty equivalence with an offset). The reliability condition says the tolerance limit for acting on a "
@@ -63,6 +63,7 @@ st.caption("Rules compared: " + "; ".join(f"**{v}**" for v in FAMILY_LABELS.valu
            "paths with the same random numbers.")
 
 st.header("3 · Plan", divider="gray")
+prereg_explainer()
 scale = st.radio("Protocol", ["Registered", "Quick check"], horizontal=True, key="trk_scale",
                  help="Registered runs the frozen plan (about 15 seconds). Quick check is a small exploratory run.")
 registered = TrackPlan()

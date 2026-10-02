@@ -124,7 +124,7 @@ def _fc_imitate(d, g, p, x):
 FORECAST_RULES: List[Rule] = [
     Rule("naive", "Naive expectations", "Cobweb theory", {}, _fc_naive),
     Rule("adaptive", "Adaptive expectations", "Cobweb theory", {"lam": np.linspace(0.05, 1.0, 20)}, _fc_adaptive),
-    Rule("rational", "Rational expectations (constant equilibrium forecast)", "Neoclassical optimisation", {},
+    Rule("rational", "Rational expectations (constant equilibrium forecast)", "Neoclassical optimization", {},
          _fc_rational),
     Rule("trend", "Trend following", "Simple heuristics", {"gamma": np.linspace(-1.0, 1.5, 26)}, _fc_trend),
     Rule("anchor", "Anchoring and adjustment", "Simple heuristics", {"gamma": np.linspace(-1.0, 1.5, 26)}, _fc_anchor),
@@ -208,7 +208,7 @@ def _q_band(d, g, p, m):
 
 def _q_rc(d, g, p, m):
     """Reliability condition over the partial best reply: deviate from keeping output only where moves of that size
-    have paid off in the past (one-period counterfactual profit with rivals' realised output, learned)."""
+    have paid off in the past (one-period counterfactual profit with rivals' realized output, learned)."""
     q, R = d["own_prev"].to_numpy(), d["others_prev"].to_numpy()
     R_now = d["others"].to_numpy()
     edges = p["theta"] * np.array([0.5, 1.0, 2.0, 4.0])
@@ -235,8 +235,8 @@ def _q_satisfice(d, g, p, m):
 
 QUANTITY_RULES: List[Rule] = [
     Rule("keep", "Keep last output (rule B)", "Benchmark", {}, _q_keep),
-    Rule("br", "Partial best reply", "Neoclassical optimisation", {"phi": np.linspace(0.05, 1.0, 20)}, _q_br),
-    Rule("nash", "Cournot–Nash output", "Neoclassical optimisation", {}, _q_nash),
+    Rule("br", "Partial best reply", "Neoclassical optimization", {"phi": np.linspace(0.05, 1.0, 20)}, _q_br),
+    Rule("nash", "Cournot–Nash output", "Neoclassical optimization", {}, _q_nash),
     Rule("imit_best", "Imitate the most profitable firm", "Imitation", {"p": np.linspace(0.0, 1.0, 21)}, _q_imit_best),
     Rule("imit_avg", "Imitate the average", "Imitation", {"p": np.linspace(0.0, 1.0, 21)}, _q_imit_avg),
     Rule("wsls", "Win-stay, lose-shift", "Simple heuristics", {"step": (1, 2, 3, 5, 8, 12, 20)}, _q_wsls),

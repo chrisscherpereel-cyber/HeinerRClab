@@ -1,6 +1,6 @@
 """Empirical validation: loaders for the five public datasets, adapters and the evaluation rules.
 
-The datasets themselves are not in the repository (their licences govern redistribution). The loader tests build small
+The datasets themselves are not in the repository (their licenses govern redistribution). The loader tests build small
 files in each original format; set HEINER_DATA to a folder with the downloaded archives to also test the real files.
 """
 import io

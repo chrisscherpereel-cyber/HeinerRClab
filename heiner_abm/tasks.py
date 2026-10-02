@@ -1,4 +1,4 @@
-"""Generalisation: the same selection problem in decision tasks outside the market.
+"""Generalization: the same selection problem in decision tasks outside the market.
 
 Each task has the structure of the market problem:
     * a default: a rule-governed action that ignores most new information (here a slow, long-memory estimate, the
@@ -183,7 +183,7 @@ def expected_investment_payoff(m, sd):
 
 
 def _streams(env: TaskEnv, T: int, seed: int) -> Dict[str, np.ndarray]:
-    """Exogenous paths: the true state, realised outcomes and what the agent observes."""
+    """Exogenous paths: the true state, realized outcomes and what the agent observes."""
     rng = np.random.default_rng(seed)
     jumps = rng.random(T) < env.hazard
     if env.task == "inventory":

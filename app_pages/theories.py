@@ -342,23 +342,32 @@ st.markdown("**Reference results for the reliability condition.** The notes belo
             "fared in the reference runs; the rows above follow the theory chosen in the sidebar.")
 st.markdown(
     """
-**How to read this.** Heiner's theory makes more, and more specific, predictions than its rivals: it says when
+**How to read this.** Heiner's theory makes more, and more specific, predictions than most rivals: it says when
 flexibility helps *and* when it hurts, through the CD-gap and the stakes. Neoclassical optimization and real
 options cannot explain free flexibility being harmful, and cobweb stability theory cannot explain effects of
 volatility or noise that leave the market stable. Bias–variance reasoning comes closest, and differs mainly in
-ignoring the stakes. In the reference runs (Bertrand and Cournot markets, two seeds each, 20 replications, H = 20;
-see the README), "superior" holds in one sense and not the other:
+ignoring the stakes. Every theory now states a prediction for all nine experiments. In the reference runs (Bertrand
+and Cournot markets, seeds 1 and 2, 20 replications, H = 20; see the README), "superior" holds in one sense and not
+the other:
 
-* **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
-  contradicted). Its miss was perception noise in Bertrand markets, which *raised* the payoff to flexibility.
+* **As an explanation**, the RC had the best net record in all four tournaments among all nine theories (6 of 9
+  predictions confirmed in Bertrand markets, 5 in Cournot markets, 1 contradicted in each). Bias–variance reasoning
+  and satisficing came next in Bertrand markets; optimization, bias–variance, satisficing and reinforcement learning
+  tied for second in Cournot markets. Cobweb stability, imitation and structural inertia, once required to predict
+  every experiment, had the most contradictions (11 of 18 predictions each over the two markets), with real options
+  close behind.
 * **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.61) but was far behind a
   firm's own track record (AUC ≈ 0.86), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
+* **As an agent**, see the agent track (section 4) and the *Agent tournament*: there each theory's decision rule
+  earns or loses on its own, and model-free rules lead.
 
-**Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual
-bookkeeping follow his framework. The rival predictions are stylized, and several rivals (satisficing,
-organizational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
-Results depend on the base scenario (Bertrand versus Cournot in particular), so rerun the tournament under both.
-A simulated market can show that a theory is internally coherent and discriminating. It cannot show that real
-firms behave this way.
+**Caveats.** The directional experiments use the market model built for Heiner's framework (rule B, flexibility φ,
+the CD-gap), so they are paired with the agent track, in which all nine theories, including satisficing,
+reinforcement learning, imitation and organizational ecology, act through their own agents in every condition. The
+rival predictions are stylized readings of each literature; where a literature does not address an experiment, the
+prediction is read from the theory's core mechanism and the reasoning is shown above, so it can be disputed. The
+forecasting horse race covers only theories that make a firm-level forecast. Results depend on the base scenario
+(Bertrand versus Cournot in particular), so rerun the tournament under both. A simulated market can show that a
+theory is internally coherent and discriminating. It cannot show that real firms behave this way.
 """)

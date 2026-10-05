@@ -115,24 +115,29 @@ a new hash and the run is labeled exploratory. Every page with a plan explains t
 ## Signature tests by theory
 
 Each rival theory's distinctive prediction, tested with its own agents in the shared market (Full scale; deterministic
-given the code):
+given the code; background rivals use the registered tuned parameters of plan `110b3146bb072c2c`):
 
 | Theory | Signature prediction | Result | Verdict |
 |---|---|---|---|
-| Neoclassical optimization | Better information raises an optimizer's profit; full information yields Cournot–Nash | profit slope on foresight +40.6 per unit (p = 0.0116); with full information the rational market's price is within 0.13% of Cournot–Nash on average | **supported** |
-| Real options | The value of flexibility rises with volatility | value of flexibility changes by -11.2 per unit of volatility (p = 1.03e-15) | not supported |
+| Neoclassical optimization | Better information raises an optimizer's profit; full information yields Cournot–Nash | profit slope on foresight -10.6 per unit (p = 0.0807); with full information the rational market's price is within 0.13% of Cournot–Nash on average | not supported |
+| Real options | The value of flexibility rises with volatility | value of flexibility changes by -3.7 per unit of volatility (p = 0.0289) | not supported |
 | Cobweb theory | Partial best-reply adjustment is stable only below φ = 4/(n + 1) | n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, simulated 0.55; n = 8: theory 0.44, simulated 0.45 | **supported** |
-| Simple heuristics | A simple rule beats the optimizer by more as estimation noise rises | heuristic's advantage changes by -26.0 per unit of noise (p = 8.1e-06); at the highest noise +684 [+564, +826] | not supported |
-| Satisficing | Harder (more volatile) conditions trigger more search | change rate changes by -0.0002 per unit of volatility (p = 0.386) | not supported |
-| Reinforcement learning | Performance improves with experience in a stationary environment | relative profit improves by -138 [-488, +230] from the first to the last third in a stationary market, and by -190 [-487, +112] with unannounced shifts | not supported |
+| Simple heuristics | A simple rule beats the optimizer by more as estimation noise rises | heuristic's advantage changes by -8.8 per unit of noise (p = 0.00777); at the highest noise +409 [+311, +525] | not supported |
+| Satisficing | Harder (more volatile) conditions trigger more search | change rate changes by -0.0011 per unit of volatility (p = 0.00213) | not supported |
+| Reinforcement learning | Performance improves with experience in a stationary environment | relative profit improves by -73 [-283, +156] from the first to the last third in a stationary market, and by +148 [-163, +424] with unannounced shifts | not supported |
 | Imitation | Imitating the best drives output above Cournot–Nash | imitate-the-best markets produce 1.24 [1.22, 1.26] × the Cournot–Nash output | **supported** |
+| Organizational ecology | Inert organizations perform more reliably than flexible ones in every environment | s.d. of per-period profit, inert − flexible twin: Δ = 2: -6 [-9, -3]; Δ = 10: -94 [-101, -87]; Δ = 20: -310 [-326, -293]; Δ = 30: -753 [-778, -728] | **supported** |
 
-Three of seven signatures hold in this market. The cobweb stability boundary is reproduced almost exactly (0.95, 0.80,
-0.55 and 0.45 against 1.00, 0.80, 0.57 and 0.44), and imitation of the best pushes output 24% above Cournot–Nash, as
-Vega-Redondo (1997) predicts. Real options' signature fails: always adjusting loses more to its rigid twin as
-volatility rises. The heuristic beats the optimizer at every noise level, but its advantage shrinks rather than grows
-with noise; the aspiration searcher does not change more often in more volatile markets; and the tuned reinforcement
-learner does not improve with experience over 1,500 periods.
+Three of eight signatures hold in this market. The cobweb stability boundary is reproduced almost exactly (0.95, 0.80,
+0.55 and 0.45 against 1.00, 0.80, 0.57 and 0.44), imitation of the best pushes output 24% above Cournot–Nash, as
+Vega-Redondo (1997) predicts, and a firm that reorganizes only under threat of failure has less volatile profit than
+its always-adjusting twin at every volatility, as structural-inertia theory predicts (Hannan & Freeman 1984). Real
+options' signature fails: always adjusting loses more to its rigid twin as volatility rises. The heuristic beats the
+optimizer at every noise level, but its advantage shrinks rather than grows with noise; the aspiration searcher
+changes output slightly *less* often in more volatile markets; the tuned reinforcement learner does not improve
+with experience; and with the re-tuned rivals of the current plan, better cost foresight no longer raises the
+optimizer's relative profit significantly (it did under the earlier eight-theory plan), although a fully informed
+rational market still settles at Cournot–Nash.
 
 ## Competing theories: reference results
 
@@ -141,17 +146,25 @@ Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
 
 | Theory | Tournament record, Bertrand (✅ / ❌ / ➖) | Tournament record, Cournot (✅ / ❌ / ➖) |
 |---|---|---|
-| Heiner: reliability condition | 6/1/2 and 5/1/3 | 5/1/3 and 6/1/2 |
-| Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
-| Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
-| Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
-| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
+| Heiner: reliability condition | 6/1/2 | 5/1/3 |
+| Bias–variance / ecological rationality | 5/2/2 | 4/2/3 |
+| Satisficing / aspiration-level search | 5/3/1 | 4/2/3 |
+| Reinforcement learning | 3/4/2 | 4/2/3 |
+| Neoclassical optimization | 3/5/1 | 4/2/3 |
+| Real options | 3/5/1 | 1/5/3 |
+| Cobweb stability theory | 1/7/1 | 5/4/0 |
+| Structural inertia (organizational ecology) | 4/5/0 | 2/6/1 |
+| Imitation / evolutionary selection | 0/7/2 | 3/4/2 |
 
-Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
-perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
-tested low-profit level. Evolved flexibility showed no volatility gradient in any run. The best adjustment speed
-fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 1960) predicts the same, so that test
-does not discriminate between them.
+Every theory now states a prediction for each of the nine experiments (read from its core mechanism where its
+literature does not address an experiment; the reasoning is shown on the page), so no theory is scored on a
+convenient subset. Seeds 1 and 2 gave identical records. Heiner had the best net record in all four runs. Its one
+contradiction differs by market: in Bertrand markets perception noise *raised* the payoff to flexibility, and in
+Cournot markets free flexibility did not hurt at the tested low-profit level. Evolved flexibility showed no
+volatility gradient in any run. The best adjustment speed fell with noise, as Heiner predicts, but optimal filtering
+(Muth 1960; Kalman 1960), bias–variance reasoning and reinforcement learning predict the same, so that test does not
+discriminate between them. The agent track on the same page complements these directional records: every theory's
+own agent competes in every condition of six experiments.
 
 Out-of-sample forecasting (100 random environments × 2 replications, 800 firms, both production rules): the dynamic
 RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.61, 95% CI 0.56–0.66), ahead of
@@ -161,42 +174,46 @@ combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). He
 
 ## Agent tournament: registered results
 
-> **Revision note (2 October 2026).** The text of the agents and hypotheses was converted to American spelling. Plan hashes include that text, so the tournament, mechanism-study, rule-choice, generalization and tracking hashes changed (from `15193603c3f8359b`, `fafb771393aab7fe`, `e6df56611a66c23f`, `ee7faf1cff253ace` and `e6c4f642f296c19b`). The computation did not change: every registered study was rerun under the new hashes and reproduced every number reported here exactly.
+> **Revision note (5 October 2026).** Organizational ecology (structural inertia) is now the ninth theory, implemented as two agent designs (scheduled reorganization; reorganization under threat of failure), so the tournament has ten entries. Adding agents changes the code hash and the field every design is tuned against, so the tournament, mechanism-study and rule-choice plans have new hashes (previously `9699f86a6a899cf7`, `e9b5cbda8a4c4ab7` and `0f7bb98f8f7e8e44`), and all three studies, the three replications, the field patterns and the signature tests were rerun. Every number below comes from those runs. Earlier revision (2 October 2026): the conversion to American spelling changed hashes without changing any result.
 
-Registered plan `9699f86a6a899cf7`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
+Registered plan `110b3146bb072c2c`: two designs per theory, each tuned with a budget of 24 settings × 2 rounds on 24
 training environments; each theory enters with the design that scored higher on training data; evaluation on 40 × 2
 held-out environments (800 periods); six criteria; invasion with 4 residents + 1 mutant; three replications with
 fresh seeds.
 
 | Theory (selected design) | Profit rank: main / reps | Aggregate rank, six criteria: main / reps |
 |---|---|---|
-| Cobweb: adaptive price expectations | 1.89 / 2.91, 2.74, 2.64 | 3.50 / 2.67, 2.33, 2.83 |
-| Simple heuristics: target-margin rule | 2.79 / 3.30, 1.91, 1.65 | 4.00 / 4.17, 4.00, 3.83 |
-| Real options: inaction band, price-based target | 3.41 / 2.99, 3.24, 4.21 | 3.33 / 3.00, 3.83, 3.67 |
-| Heiner: reliability condition, price-based target | 3.98 / 4.89, 6.00, 5.42 | 4.17 / 5.00, 3.33, 6.00 |
-| Optimization: rational expectations (Cournot–Nash) | 5.84 / 5.62, 5.90, 5.36 | 4.83 / 5.50, 6.83, 4.67 |
-| Reinforcement learning: softmax value learner | 6.20 / 6.65, 5.85, 6.20 | 8.17 / 6.33, 5.17, 6.67 |
-| Imitation (best or average) | 6.24 / 4.35, 5.32, 5.29 | 6.00 / 6.83, 7.00, 5.00 |
-| Rule B (rigid benchmark) | 6.28 / 6.41, 5.72, 5.62 | 5.50 / 5.83, 5.33, 5.67 |
-| Satisficing: aspiration search | 8.39 / 7.88, 8.31, 8.60 | 5.50 / 5.33, 7.17, 6.00 |
+| Cobweb: adaptive price expectations | 2.10 / 3.52, 3.11, 3.24 | 3.50 / 4.17, 3.00, 3.50 |
+| Simple heuristics: target-margin rule | 2.96 / 2.41, 2.29, 2.79 | 4.50 / 5.00, 3.83, 4.67 |
+| Real options: inaction band, price-based target | 3.50 / 2.85, 4.10, 6.16 | 3.67 / 2.83, 4.00, 6.33 |
+| Heiner: reliability condition, price-based target | 4.29 / 5.00, 6.10, 3.98 | 4.17 / 6.17, 4.50, 3.17 |
+| Organizational ecology: reorganize under threat of failure | 5.30 / 4.64, 6.25, 3.60 | **3.33** / 5.00, 6.83, 5.00 |
+| Optimization: rational expectations (Cournot–Nash) | 6.33 / 6.53, 5.80, 5.85 | 5.83 / 6.17, 6.67, 6.00 |
+| Imitation (best or average) | 6.35 / 6.00, 5.72, 6.00 | 9.00 / 6.33, 7.67, 6.33 |
+| Rule B (rigid benchmark) | 6.71 / 7.49, 5.74, 6.89 | 6.00 / 6.67, 4.17, 6.17 |
+| Reinforcement learning: softmax value learner | 8.71 / 7.67, 6.97, 7.69 | 9.17 / 6.83, 5.67, 7.33 |
+| Satisficing: aspiration search | 8.75 / 8.89, 8.91, 8.81 | 5.33 / 5.50, 8.50, 6.17 |
 
 Selection rule versus always adjusting toward the same target (difference in profit and in CVaR 5%; * = 95% CI
 excludes 0; main run / three replications):
 
 | Selection rule · target | Profit | Downside (CVaR 5%) |
 |---|---|---|
-| Inaction band · model-based | +119* / +23, +70, +6 | +3349* / +1074*, +2093*, +1528* |
-| Reliability condition · model-based | +31 / +30*, −45*, +13 | +599* / −102, −308*, −42 |
-| Reliability condition · price-based | −339* / −265*, −364*, −435* | −359* / −818*, −708*, −992* |
-| Aspiration · price-based | −983* / −756*, −808*, −912* | +699* / −106, −275, +169 |
+| Inaction band · model-based | +27 / +192*, +63, +7 | +1825* / +3449*, +2007*, +1595* |
+| Reliability condition · model-based | +5 / +201*, −44*, +20 | −1115* / +2391*, −305*, +16 |
+| Reliability condition · price-based | −341* / −214*, −363*, −203* | −663* / −534*, −1078*, −450* |
+| Aspiration · price-based | −1084* / −734*, −786*, −954* | +673* / +1480*, −190, +84 |
 
-None of the six pre-registered hypotheses was supported in the main run; PR2 was supported in one replication.
+None of the six pre-registered hypotheses was supported in the main run (PR2, the reliability-condition agent's
+advantage over the optimizer growing with difficulty, narrowly missed at p = 0.069); PR2 was supported in two of the
+three replications.
 
 **What the tournament shows**
 
-* *Model-free beats model-based.* In every theory that had the choice, the design that needs no demand model was
-  selected on training data, and the top three in every run are model-free. With unannounced regime shifts, a
-  misspecified model is the dominant source of decision error.
+* *Model-free beats model-based.* In nearly every theory that had the choice, the design that needs no demand model
+  was selected on training data, and the top three on profit in every run are model-free (adaptive price
+  expectations, the target-margin heuristic and, in most runs, the price-based inaction band). With unannounced
+  regime shifts, a misspecified model is the dominant source of decision error.
 * *Restricting an unreliable flexible rule pays, as Heiner argued.* An inaction band on the error-prone model-based
   target cut downside risk in every run without costing profit. Restricting the already reliable price-based target
   hurt.
@@ -205,53 +222,54 @@ None of the six pre-registered hypotheses was supported in the main run; PR2 was
   be flexible, and it is noisy; simple fixed restrictions (an inaction band, a target margin) capture the gains
   without the estimation error. This is consistent with Heiner's deeper argument that reliable behavior comes from
   rules rather than case-by-case assessment, and it qualifies the use of the condition as an agent's decision rule.
-* *Criteria matter.* Ranking by profit alone, by downside risk or by survival gives different orders; seven of nine
-  theories are Pareto-efficient in the main run, so claims of superiority must name the criterion.
-
-Adding the instrumentation used by the mechanism study changed the plan's hash (it covers the code) but not a single
-result: the registered run reproduces the earlier one exactly.
+* *Inertia is a strong all-round performer.* Organizational ecology's crisis-driven design ranks mid-field on profit
+  but had the best aggregate rank over six criteria in the main run, because it has low profit volatility and high
+  survival. Rule-like inertia is rewarded by the downside criteria, consistent with both structural-inertia theory
+  and Heiner's argument for rule-governed behavior.
+* *Criteria matter.* Ranking by profit alone, by downside risk or by survival gives different orders; six of the ten
+  entries are Pareto-efficient in the main run, so claims of superiority must name the criterion.
 
 ## Mechanism study: registered results
 
-Study plan `e9b5cbda8a4c4ab7` (120 environments drawn by Latin hypercube over separate sources of uncertainty, 800
+Study plan `11a279e507f246e2` (120 environments drawn by Latin hypercube over separate sources of uncertainty, 800
 periods, oracle values from 3,200-period independent runs, background rivals tuned under tournament plan
-`9699f86a6a899cf7`). A focal firm aims at the same target as the always-adjusting rule and differs only in when it
+`110b3146bb072c2c`). A focal firm aims at the same target as the always-adjusting rule and differs only in when it
 moves. Profit per period relative to always adjusting (95% CI):
 
 | Selection rule | Model-based target | Price-based target |
 |---|---|---|
-| Reliability condition, oracle (true reliability) | **+158 [91, 233]** | −29 [−58, −4] |
-| Reliability condition, learned with the true model | +18 [−39, 81] | −35 [−58, −10] |
-| Reliability condition, learned (own model) | −14 [−32, 2] | −132 [−173, −91] |
-| Inaction band | +28 [−5, 62] | −144 [−165, −122] |
+| Reliability condition, oracle (true reliability) | **+119 [72, 175]** | −73 [−129, −28] |
+| Reliability condition, learned with the true model | +95 [45, 150] | −66 [−94, −42] |
+| Reliability condition, learned (own model) | +13 [2, 24] | −170 [−206, −135] |
+| Inaction band | +216 [141, 291] | −137 [−160, −115] |
 
-Cost of applying the principle (oracle − learned): model-based target +172 [102, 246], of which estimation from
-limited experience +140 [42, 238] and judging with a misspecified model +32 [−28, 94]; price-based target +103
-[64, 140], of which estimation +5 [−22, 30] and model bias +97 [61, 131]. Pooling more experience (memory up to
-0.999) moved the learned agent only from −14 to +1, far from the oracle's +158.
+Cost of applying the principle (oracle − learned): model-based target +106 [58, 161], of which estimation from
+limited experience +24 [−20, 66] and judging with a misspecified model +82 [34, 137]; price-based target +97
+[38, 147], of which estimation −7 [−54, 31] and model bias +104 [75, 134]. Pooling more experience (memory 0.9 to
+0.999) left the learned agent between +3 and +10, far from the oracle's +119.
 
 Boundary: on the model-based target the oracle's gain rises with the flexible rule's error-to-signal ratio K (slope
-+1,401 per unit of ln K, p = 0.011) and breaks even at K ≈ 0.97; the inaction band's gain breaks even at K ≈ 1.06
-(p < 0.001). Restriction pays once the flexible rule's error is about as large as the adjustment it should make. The
-gain is driven by misspecification (shift hazard +0.22 [0.05, 0.39], model lag +0.29 [0.12, 0.44], standardized)
-rather than by risk (volatility +0.06 [−0.14, 0.23]).
++530 per unit of ln K, p = 0.011) and breaks even at K ≈ 0.98; the inaction band's gain breaks even at K ≈ 1.03
+(p < 0.001). Restriction pays once the flexible rule's error is about as large as the adjustment it should make. On
+the model-based target the oracle's gain is driven mainly by the model-updating lag (+0.42 [0.32, 0.53],
+standardized), a form of misspecification, rather than by risk (volatility +0.12 [−0.12, 0.30]) or the shift hazard
+(+0.05 [−0.07, 0.24]).
 
 Pre-registered verdicts: M1 (the principle pays with known reliability) **supported**; M2 (applying it is costly on
-both targets) **supported**; M3 (model bias on the model-based target) not supported; M4 (pooled boundary slope)
-not supported, p = 0.07, although the model-based slope alone is significant; M5 (misspecification minus risk
-coefficient) not supported, CI [−0.13, 0.46].
+both targets) **supported**; M3 (model bias on the model-based target) **supported**; M4 (pooled boundary slope,
++289 per unit of ln K, p = 0.031) **supported**; M5 (shift hazard minus volatility coefficient) not supported,
+CI [−0.30, 0.29].
 
-Maps: the metamodels' cross-validated R² ranges from 0.0 (simple heuristics, reinforcement learning) to 0.6
-(adaptive expectations), so the winner maps are only partly predictable from the environment; the page reports the
-cross-validated R² with every map.
+Maps: the metamodels' cross-validated R² ranges from about 0 (satisficing, reinforcement learning, organizational
+ecology, rule B) to 0.45 (adaptive expectations), so the winner maps are only partly predictable from the
+environment; the page reports the cross-validated R² with every map.
 
 **What the mechanism study adds.** Heiner's principle is sound: knowing when deviations are reliable is worth a
 large gain exactly where the flexible rule is error-prone, with a break-even near K = 1, and it is worth nothing (or
-slightly negative) where the flexible rule is already reliable. The tournament results are therefore not a failure
-of the principle but of its implementation: an agent that must learn its own reliability loses the whole gain, mostly
-because limited and non-stationary experience makes the estimates noisy (model-based target), or because it judges
-its past decisions with the wrong model (price-based target). More experience does not fix this when the environment
-keeps shifting. Fixed restrictions such as an inaction band recover part of the gain without estimation.
+negative) where the flexible rule is already reliable. The tournament results are therefore not a failure of the
+principle but of its implementation: an agent that must learn its own reliability keeps little of the gain, mainly
+because it judges its past decisions with the wrong model (on both targets). More experience does not fix this when
+the environment keeps shifting. Fixed restrictions such as an inaction band recover the gain without estimation.
 
 The plan was revised during development, before it was frozen: a first version represented each theory by one
 design (and, earlier still, the reliability-condition agent used an unfiltered target). Both earlier versions also
@@ -259,32 +277,34 @@ placed the reliability-condition agent in the lower half.
 
 ## Rule choice: registered results
 
-Plan `0f7bb98f8f7e8e44` (uncertainty levels u = 0, 0.25, 0.5, 0.75, 1, where cost volatility, perception error and
+Plan `f15f62149d08e800` (uncertainty levels u = 0, 0.25, 0.5, 0.75, 1, where cost volatility, perception error and
 the demand-shift hazard rise together; intensities of choice β = 0, 1, 4, 16; 8 replications; 12 firms; 1,500
-periods; rules tuned under tournament plan `9699f86a6a899cf7`).
+periods; rules tuned under tournament plan `110b3146bb072c2c`).
 
 | | E1 restricted share rises with uncertainty | E2 change rate falls with uncertainty | E3 selection raises the restricted share at u = 1 | E4 restricted share widens the distance from Nash |
 |---|---|---|---|---|
-| Result | slope +0.003 (p = 0.95) | slope −0.087 (p = 0.009) | −0.005 [−0.18, 0.15] | +4.9 per unit of share (p = 0.002) |
-| Verdict | not supported | **supported** | not supported | **supported** |
+| Result | slope +0.158 (p < 0.001) | slope −0.044 (p = 0.17) | +0.031 [−0.083, 0.131] | +2.8 per unit of share (p = 0.004) |
+| Verdict | **supported** | not supported | not supported | **supported** |
 
-With moderate selection (β = 4) the restricted share rises from 51% at u = 0 to 60% at u = 1 and the change rate
-falls from 57% to 42%. Under strong selection (β = 16) the flexible optimizer (filtered best reply) is driven out as
-uncertainty rises (32% of firms at u = 0, under 1% at u = 1), but its place is taken by the target-margin heuristic
-(0.5% to 47%), a simple rule that ignores most market information but is not one of the three restricted rules.
-Populations become more predictable and move away from sophisticated optimization under uncertainty, as Heiner
-argued, but performance-based selection favors a simple heuristic as much as an explicit restriction. Markets
-with more rule-governed firms stay further from the Cournot–Nash price at every uncertainty level.
+With moderate selection (β = 4) the restricted share rises from 46% at u = 0 to 59% at u = 1 and the change rate
+stays near 45%. Under strong selection (β = 16) the restricted share rises from 33% to 55% and the
+flexible optimizer (filtered best reply) is driven out as uncertainty rises (29% of firms at u = 0, 5% at u = 1), but
+the target-margin heuristic, a simple rule that ignores most market information and is not one of the three
+restricted rules, holds about a third of the population at every level. Populations move toward restricted rules and
+away from sophisticated optimization under uncertainty, as Heiner argued, but without becoming more predictable, and
+performance-based selection favors a simple heuristic as much as an explicit restriction. Markets with more
+rule-governed firms stay further from the Cournot–Nash price.
 
 ## Validation against data
 
-**Field patterns** (registered tuned parameters, 12 markets per pattern, 600 periods): 5 of 6 documented patterns
+**Field patterns** (registered tuned parameters, 12 markets per pattern, 600 periods): 4 of 6 documented patterns
 reproduced. Naive price expectations produce cobweb cycles (lag-1 autocorrelation −0.80); slow adaptive
 expectations dampen them (price s.d. 18.4 vs 37.4); imitate-the-best firms produce 1.19 × the Cournot–Nash output;
-a mixed market's mean price lies within 4.3% of the Nash price with 1.06 × its volatility; prices lie between cost
-and the monopoly price. **Not reproduced:** lumpy adjustment. Inaction-band firms change output in only 34% of
-periods (sticky), but their changes are no larger on average than those of always-adjusting firms (67.0 vs 69.2),
-so the "large steps" half of the pattern fails.
+prices lie between cost and the monopoly price. **Not reproduced:** lumpy adjustment (inaction-band firms change
+output in only 34% of periods, but their changes are no larger on average than those of always-adjusting firms:
+67.0 vs 69.2), and, with the rivals re-tuned under the current plan, excess volatility (a mixed market's mean price
+lies within 9.2% of the Nash price but with only 0.90 × its volatility; under the earlier eight-theory plan it was
+1.06 ×).
 
 **Calibration to laboratory experiments.** The pipeline fits each theory's rule per subject on the first half of the
 periods and predicts the second half. On synthetic subjects with known rules it recovers the generating rule for
@@ -377,7 +397,7 @@ to [0.05, 20] in the boundary analysis; in the investment task the linear fit on
 by tercile turns positive between K ≈ 0.9 and 1.6.
 
 **What generalization adds.** In all three tasks restriction pays where the flexible rule is unreliable and is
-worthless where it is reliable, with a break-even error-to-signal ratio near or below 1, as in the market (K ≈ 0.97).
+worthless where it is reliable, with a break-even error-to-signal ratio near or below 1, as in the market (K ≈ 0.98).
 The boundary is therefore a property of decisions with a default, a flexible alternative and a difficulty–competence
 gap, not of cobweb markets. What differs is the cost of applying the principle: in these tasks the gain of a
 deviation can be judged exactly from what the agent observes, so a learner captures the oracle's gain; in the

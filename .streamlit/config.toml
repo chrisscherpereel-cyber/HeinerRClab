@@ -1,0 +1,13 @@
+[theme]
+primaryColor = "#2a78d6"
+base = "light"
+
+[server]
+headless = true
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

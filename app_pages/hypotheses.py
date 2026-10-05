@@ -1,0 +1,317 @@
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+from heiner_abm.analysis import flex_profit_by_market, ols
+from heiner_abm.experiments import PARAMS, slope_summary, switch_point
+from ui.common import (CAT, base_scenario, behaviour_horizon, download, firm_profit_bars, fmt_p, hypothesis_card, measurement, reps,
+                       run_sweep_ui, show_errors, slope_chart, style, verdict)
+
+st.title("Hypothesis tests")
+st.caption("Each experiment runs many replicated markets from the sidebar's base scenario. Every condition uses the "
+           "same raw-material cost shocks (common random numbers). The key statistic is the **within-market slope "
+           "of average profit on flexibility φ**: positive means flexible firms earn more, negative means rigid "
+           "firms earn more. Error bars are 95% confidence intervals across replications.")
+
+base = base_scenario()
+if not show_errors(base):
+    st.stop()
+H, cont = measurement()
+H = behaviour_horizon(base)      # these tests report profits only; forks matter only for Adaptive agents
+R = reps()
+st.info(f"Base: **{base.firms[0].rule}**, {base.n_firms} firms, φ = "
+        f"{', '.join(f'{f.flex:.2f}' for f in base.firms)}, selection **{base.firms[0].selection}**, "
+        f"Δ = {base.market.delta:g}, m* = {base.firms[0].desired_margin:g} · {R} replications × {base.periods} periods. "
+        "Change these in the sidebar.", icon="ℹ️")
+
+
+def parse(txt, default):
+    try:
+        vals = [float(x) for x in str(txt).replace(";", ",").split(",") if x.strip()]
+        return vals or default
+    except ValueError:
+        st.error("Could not parse the list of values; using defaults.")
+        return default
+
+
+def lever_choices(rule):
+    return ["desired_margin", "c_max", "delta"] if rule == "Bertrand" else ["c_max", "delta", "q_range"]
+
+
+def run_state(key, params):
+    """Run button pattern: results stay visible across reruns until parameters change."""
+    if st.button("Run experiment", key=f"btn_{key}", type="primary"):
+        st.session_state[key] = params
+    return st.session_state.get(key) == params
+
+
+tabs = st.tabs(["H1 · Free flexibility", "H2 · Profitability switch", "H3 · Volatility", "H4 · Fixed costs",
+                "H5 · Competition intensity", "H6 · Regimes & equilibrium"])
+rule = base.firms[0].rule
+
+# ------------------------------------------------------------------------------------------------ H1
+with tabs[0]:
+    hypothesis_card(
+        "H1: Firms with less decision flexibility can perform better, even when flexibility is free",
+        "The paper's decisive test: set the cost of flexibility to zero (a = b = 0). Then relaxing the constraint "
+        "on behaviour can only help an optimiser, so any market in which rigid firms beat flexible ones "
+        "contradicts the traditional hypothesis.",
+        "In low-profit markets decision errors dominate: profits fall as φ rises (**negative slope**).",
+        "Flexibility is never harmful when free: the slope is **≥ 0 in every market**.")
+    c1, c2 = st.columns(2)
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h1_lever")
+    dflt = {"desired_margin": "0, 2, 5, 10, 16", "c_max": "60, 80, 95", "delta": "3, 10, 25", "q_range": "1000, 1500, 3000"}[lever]
+    levels = parse(c2.text_input("Levels to test (comma-separated)", dflt, key=f"h1_levels_{lever}"), [0, 5, 16])
+    scn = base.copy()
+    scn.firm_globals.flex_cost_slope = 0.0
+    scn.firm_globals.fixed_cost = 0.0
+    if run_state("h1", (lever, tuple(levels), R, H, cont, str(scn))):
+        firms, mk = run_sweep_ui(scn, lever, levels, R, horizon=H, continuation=cont)
+        summ = slope_summary(firms, mk, [lever])
+        st.plotly_chart(firm_profit_bars(firms, lever, PARAMS[lever].label))
+        t = summ[[lever, "avg_firm_profit", "avg_margin", "slope", "lo", "hi", "p", "spearman", "flex_best", "rigid_best"]]
+        st.dataframe(t, hide_index=True, width="stretch", column_config={
+            lever: PARAMS[lever].label, "avg_firm_profit": st.column_config.NumberColumn("Avg firm profit", format="%.0f"),
+            "avg_margin": st.column_config.NumberColumn("Avg P − c", format="%.2f"),
+            "slope": st.column_config.NumberColumn("Slope", format="%.1f"),
+            "lo": st.column_config.NumberColumn("95% lo", format="%.1f"),
+            "hi": st.column_config.NumberColumn("95% hi", format="%.1f"),
+            "p": st.column_config.NumberColumn("p (slope = 0)", format="%.4f"),
+            "spearman": st.column_config.NumberColumn("Rank corr. φ~profit", format="%.2f"),
+            "flex_best": st.column_config.NumberColumn("Most flexible best", format="%.2f"),
+            "rigid_best": st.column_config.NumberColumn("Most rigid best", format="%.2f")})
+        neg = summ[summ["hi"] < 0]
+        pos = summ[summ["lo"] > 0]
+        if len(neg):
+            verdict("support", "**Traditional hypothesis rejected.** With free flexibility, rigid firms earned significantly "
+                    f"more at {PARAMS[lever].label} = {', '.join(f'{x:g}' for x in neg[lever])} "
+                    f"(slope CI entirely below 0). This matches Heiner's prediction.")
+        else:
+            verdict("neutral", "No condition shows a significantly negative slope, so these levels do not reject the traditional "
+                    "hypothesis. Try a less profitable market (lower m*, higher max cost) or more volatility.")
+        if len(pos) and len(neg):
+            st.caption("Both signs appear. The profit ranking reverses with profitability, which is the paper's central observation.")
+        download(firms, "H1_firms.csv")
+
+# ------------------------------------------------------------------------------------------------ H2
+with tabs[1]:
+    hypothesis_card(
+        "H2: The flexibility–profit relationship switches as industry profitability rises",
+        "The paper found that rigid firms win in low-profit industries, flexible firms win in profitable ones, with a "
+        "U-shaped transition in between. Both theories can explain the switch, so this experiment locates it; H1 and H4 "
+        "discriminate between them.",
+        "Mistakes are cheaper in profitable markets, so the RC is easier to satisfy: the slope rises with profitability "
+        "and crosses 0 at a **switch point**.",
+        "Profitable markets can pay more for flexibility, but flexibility should never be *harmful* when free.")
+    c1, c2, c3 = st.columns(3)
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h2_lever")
+    p = PARAMS[lever]
+    rng_default = {"desired_margin": (0.0, 16.0), "c_max": (55.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
+    lo_hi = c2.slider("Range", float(p.lo), float(p.hi), rng_default, key=f"h2_rng_{lever}")
+    steps = c3.slider("Steps", 3, 20, 9, key="h2_steps")
+    xaxis = st.radio("Plot against", ["avg_firm_profit", "avg_margin", lever], horizontal=True, key="h2_x",
+                     format_func=lambda k: {"avg_firm_profit": "Average firm profit", "avg_margin": "Average margin P − c"}.get(k, p.label))
+    vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+    if run_state("h2", (lever, tuple(vals), R, H, cont, str(base))):
+        firms, mk = run_sweep_ui(base, lever, vals, R, horizon=H, continuation=cont)
+        summ = slope_summary(firms, mk, [lever])
+        xt = {"avg_firm_profit": "Average firm profit per period", "avg_margin": "Average margin P − c"}.get(xaxis, p.label)
+        fig = slope_chart(summ, xaxis, xt)
+        sp = switch_point(summ, xaxis)
+        if sp is not None:
+            fig.add_vline(x=sp, line=dict(color=CAT[1], width=1.5, dash="dash"))
+            fig.add_annotation(x=sp, y=1, yref="paper", text=f"switch ≈ {sp:.3g}", showarrow=False, yanchor="bottom")
+        st.plotly_chart(fig)
+        c1, c2 = st.columns(2)
+        fr = go.Figure()
+        fr.add_trace(go.Scatter(x=summ[xaxis], y=summ["flex_best"], name="Most flexible firm is best", mode="lines+markers",
+                                line=dict(color=CAT[0], width=2)))
+        fr.add_trace(go.Scatter(x=summ[xaxis], y=summ["rigid_best"], name="Most rigid firm is best", mode="lines+markers",
+                                line=dict(color=CAT[1], width=2)))
+        fr.update_xaxes(title=xt); fr.update_yaxes(title="Share of replications", range=[0, 1])
+        c1.plotly_chart(style(fr, 320, "Who wins?"))
+        fs = go.Figure()
+        fs.add_trace(go.Scatter(x=summ[xaxis], y=summ["spearman"], mode="lines+markers", name="Spearman ρ",
+                                line=dict(color=CAT[2], width=2)))
+        fs.add_hline(y=0, line=dict(color="rgba(128,128,128,0.8)", width=1, dash="dot"))
+        fs.update_xaxes(title=xt); fs.update_yaxes(title="Mean rank correlation φ ~ profit", range=[-1, 1])
+        c2.plotly_chart(style(fs, 320, "Is profit ordered by flexibility?"))
+        if sp is not None:
+            verdict("support", f"Switch point found at **{xt} ≈ {sp:.3g}**. Below it rigid firms earn more; above it flexible "
+                    "firms do. This matches the paper's pattern, and the RC explains it as cheaper mistakes in profitable markets.")
+        else:
+            s = "positive" if (summ["slope"] > 0).all() else "negative" if (summ["slope"] < 0).all() else "mixed"
+            verdict("neutral", f"No sign change in this range (slopes are {s}). Widen the range or change the lever.")
+        download(summ, "H2_summary.csv")
+
+# ------------------------------------------------------------------------------------------------ H3
+with tabs[2]:
+    hypothesis_card(
+        "H3: Flexibility hampers performance as volatility rises",
+        "Volatility of raw-material cost is the *difficulty* side of the CD-gap. The paper measures it by the serial "
+        "correlation of cost (lower = more uncertain).",
+        "Higher volatility widens the CD-gap, so reliability falls and **the slope decreases with volatility**.",
+        "Volatility increases the need for, and benefit of, flexibility, so **the slope increases with volatility**.")
+    c1, c2 = st.columns(2)
+    lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 30.0), key="h3_rng")
+    steps = c2.slider("Steps", 3, 20, 8, key="h3_steps")
+    xaxis = st.radio("Plot against", ["delta", "sc_cost", "cd_gap"], horizontal=True, key="h3_x",
+                     format_func=lambda k: {"delta": "Δ", "sc_cost": "Serial corr. of cost (paper's proxy)",
+                                            "cd_gap": "Measured CD-gap (cost-perception RMSE)"}[k])
+    vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+    if run_state("h3", (tuple(vals), R, H, cont, str(base))):
+        firms, mk = run_sweep_ui(base, "delta", vals, R, horizon=H, continuation=cont)
+        summ = slope_summary(firms, mk, ["delta"])
+        xt = {"delta": "Cost volatility Δ", "sc_cost": "Serial correlation of cost", "cd_gap": "Measured CD-gap"}[xaxis]
+        fig = slope_chart(summ, xaxis, xt)
+        if xaxis == "sc_cost":
+            fig.update_xaxes(autorange="reversed", title=xt + " (reversed: right = more uncertain)")
+        st.plotly_chart(fig)
+        per = pd.concat([flex_profit_by_market(g).assign(delta=d) for d, g in firms.groupby("delta")])
+        per = per.dropna(subset=["slope"])
+        tab, r2 = ols(per["slope"].to_numpy(float), [per["delta"].to_numpy(float)], ["Δ"])
+        coef, pv = tab.loc[1, "coef"], tab.loc[1, "p"]
+        st.markdown(f"**Regression of market-level slope on Δ** ({len(per)} markets): coefficient = {coef:.2f}, "
+                    f"p = {fmt_p(pv)}, R² = {r2:.3f}")
+        if coef < 0 and pv < 0.05:
+            verdict("support", "Flexibility's payoff **falls significantly** as volatility rises. This supports the RC "
+                    "and contradicts the traditional prediction.")
+        elif coef > 0 and pv < 0.05:
+            verdict("reject", "Flexibility's payoff **rises significantly** with volatility, as the traditional view predicts.")
+        else:
+            verdict("neutral", "No significant relationship between volatility and the payoff to flexibility here.")
+        download(summ, "H3_summary.csv")
+
+# ------------------------------------------------------------------------------------------------ H4
+with tabs[3]:
+    hypothesis_card(
+        "H4: Higher fixed costs raise the profitability at which flexibility starts to pay",
+        "Add a fixed cost per period that is identical for all firms. Marginal costs are unchanged. "
+        "**Control:** if the firms' decision margin ignores fixed costs (VBA behaviour), decisions and therefore "
+        "slopes cannot change. The meaningful test turns on *margin includes F/q* (the paper's margin formula).",
+        "Fixed costs shrink the gains from good decisions and enlarge the losses from bad ones, so the **switch point moves "
+        "up**.",
+        "Decisions are made at the margin, so fixed costs have **no effect** on the switch point.")
+    c1, c2, c3 = st.columns(3)
+    lever = c1.selectbox("Profitability lever", lever_choices(rule), format_func=lambda k: PARAMS[k].label, key="h4_lever")
+    p = PARAMS[lever]
+    rng_default = {"desired_margin": (0.0, 16.0), "c_max": (55.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
+    lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h4_rng_{lever}")
+    steps = c3.slider("Steps", 3, 15, 7, key="h4_steps")
+    c1, c2 = st.columns(2)
+    fcs = parse(c1.text_input("Fixed-cost levels b", "0, 500, 1500", key="h4_fc"), [0, 500, 1500])
+    incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl")
+    vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+    scn = base.copy()
+    scn.firm_globals.margin_includes_fixed = incl
+    if run_state("h4", (lever, tuple(vals), tuple(fcs), incl, R, H, cont, str(base))):
+        firms, mk = run_sweep_ui(scn, lever, vals, R, "fixed_cost", fcs, horizon=H, continuation=cont)
+        summ = slope_summary(firms, mk, [lever, "fixed_cost"])
+        st.plotly_chart(slope_chart(summ, lever, p.label, group="fixed_cost", group_title="b"))
+        sps = []
+        for b, g in summ.groupby("fixed_cost"):
+            sps.append(dict(fixed_cost=b, switch_lever=switch_point(g, lever), switch_margin=switch_point(g, "avg_margin")))
+        spd = pd.DataFrame(sps)
+        st.dataframe(spd, hide_index=True, column_config={
+            "fixed_cost": "Fixed cost b", "switch_lever": st.column_config.NumberColumn(f"Switch point ({p.label})", format="%.3g"),
+            "switch_margin": st.column_config.NumberColumn("Switch point (avg P − c)", format="%.3g")})
+        ok = spd.dropna(subset=["switch_lever"])
+        if not incl:
+            verdict("neutral", "Control condition: firms ignore fixed costs when deciding, so the lines coincide. A fixed "
+                    "cost is a pure level shift that changes no one's relative performance.")
+        elif len(ok) >= 2 and np.all(np.diff(ok.sort_values("fixed_cost")["switch_lever"]) > 0):
+            verdict("support", "The switch point **rises with fixed costs**, as the RC predicts. The traditional hypothesis "
+                    "predicts no shift because marginal costs are unchanged.")
+        elif len(ok) >= 2:
+            verdict("warn", "Switch points were found but do not rise monotonically with fixed costs.")
+        else:
+            verdict("neutral", "Fewer than two switch points were found in this range. Widen the lever range.")
+        download(summ, "H4_summary.csv")
+
+# ------------------------------------------------------------------------------------------------ H5
+with tabs[4]:
+    hypothesis_card(
+        "H5: As competition intensifies, flexibility is favoured at lower profit levels",
+        "The paper reports this as a surprising observation: in more competitive markets (smaller desired margin m*), "
+        "the switch to favouring flexible firms happens at a *lower* level of industry profit. This experiment sweeps "
+        "a profitability lever at several competition intensities.",
+        "Not derived in the paper. It is reported as an empirical regularity that confirms managers' intuition.",
+        "No specific prediction.")
+    if rule != "Bertrand":
+        st.warning("Desired margin m* only affects Bertrand firms. Switch the base scenario to Bertrand.")
+    else:
+        c1, c2, c3 = st.columns(3)
+        lever = c1.selectbox("Profitability lever", ["c_max", "delta", "q_range"], format_func=lambda k: PARAMS[k].label, key="h5_lever")
+        p = PARAMS[lever]
+        rng_default = {"c_max": (50.0, 98.0), "delta": (2.0, 35.0), "q_range": (600.0, 4000.0)}[lever]
+        lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h5_rng_{lever}")
+        steps = c3.slider("Steps", 3, 15, 8, key="h5_steps")
+        ms = parse(st.text_input("Desired margins m* (competition intensities)", "1, 4, 8", key="h5_ms"), [1, 4, 8])
+        vals = list(np.round(np.linspace(*lo_hi, steps), 3))
+        if run_state("h5", (lever, tuple(vals), tuple(ms), R, H, cont, str(base))):
+            firms, mk = run_sweep_ui(base, lever, vals, R, "desired_margin", ms, horizon=H, continuation=cont)
+            summ = slope_summary(firms, mk, [lever, "desired_margin"])
+            st.plotly_chart(slope_chart(summ, "avg_firm_profit", "Average firm profit per period", group="desired_margin",
+                                        group_title="m*"))
+            spd = pd.DataFrame([dict(m=m, switch_profit=switch_point(g, "avg_firm_profit"))
+                                for m, g in summ.groupby("desired_margin")])
+            st.dataframe(spd, hide_index=True, column_config={"m": "m*", "switch_profit": st.column_config.NumberColumn(
+                "Switch point (avg firm profit)", format="%.0f")})
+            ok = spd.dropna()
+            if len(ok) >= 2 and np.all(np.diff(ok.sort_values("m")["switch_profit"]) > 0):
+                verdict("support", "More intense competition (lower m*) switches to favouring flexibility at **lower** profit "
+                        "levels, reproducing the paper's observation.")
+            elif len(ok) >= 2:
+                verdict("warn", "Switch points found, but the ordering differs from the paper's observation.")
+            else:
+                verdict("neutral", "Not enough switch points in range. Try another lever or range.")
+            download(summ, "H5_summary.csv")
+
+# ------------------------------------------------------------------------------------------------ H6
+with tabs[5]:
+    hypothesis_card(
+        "H6: Industry-wide rigidity keeps markets away from equilibrium, and keeps them profitable",
+        "Scaling every firm's φ moves the industry between three regimes: **sluggish** (prices smoother than cost, "
+        "serial corr. of price > cost), **tracking** (prices follow cost), and **oscillating** (prices overshoot). "
+        "The paper argues that inflexible industries stay far from the neoclassical equilibrium and earn higher profits.",
+        "When errors are punishing, rigid behaviour is individually rational and **raises industry profits**, "
+        "with no collusion required.",
+        "Industries converge to equilibrium; margins above it require collusion.")
+    c1, c2 = st.columns(2)
+    lo_hi = c1.slider("Flexibility scale range (× every φ)", 0.05, 4.0, (0.1, 2.5), key="h6_rng")
+    steps = c2.slider("Steps", 3, 20, 10, key="h6_steps")
+    vals = list(np.round(np.geomspace(*lo_hi, steps), 3))
+    if run_state("h6", (tuple(vals), R, H, cont, str(base))):
+        firms, mk = run_sweep_ui(base, "flex_scale", vals, R, horizon=H, continuation=cont)
+        g = mk.groupby("flex_scale").agg(sc_price=("sc_price", "mean"), sc_cost=("sc_cost", "mean"),
+                                         margin=("avg_margin", "mean"), gap=("avg_abs_gap", "mean"),
+                                         industry_profit=("industry_profit", "mean"),
+                                         sd_price=("sd_price", "mean")).reset_index()
+        c1, c2 = st.columns(2)
+        f1 = go.Figure()
+        f1.add_trace(go.Scatter(x=g["flex_scale"], y=g["sc_price"], name="Serial corr. of price", mode="lines+markers",
+                                line=dict(color=CAT[0], width=2)))
+        f1.add_trace(go.Scatter(x=g["flex_scale"], y=g["sc_cost"], name="Serial corr. of cost", mode="lines+markers",
+                                line=dict(color=CAT[1], width=2, dash="dash")))
+        f1.update_xaxes(title="Flexibility scale", type="log"); f1.update_yaxes(title="Lag-1 serial correlation")
+        c1.plotly_chart(style(f1, 340, "Market regime"))
+        f2 = go.Figure()
+        f2.add_trace(go.Scatter(x=g["flex_scale"], y=g["industry_profit"], mode="lines+markers", name="Industry profit",
+                                line=dict(color=CAT[2], width=2), showlegend=False))
+        f2.update_xaxes(title="Flexibility scale", type="log"); f2.update_yaxes(title="Industry profit per period")
+        c2.plotly_chart(style(f2, 340, "Industry profit"))
+        f3 = go.Figure()
+        f3.add_trace(go.Scatter(x=g["flex_scale"], y=g["gap"], mode="lines+markers", name="avg |P − c|",
+                                line=dict(color=CAT[6], width=2), showlegend=False))
+        f3.update_xaxes(title="Flexibility scale", type="log"); f3.update_yaxes(title="Average |P − c|")
+        st.plotly_chart(style(f3, 300, "Distance from the price = cost line"))
+        rho = np.corrcoef(np.log(g["flex_scale"]), g["industry_profit"])[0, 1]
+        if rho < -0.5:
+            verdict("support", f"Industry profit **falls** as the whole industry becomes more flexible (ρ = {rho:.2f}). "
+                    "Rigid industries stay further from equilibrium and earn more, as the paper argues.")
+        elif rho > 0.5:
+            verdict("reject", f"Industry profit **rises** with industry flexibility here (ρ = {rho:.2f}).")
+        else:
+            verdict("neutral", f"No clear monotone relationship between industry flexibility and profit (ρ = {rho:.2f}).")
+        download(g, "H6_regimes.csv")

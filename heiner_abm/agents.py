@@ -1,0 +1,314 @@
+"""Readable agent-based reference implementation.
+
+Each Firm is an agent with its own decision rule, selection rule, competence and
+memory. The Market is a single homogeneous-product, market-clearing cobweb market
+with a linear hockey-stick demand curve and a reflecting random-walk raw-material
+cost. The Industry schedules one round:
+
+    1. each firm observes last period's price P[t-1], market quantity Q[t-1] and
+       (its perception of) the raw-material cost;
+    2. its production rule (Cournot / Bertrand) recommends q*. Cournot firms use their
+       *believed* demand curve, which may be out of date after a regime shift;
+    3. its selection rule decides whether to deviate from the default rule B
+       ("keep producing q") and adopt q*;
+    4. the market clears on the *true* demand curve, P[t] = max(Pmin, Pmax[t] - s[t]*Q[t]),
+       and the new cost c[t] is realised (firms decided before seeing it: the CD-gap);
+    5. every firm books profit (P[t]-c[t])*q - F and evaluates the counterfactual:
+       what it would have earned over the next H periods (discount gamma) had it made the
+       other choice. The market is forked and every agent keeps following its rules.
+       With H = 1 this is the paper's one-period comparison with rivals held fixed.
+       This is how Heiner's quantities pi, r, w, G and D are measured.
+
+`heiner_abm.engine` is a vectorised twin of this module used for Monte-Carlo
+experiments; tests/test_equivalence.py checks that the two agree exactly.
+"""
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import numpy as np
+
+from .params import Scenario, FirmSpec
+
+
+def make_streams(seed: int, n_firms: int, periods: int):
+    """Independent random streams so the cost path depends only on the seed (common random numbers)."""
+    cost_ss, noise_ss, evo_ss = np.random.SeedSequence(seed).spawn(3)
+    u = np.random.default_rng(cost_ss).uniform(-1.0, 1.0, size=periods)
+    eps = np.random.default_rng(noise_ss).standard_normal((periods, n_firms))
+    return u, eps, np.random.default_rng(evo_ss)
+
+
+def regime_draws(seed: int, periods: int) -> np.ndarray:
+    """Separate stream for structural shocks (4th child), so enabling them leaves other streams intact."""
+    ss = np.random.SeedSequence(seed).spawn(4)[3]
+    rng = np.random.default_rng(ss)
+    return np.stack([rng.random(periods), rng.standard_normal(periods), rng.standard_normal(periods)])
+
+
+def demand_path(scn: Scenario) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """True demand parameters per period (p_max[t], slope[t]) and regime-shift indicator."""
+    m, sp, T = scn.market, scn.structural, scn.periods
+    pmax = np.full(T, m.p_max)
+    slope = np.full(T, m.slope)
+    shift = np.zeros(T, dtype=bool)
+    if sp.enabled and sp.hazard > 0:
+        u, z1, z2 = regime_draws(scn.seed, T)
+        for t in range(1, T):
+            if u[t] < sp.hazard:
+                shift[t] = True
+                pmax[t] = max(m.p_min + 10.0, m.p_max + sp.intercept_sd * z1[t])
+                slope[t] = m.slope * float(np.clip(np.exp(sp.slope_sd * z2[t]), 0.25, 4.0))
+            else:
+                pmax[t], slope[t] = pmax[t - 1], slope[t - 1]
+    return pmax, slope, shift
+
+
+def belief_index(scn: Scenario) -> np.ndarray:
+    """Index of the regime a firm's demand model reflects when deciding in period t (-1 = baseline)."""
+    T, sp = scn.periods, scn.structural
+    t = np.arange(T)
+    if not sp.enabled or sp.belief_lag < 0:
+        return np.full(T, -1)
+    return np.maximum(t - 1 - sp.belief_lag, 0)
+
+
+def reflect(value: float, lo: float, hi: float) -> float:
+    """VBA 'reflexive boundary': overshoot beyond a bound is mirrored back inside."""
+    if value <= lo:
+        return lo + (lo - value)
+    if value >= hi:
+        return hi - (value - hi)
+    return value
+
+
+def cost_path(scn: Scenario, u: np.ndarray) -> np.ndarray:
+    m = scn.market
+    c = np.empty(scn.periods)
+    c[0] = m.c0
+    for t in range(1, scn.periods):
+        c[t] = reflect(c[t - 1] + m.delta * u[t], m.p_min, m.c_max)
+    return c
+
+
+class Market:
+    def __init__(self, scn: Scenario, u: np.ndarray):
+        self.p = scn.market
+        self.costs = cost_path(scn, u)
+        self.p_max, self.slope, self.shift = demand_path(scn)
+        bi = belief_index(scn)
+        self.belief_p_max = np.where(bi < 0, scn.market.p_max, self.p_max[np.maximum(bi, 0)])
+        self.belief_slope = np.where(bi < 0, scn.market.slope, self.slope[np.maximum(bi, 0)])
+        self.price = 0.0
+        self.quantity = 0.0
+
+    def clearing_price(self, quantity: float, t: int) -> float:
+        return max(self.p.p_min, self.p_max[t] - self.slope[t] * quantity)
+
+    def clear(self, quantity: float, t: int) -> float:
+        self.quantity = quantity
+        self.price = self.clearing_price(quantity, t)
+        return self.price
+
+
+@dataclass
+class Decision:
+    recommended: float
+    current: float
+    deviate: bool
+    chosen: float
+    c_hat: float
+    best_reply: float     # Cournot perceived best reply (Heiner's perceived target), before partial adjustment
+
+
+class Firm:
+    def __init__(self, idx: int, spec: FirmSpec, scn: Scenario):
+        self.idx = idx
+        self.spec = spec
+        self.g = scn.firm_globals
+        self.flex = spec.flex
+        self.fixed = scn.flex_cost(spec.flex)
+        self.q = scn.firm_globals.q0
+        self.bin_edges = np.asarray(scn.adaptive.bin_edges, dtype=float)
+        self.memory = scn.adaptive.memory
+        self.learned_gain = np.zeros(len(self.bin_edges) + 1)
+        self.last: Decision | None = None
+
+    def set_flex(self, flex: float, scn: Scenario):
+        self.flex = flex
+        self.fixed = scn.flex_cost(flex)
+
+    # --- perception (competence) ---------------------------------------------
+    def perceive_cost(self, c_prev: float, c_next: float, eps: float) -> float:
+        s = self.spec
+        return c_prev + s.foresight * (c_next - c_prev) + s.noise * eps
+
+    # --- production rule: recommendation q* ------------------------------------
+    def recommend(self, market: Market, t: int, prev_price: float, prev_quantity: float,
+                  c_hat: float) -> Tuple[float, float]:
+        s, q = self.spec, self.q
+        pm, sl = market.belief_p_max[t], market.belief_slope[t]
+        best = (pm - sl * (prev_quantity - q) - c_hat) / (2.0 * sl)
+        if s.rule == "Cournot":
+            rec = self.flex * best + (1.0 - self.flex) * q
+        else:  # Bertrand margin feedback (model-free: uses the observed price only)
+            margin = prev_price - c_hat - (self.fixed / q if self.g.margin_includes_fixed else 0.0)
+            rec = q + self.flex * (margin - s.desired_margin)
+        return max(self.g.q_min, float(np.rint(rec))), best
+
+    # --- selection rule: deviate from default rule B? -------------------------
+    def _bin(self, change: float) -> int:
+        return int(np.searchsorted(self.bin_edges, change, side="right"))
+
+    def select(self, rec: float) -> bool:
+        change = abs(rec - self.q)
+        rule = self.spec.selection
+        if rule == "Always":
+            return True
+        if rule == "Never":
+            return False
+        if rule == "Small":
+            return change < self.spec.threshold
+        if rule == "Large":
+            return change > self.spec.threshold
+        if rule == "Adaptive":
+            return change > 0 and self.learned_gain[self._bin(change)] >= 0.0
+        raise ValueError(rule)
+
+    def decide(self, market: Market, t: int, prev_price, prev_quantity, eps) -> Decision:
+        c_hat = self.perceive_cost(market.costs[t - 1], market.costs[t], eps)
+        rec, best = self.recommend(market, t, prev_price, prev_quantity, c_hat)
+        dev = self.select(rec)
+        self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat, best)
+        return self.last
+
+    # --- learning from counterfactual payoffs ---------------------------------
+    def learn(self, gain_from_rule: float):
+        d = self.last
+        change = abs(d.recommended - d.current)
+        if change > 0:
+            b = self._bin(change)
+            self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
+
+
+class Industry:
+    """Runs one market populated by heterogeneous firm agents and records everything."""
+
+    def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default", discount: float = 1.0):
+        errs = scn.validate()
+        if errs:
+            raise ValueError("; ".join(errs))
+        self.scn = scn
+        self.horizon = max(1, int(horizon))
+        self.continuation = continuation
+        self.discount = float(discount)
+        n, T = scn.n_firms, scn.periods
+        self.u, self.eps, self.evo_rng = make_streams(scn.seed, n, T)
+        self.market = Market(scn, self.u)
+        self.firms = [Firm(i, f, scn) for i, f in enumerate(scn.firms)]
+        shape = (T, n)
+        self.h = {k: np.zeros(shape) for k in
+                  ("q", "rec", "profit", "profit_rule", "profit_default", "c_hat", "flex", "best_reply")}
+        self.h["deviate"] = np.zeros(shape, dtype=bool)
+        self.h["opportunity"] = np.zeros(shape, dtype=bool)
+        self.price = np.zeros(T)
+        self.quantity = np.zeros(T)
+        self.window_profit = np.zeros(n)
+
+    def run(self) -> "Industry":
+        scn, mk, firms = self.scn, self.market, self.firms
+        costs = mk.costs
+        # period 0: initial production and cost are given
+        Q = sum(f.q for f in firms)
+        P = mk.clear(Q, 0)
+        self.price[0], self.quantity[0] = P, Q
+        for i, f in enumerate(firms):
+            self.h["q"][0, i] = f.q
+            self.h["profit"][0, i] = (P - costs[0]) * f.q - f.fixed
+            self.h["flex"][0, i] = f.flex
+
+        for t in range(1, scn.periods):
+            decisions = [f.decide(mk, t, P, Q, self.eps[t, i]) for i, f in enumerate(firms)]
+            for f, d in zip(firms, decisions):
+                f.q = d.chosen
+            Q = sum(f.q for f in firms)
+            P = mk.clear(Q, t)
+            c = costs[t]
+            self.price[t], self.quantity[t] = P, Q
+            chosen = [d.chosen for d in decisions]
+            hold = self.continuation == "default"
+            if self.horizon > 1 and not hold:
+                actual_cum = self._branch(t, chosen)
+            # 1) evaluate every firm's counterfactual before anyone learns (forks see the same memories)
+            evaluated = []
+            for i, (f, d) in enumerate(zip(firms, decisions)):
+                profit = (P - c) * d.chosen - f.fixed
+                alt = d.current if d.deviate else d.recommended
+                if self.horizon == 1:
+                    p_alt = mk.clearing_price(Q - d.chosen + alt, t)
+                    own, profit_alt = profit, (p_alt - c) * alt - f.fixed
+                elif hold:   # firm i follows rule B after this decision in both branches
+                    own = self._branch(t, chosen, hold_firm=i)[i]
+                    profit_alt = self._branch(t, chosen[:i] + [alt] + chosen[i + 1:], hold_firm=i)[i]
+                else:        # firm i keeps following its own rules in both branches
+                    own = actual_cum[i]
+                    profit_alt = self._branch(t, chosen[:i] + [alt] + chosen[i + 1:])[i]
+                p_rule, p_def = (own, profit_alt) if d.deviate else (profit_alt, own)
+                evaluated.append((profit, p_rule, p_def))
+            # 2) learn and record
+            for i, (f, d) in enumerate(zip(firms, decisions)):
+                profit, p_rule, p_def = evaluated[i]
+                f.learn(p_rule - p_def)
+                h = self.h
+                h["q"][t, i], h["rec"][t, i], h["c_hat"][t, i] = d.chosen, d.recommended, d.c_hat
+                h["profit"][t, i], h["profit_rule"][t, i], h["profit_default"][t, i] = profit, p_rule, p_def
+                h["deviate"][t, i] = d.deviate
+                h["opportunity"][t, i] = d.recommended != d.current
+                h["flex"][t, i] = f.flex
+                h["best_reply"][t, i] = d.best_reply
+                self.window_profit[i] += profit
+            ev = scn.evolution
+            if ev.enabled and t % ev.every == 0:
+                self._evolve()
+        return self
+
+    def _branch(self, t: int, first_choices: List[float], hold_firm: Optional[int] = None) -> List[float]:
+        """Fork the market at period t with the given production choices and let every agent follow
+        its rules for the rest of the horizon (learning and evolution frozen); `hold_firm`, if given,
+        follows the default rule B instead. Returns each firm's discounted cumulative profit."""
+        mk, costs, T = self.market, self.market.costs, self.scn.periods
+        firms = copy.deepcopy(self.firms)
+        if hold_firm is not None:
+            firms[hold_firm].spec.selection = "Never"
+        for f, qc in zip(firms, first_choices):
+            f.q = qc
+        Q = sum(f.q for f in firms)
+        P = mk.clearing_price(Q, t)
+        cum = [(P - costs[t]) * f.q - f.fixed for f in firms]
+        w = 1.0
+        for tt in range(t + 1, min(t + self.horizon, T)):
+            w *= self.discount
+            ds = [f.decide(mk, tt, P, Q, self.eps[tt, i]) for i, f in enumerate(firms)]
+            for f, d in zip(firms, ds):
+                f.q = d.chosen
+            Q = sum(f.q for f in firms)
+            P = mk.clearing_price(Q, tt)
+            for i, f in enumerate(firms):
+                cum[i] += w * ((P - costs[tt]) * f.q - f.fixed)
+        return cum
+
+    def _evolve(self):
+        """Social learning of flexibility: imitate the most profitable rival, then experiment."""
+        ev, rng = self.scn.evolution, self.evo_rng
+        n = len(self.firms)
+        best = int(np.argmax(self.window_profit))
+        imitate = rng.random(n) < ev.imitation_prob
+        mutation = rng.standard_normal(n) * ev.mutation_sd
+        best_flex = self.firms[best].flex
+        for i, f in enumerate(self.firms):
+            new = best_flex if (imitate[i] and i != best) else f.flex
+            hi = min(ev.flex_max, 1.0) if f.spec.rule == "Cournot" else ev.flex_max
+            f.set_flex(float(np.clip(new + mutation[i], ev.flex_min, hi)), self.scn)
+        self.window_profit[:] = 0.0

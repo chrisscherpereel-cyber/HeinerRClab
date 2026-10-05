@@ -269,8 +269,10 @@ see the README), "superior" holds in one sense and not the other:
   one-period RC did no better than cobweb stability or accuracy alone.
 
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual
-bookkeeping follow his framework. The rival predictions are stylized, and several rivals (satisficing,
-organizational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
+bookkeeping follow his framework. The rival predictions in this table are stylized readings of each literature.
+Every rival is also implemented as agents: satisficing and the other theories compete as tuned designs in the Agent
+tournament, and organizational ecology's inert designs and its selection mechanism (exit and entry) run on the
+Organizational ecology page. The table above scores only the predictions each theory makes.
 Results depend on the base scenario (Bertrand versus Cournot in particular), so rerun the tournament under both.
 A simulated market can show that a theory is internally coherent and discriminating. It cannot show that real
 firms behave this way.

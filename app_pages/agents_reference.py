@@ -5,6 +5,7 @@ from heiner_abm import registered
 from heiner_abm.arena import (ALL_DESIGNS, SELECT_TEXT, TARGET_TEXT, THEORY_DESIGNS, THEORY_NAMES, VARIANTS, Composite,
                               Spec)
 from heiner_abm.calibration import FORECAST_RULES, QUANTITY_RULES
+from heiner_abm.ecology import ECO_DESIGNS
 from heiner_abm.empirical import NEWSVENDOR_RULES
 from heiner_abm.experiment import RIVALS, SHADOWS
 from heiner_abm.literature import REFERENCES
@@ -26,6 +27,9 @@ st.dataframe(pd.DataFrame([
      "Seventeen designs, two per theory plus rule B, each implementing one theory's decision rule."),
     ("Mechanism variants", "Heiner: mechanisms", "The reliability-condition agent judging with the true model, and "
                                                 "an oracle that knows its rule's true reliability."),
+    ("Organizational-ecology firms", "Organizational ecology (selection)",
+     "Two inert designs (structural inertia; inertia with crisis reorganization), tuned with the tournament's budget, "
+     "competing under exit and entry with every tournament design."),
     ("Rule-choosing firms", "Rule choice (emergence)", "Firms that switch between six tournament designs according to "
                                                        "their recent performance."),
     ("Task agents", "Generalization", "A slow default and a fast flexible estimate in inventory, learning and investment "
@@ -90,6 +94,16 @@ st.markdown(
     "**Cost of flexibility.** Each firm pays Fᵢ = a·φᵢ + b per period. **Endogenous flexibility** (Evolution page): "
     "every 50 periods each firm copies the flexibility of the most profitable firm with probability 0.5 and adds a "
     "small mutation (s.d. 0.03), within [0, 1].")
+
+# ------------------------------------------------------------------------------------------------ ecology designs
+st.header("Organizational ecology designs", divider="gray")
+st.markdown("Used on the Organizational ecology page. Kept out of the registered tournament so its plan hash and "
+            "registered results are unchanged; tuned there with the tournament's equal budget.")
+st.dataframe(pd.DataFrame([dict(Design=d.name, Key=d.key, Rule=d.rule,
+                                Parameters="; ".join(f"{n}: {s.help} [{s.lo:g}, {s.hi:g}], default {s.default:g}"
+                                                     for n, s in d.SPACE.items()),
+                                Sources=", ".join(REFERENCES[k].cite for k in d.sources if k in REFERENCES))
+                           for d in ECO_DESIGNS.values()]), hide_index=True, width="stretch")
 
 # ------------------------------------------------------------------------------------------------ tournament designs
 st.header("4 · Tournament designs: one theory, two decision rules", divider="gray")

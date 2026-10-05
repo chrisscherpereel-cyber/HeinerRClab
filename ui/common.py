@@ -231,6 +231,21 @@ SECTION_NOTES = {
 }
 
 
+def render_agent_descriptions(sb) -> None:
+    """Sidebar: how each theory's agents decide, read from the agent classes (cannot drift from the code)."""
+    from heiner_abm.arena import DESIGNS, THEORY_DESIGNS, THEORY_NAMES
+    from heiner_abm.ecology import ECO_DESIGNS
+    with sb.expander("🤖 Agents: how each theory decides", expanded=False):
+        st.caption("Every theory is implemented as agents that see the same information in the same market. Full "
+                   "details: Reference → Agents as implemented.")
+        groups = [(THEORY_NAMES[t], [DESIGNS[d] for d in ds]) for t, ds in THEORY_DESIGNS.items()]
+        groups.append(("Organizational ecology", list(ECO_DESIGNS.values())))
+        for name, designs in groups:
+            st.markdown(f"**{name}**")
+            for d in designs:
+                st.markdown(f"- *{d.name}*: {d.rule}")
+
+
 def render_navigation(sections, current) -> None:
     """Sidebar navigation: the theories first, then the theory under test, then the other sections as collapsed
     groups (the group holding the current page opens)."""
@@ -241,6 +256,7 @@ def render_navigation(sections, current) -> None:
                "terms in the same simulated market.")
     for page in sections["Theories"]:
         sb.page_link(page, label=page.title, icon=page.icon)
+    render_agent_descriptions(sb)
     sb.markdown("### Theory under test")
     sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                  help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "

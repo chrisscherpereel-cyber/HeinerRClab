@@ -133,6 +133,11 @@ _REFS = [
        "Strategic Management Journal", "14", "S2", "95–112"),
     _a("hannan1984", "Hannan, M. T.; Freeman, J.", 1984, "Structural inertia and organizational change",
        "American Sociological Review", "49", "2", "149–164"),
+    _a("hannan1977", "Hannan, M. T.; Freeman, J.", 1977, "The population ecology of organizations",
+       "American Journal of Sociology", "82", "5", "929–964"),
+    _a("amburgey1993", "Amburgey, T. L.; Kelly, D.; Barnett, W. P.", 1993,
+       "Resetting the clock: The dynamics of organizational change and failure", "Administrative Science Quarterly",
+       "38", "1", "51–73"),
     _b("thompson1967", "Thompson, J. D.", 1967, "Organizations in action", "McGraw-Hill"),
     _a("staw1981", "Staw, B. M.; Sandelands, L. E.; Dutton, J. E.", 1981,
        "Threat-rigidity effects in organizational behavior: A multilevel analysis",
@@ -888,12 +893,14 @@ HYPOTHESIS_BY_ID: Dict[str, Hypothesis] = {h.hid: h for h in HYPOTHESES}
 # ------------------------------------------------------------------------------------------------ rival theories
 THEORY_SOURCES: Dict[str, List[str]] = {
     "heiner": ["heiner1983", "heiner1985", "heiner1986", "heiner1988", "heiner1989"],
-    "neo": ["samuelson1947", "muth1961", "stigler1939"],
+    "optimiser": ["samuelson1947", "muth1961", "stigler1939"],
     "options": ["stigler1939", "marschak1962", "kreps1979", "dixit1989", "dixit1994"],
     "cobweb": ["ezekiel1938", "nerlove1958", "theocharis1960", "carlson1967", "hommes1994"],
-    "biasvar": ["geman1992", "gigerenzer1999", "gigerenzer2009", "dawes1979"],
+    "heuristic": ["geman1992", "gigerenzer1999", "gigerenzer2009", "dawes1979"],
     "satisficing": ["simon1955", "cyert1963", "greve1998"],
-    "ecology": ["hannan1984", "nelson1982"],
+    "rl": ["roth1995", "erev1998", "sutton2018"],
+    "imitation": ["alchian1950", "nelson1982", "vegaredondo1997"],
+    "ecology": ["hannan1977", "hannan1984", "amburgey1993"],
 }
 
 
@@ -913,9 +920,10 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "twin. This moves the theory from post-hoc explanation to prediction, scored with the AUC.",
      ["hanley1982", "stone1974", "efron1993"]),
     ("Head-to-head adjudication of rival theories",
-     "Heiner's theory, optimization, real options, cobweb stability, bias–variance reasoning, satisficing and "
-     "structural inertia are confronted with the same discriminating experiments, and their forecasts are compared "
-     "with encompassing tests.",
+     "Heiner's theory, optimization, real options, cobweb stability, bias–variance reasoning, satisficing, "
+     "reinforcement learning, imitation and structural inertia are confronted with the same discriminating "
+     "experiments, both as directional predictions and as agents competing in every experimental condition, and "
+     "their forecasts are compared with encompassing tests.",
      ["chong1986", "diebold1995", "davis2007"]),
     ("A fair agent tournament",
      "Each theory is implemented as a decision rule and competes in the same market. Every rule gets the same "

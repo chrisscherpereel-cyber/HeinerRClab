@@ -1,4 +1,4 @@
-"""The eight theories of decision making under uncertainty that the laboratory tests, each described the same way.
+"""The nine theories of decision making under uncertainty that the laboratory tests, each described the same way.
 
 Every theory has: origins and core idea, a formal core, what it says about behavioral flexibility under uncertainty,
 how the laboratory implements it, strengths and limits, the hypotheses it informs, and key references. The pages in
@@ -108,7 +108,7 @@ $b$ of action $x$ is uncertain (mean $\mu$, variance $\sigma^2$), the optimal ac
                 "Treats the cost of computing and knowing the optimum as zero."),
         refs=("samuelson1947", "muth1960", "muth1961", "kalman1960", "brainard1967"),
         hypotheses=("H1", "H4", "H10", "RC", "DRC", "BOUND", "MECH1"),
-        tournament_key="neo", page="app_pages/theory_optimiser.py",
+        tournament_key="optimiser", page="app_pages/theory_optimiser.py",
         lab_notes="The optimizer's designs share the model-based target with the reliability-condition and "
                   "inaction-band designs, so the comparison isolates *when* to act from *where* to aim."),
     TheoryContent(
@@ -208,7 +208,7 @@ noise is large, the variance term dominates and the simple rule wins.""",
                 "Which heuristic suits which environment must be found case by case."),
         refs=("simon1956", "gigerenzer1999", "gigerenzer2009", "geman1992", "dawes1979", "makridakis2000", "hall1939"),
         hypotheses=("H1", "H3", "H8", "H9"),
-        tournament_key="biasvar", page="app_pages/theory_heuristics.py"),
+        tournament_key="heuristic", page="app_pages/theory_heuristics.py"),
     TheoryContent(
         "satisficing", "Satisficing and aspiration-level search", "🎚️",
         "Decision makers keep what works and search for change only when performance falls short of an adaptive "
@@ -266,11 +266,10 @@ exploration against exploitation.""",
                 "Rewards depend on the agent's own past actions, which can lock in poor habits."),
         refs=("erev1998", "roth1995", "sutton2018", "march1991", "levinthal1993"),
         hypotheses=("RC", "ARENA"),
-        tournament_key=None, page="app_pages/theory_rl.py"),
+        tournament_key="rl", page="app_pages/theory_rl.py"),
     TheoryContent(
         "imitation", "Imitation and evolutionary selection", "🧬",
-        "No one needs to know what is optimal: successful behavior spreads by imitation and selection, and inert, "
-        "reliable organizations survive.",
+        "No one needs to know what is optimal: successful behavior spreads by imitation and selection.",
         origins=(
             "Alchian (1950) argued that selection among firms can produce adaptive outcomes without optimization. "
             "Nelson & Winter (1982) modeled firms as bundles of routines that change slowly. Hannan & Freeman (1984) "
@@ -286,7 +285,8 @@ $$Q^W = \frac{a-c}{b} \quad\text{rather than the Cournot–Nash output}\quad Q^N
 
 **Replicator dynamics:** the share $x_k$ of behavior $k$ grows with its payoff advantage, $\dot x_k = x_k(\pi_k - \bar\pi)$.""",
         flexibility="Behavior changes by copying success, not by calculation. Imitation can make markets more "
-                    "aggressive; selection favors reliable, inert organizations.",
+                    "aggressive. (Selection for reliable, inert organizations is the separate theory of "
+                    "organizational ecology.)",
         uncertainty_view="Unknown best behavior, inferred from others' success",
         when_to_change="When another firm is doing better (imitation), or through selection",
         more_uncertainty="No direct prediction; noise blurs who is successful",
@@ -294,8 +294,46 @@ $$Q^W = \frac{a-c}{b} \quad\text{rather than the Cournot–Nash output}\quad Q^N
                    "Predicts convergence to competitive outcomes under imitation, with experimental support."),
         limits=("Copies relative success, which can differ from absolute performance.",
                 "Says little about when an individual should be flexible."),
-        refs=("alchian1950", "nelson1982", "hannan1984", "vegaredondo1997", "huck1999", "boyd1985"),
+        refs=("alchian1950", "nelson1982", "vegaredondo1997", "huck1999", "boyd1985"),
         hypotheses=("H5", "H6", "EVO", "ARENA"),
-        tournament_key="ecology", page="app_pages/theory_imitation.py"),
+        tournament_key="imitation", page="app_pages/theory_imitation.py"),
+    TheoryContent(
+        "ecology", "Organizational ecology: structural inertia", "🏛️",
+        "Selection favors reliable, accountable organizations, and reliability requires structural inertia; "
+        "change itself is hazardous, so inert organizations survive in any environment.",
+        origins=(
+            "Hannan & Freeman (1977) moved the question of adaptation from the single organization to the population: "
+            "environments select among organizational forms. Hannan & Freeman (1984) argued that selection favors "
+            "organizations that perform reliably and can account for their actions, that reliability and "
+            "accountability require routines that are hard to change (structural inertia), and that attempts at "
+            "core change raise the risk of failure. Amburgey, Kelly & Barnett (1993) found that change resets the "
+            "liability of newness: failure rates rise after reorganization."),
+        formal=r"""
+Organizations of form $k$ fail at rate $\mu_k$ and are founded at rate $\lambda_k$; the population of each form evolves as
+$\dot N_k = (\lambda_k - \mu_k)N_k$. Inertia lowers the variance of performance, which lowers the failure rate when
+capital is a buffer: with per-period performance $x_t \sim (m, s^2)$ and capital $C$, the probability of ruin falls with
+$C\,m/s^2$. Reorganization at time $t_0$ raises the hazard temporarily:
+
+$$\mu(t) = \mu_0 + \Delta\mu\, e^{-(t - t_0)/\tau}\quad (t \ge t_0),$$
+
+so a change pays only if its expected gain outweighs the extra risk of failure it creates.""",
+        flexibility="Flexibility is hazardous: each reorganization exposes the organization to failure, and reliable "
+                    "performance, which selection rewards, requires inert routines. Inertia is selected in volatile "
+                    "and calm environments alike.",
+        uncertainty_view="Unknown fitness of organizational forms, revealed by selection",
+        when_to_change="Rarely: on a schedule set by routines, or when failure threatens",
+        more_uncertainty="No change in the ranking: inertia is favored everywhere",
+        strengths=("Explains why established organizations change slowly even when change looks profitable.",
+                   "Links reliability of performance to survival, a selection argument that needs no optimization."),
+        limits=("Predicts at the level of populations; says little about which single decisions should change.",
+                "Hard to distinguish inertia that is selected from inertia that is merely costly to overcome."),
+        refs=("hannan1977", "hannan1984", "amburgey1993", "nelson1982"),
+        hypotheses=("H1", "EVO", "ARENA"),
+        tournament_key="ecology", page="app_pages/theory_ecology.py",
+        lab_notes=("Ecology's agents keep their routine output and reorganize only rarely: on a fixed schedule "
+                   "(*scheduled reorganization*) or when smoothed profit falls below a survival threshold "
+                   "(*reorganize under threat of failure*). A reorganization moves output toward the price-based "
+                   "target, the same target real-options, satisficing and Heiner agents can use, so ecology is "
+                   "compared on the timing of change, not on a better forecast.")),
 ]
 THEORY_BY_KEY: Dict[str, TheoryContent] = {t.key: t for t in THEORIES}

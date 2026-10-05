@@ -318,5 +318,46 @@ def imitation():
                "(Vega-Redondo 1997; Huck et al. 1999).")
 
 
+# ------------------------------------------------------------------------------------------------ ecology
+def ecology():
+    st.caption("A population of 400 organizations tracks a moving environment. Half are inert (they reorganize only "
+               "every 25 periods), half are flexible (they reorganize every period toward a noisy reading of the "
+               "environment). Each reorganization carries a small risk of failure, and an organization also fails "
+               "when its accumulated capital runs out.")
+    c = st.columns(3)
+    vol = c[0].slider("Environmental volatility", 0.0, 3.0, 0.5, 0.1, key="th_e_vol",
+                      help="Standard deviation of the environment's change per period (a random walk).")
+    noise = c[1].slider("Perception noise", 0.0, 5.0, 2.0, 0.1, key="th_e_noise",
+                        help="Standard deviation of the error in each organization's reading of the environment.")
+    hz = c[2].slider("Risk of failure per reorganization", 0.0, 0.02, 0.003, 0.001, format="%.3f", key="th_e_hz",
+                     help="Probability that a reorganization itself is fatal (Hannan & Freeman 1984; Amburgey et "
+                          "al. 1993: change resets the liability of newness).")
+    rng = np.random.default_rng(5)
+    T, n = 300, 200
+    env = np.cumsum(rng.normal(0, vol, T))
+    pos = np.zeros((2, n))
+    cap = np.full((2, n), 20.0)
+    alive = np.ones((2, n), bool)
+    surv = np.zeros((T, 2))
+    for t in range(T):
+        moves = np.array([t % 25 == 0, True])
+        for g in range(2):
+            if moves[g]:
+                pos[g] = np.where(alive[g], env[t] + rng.normal(0, noise, n), pos[g])
+                alive[g] &= rng.random(n) >= hz
+        cap += 1.0 - np.abs(pos - env[t])
+        alive &= cap > 0
+        surv[t] = alive.mean(1)
+    fig = go.Figure()
+    for g, (lab, col) in enumerate((("Inert", CAT[0]), ("Flexible", CAT[1]))):
+        fig.add_trace(go.Scatter(y=surv[:, g], name=lab, line=dict(color=col, width=2)))
+    fig.update_xaxes(title="Period")
+    fig.update_yaxes(title="Share surviving", range=[0, 1.02])
+    st.plotly_chart(style(fig, 320))
+    st.caption("When perception is noisy or change is hazardous, inert organizations outlive flexible ones even "
+               "though they lag the environment: selection favors reliability over responsiveness. Raise volatility "
+               "and lower noise to find where responsiveness survives better.")
+
+
 ILLUSTRATIONS = dict(heiner=heiner, optimiser=optimiser, options=options, cobweb=cobweb, heuristic=heuristic,
-                     satisficing=satisficing, rl=rl, imitation=imitation)
+                     satisficing=satisficing, rl=rl, imitation=imitation, ecology=ecology)

@@ -21,7 +21,8 @@ hypothesis_card(
     "the training environments. Most designs combine a **target** (a model-based best reply, or a price-based "
     "adaptive expectation that needs no demand model) with a **selection rule** that decides when to move: always "
     "(optimization, cobweb theory), outside an inaction band (real options), when the learned reliability condition "
-    "holds (Heiner), or when profit falls below aspiration (satisficing). Because the targets are shared, the "
+    "holds (Heiner), when profit falls below aspiration (satisficing), or only at rare reorganizations, on a "
+    "schedule or under threat of failure (organizational ecology). Because the targets are shared, the "
     "selection-rule experiment isolates the role of the selection rule: which way of deciding *when* to move works "
     "best toward the same target?",
     notes={"heiner": "Deciding when to deviate by its reliability should beat always adjusting toward the same "

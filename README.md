@@ -1,9 +1,10 @@
 # Decision making under uncertainty: an agent-based laboratory
 
-A Streamlit agent-based simulation laboratory that compares eight theories of when a decision maker should adapt
+A Streamlit agent-based simulation laboratory that compares nine theories of when a decision maker should adapt
 and when it should stick to a rule: Heiner's reliability condition, neoclassical optimization, real options, cobweb
-theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, and
-imitation and evolutionary selection. All are implemented in the same cobweb oligopoly and tested on equal terms.
+theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, imitation
+and evolutionary selection, and organizational ecology (structural inertia). Every theory is implemented as agents in
+the same cobweb oligopoly and tested on equal terms.
 Every hypothesis, and every alternative to it, is grounded in published research (see *Research basis* below).
 
 ## Run locally
@@ -38,23 +39,40 @@ many replications. For heavy research runs, use a local installation.
 
 ## Pages
 
-The left panel lists the eight **theories** first. Directly beneath them is the **theory under test**: a selector that
+The left panel lists the nine **theories** first, followed by their **agents**: one collapsible entry per theory
+(plus the rule B benchmark) that describes each agent design's decision rule and tuned parameters, read from the code.
+Beneath them is the **theory under test**: a selector that
 chooses which theory is highlighted. Every hypothesis card then shows that theory's prediction first (from the
 registry, the directional tournament, a statement derived from the theory's core claim, or, where it makes none, its
 general stance, labeled as such), with the competing predictions beside it and any theory-specific reasoning under its
 own prediction. The research panels, the overview and research tables, the competing-theories verdicts and the agent
 tournament's head-to-head follow the same choice. Heiner's reliability condition is the default, not a privileged
-position. The other sections (Simulate, Special tests, Validate & generalize, Reference) and the base-scenario
-settings are collapsed by default; the section holding the current page opens.
+position. The other sections (General simulations, Special simulations, Validate & generalize, Reference) and the
+base-scenario settings are collapsed by default; the section holding the current page opens.
+
+Simulations are split by fairness. **General simulations** compare the theories on equal terms: every theory takes
+part as agents (or, in the directional experiments, as a stated prediction for every experiment), with the same
+information, random draws and tuning budget. **Special simulations** are built around Heiner's framework (rule B,
+the market model's flexibility φ, the CD-gap and the reliability-condition bookkeeping); rival predictions appear
+there where they apply, but the models themselves are Heiner's.
 
 **Theories**
 
 | Page | What it does |
 |---|---|
-| Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
-| One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
+| Overview | The nine theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
+| One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation, organizational ecology. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
 
-**Simulate** (experiments that test every theory on equal terms; hypotheses are stated as neutral questions)
+**General simulations** (fair comparisons: every theory takes part as agents, on equal terms; hypotheses are stated as neutral questions)
+
+| Page | What it does |
+|---|---|
+| Competing theories (all theories as agents) | All nine theories confronted in three ways. A tournament of nine discriminating experiments in which every theory states a prediction for every experiment; an agent track in which every theory's own agent (registered tuned design, described in the sidebar) competes against all others and rule B in every condition of six experiments (profitability, volatility, competence, perception noise, number of rivals, unannounced demand shifts), scored by profit rank, conditions won and advantage over rule B; and an out-of-sample horse race of firm-level forecasts with an encompassing test of whether the RC adds information beyond all rivals |
+| Agent tournament | Every rival theory implemented as two agent designs competing in the same market (19 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
+| Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
+| Signature tests by theory | One test per rival theory (all eight rivals, including organizational ecology) of the prediction that characterizes it, with a criterion fixed in advance (results below); Heiner's tab links to his special-simulation pages |
+
+**Special simulations** (models built around Heiner's framework: rule B, the market model's flexibility φ, the CD-gap and the reliability-condition bookkeeping)
 
 | Page | What it does |
 |---|---|
@@ -62,16 +80,7 @@ settings are collapsed by default; the section holding the current page opens.
 | Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behavior · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
 | Risk vs Knightian uncertainty | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot) and model-free (Bertrand) firms. Event study of punctuated slow–quick–slow adjustment |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
-| Competing theories | Heiner's RC against neoclassical optimization, real options, cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
-| Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six pre-registered hypotheses, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
-| Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
 | Experiment designer | Your own *what if* question: sweep one or two settings of the base market and plot any outcome, with common random numbers across conditions. The page explains its purpose, the steps, a worked example and what each outcome means; CSV export |
-
-**Special tests** (each theory's signature prediction)
-
-| Page | What it does |
-|---|---|
-| Signature tests by theory | One test per rival theory of the prediction that characterizes it, with a criterion fixed in advance (results below); Heiner's tab links to his five special-test pages |
 | Heiner: does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
 | Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
 | Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
@@ -93,7 +102,7 @@ settings are collapsed by default; the section holding the current page opens.
 
 | Page | What it does |
 |---|---|
-| Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the seventeen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
+| Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the nineteen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, a full description of every preset scenario (setup, why to run it, the hypotheses it serves and a typical result), what a pre-registered plan is and why it is used, and verification |
 
@@ -433,7 +442,7 @@ heiner_abm/tasks.py        generalization tasks: inventory, learning with shifti
 heiner_abm/tracking.py     single-firm tracking benchmark: exact Muth–Kalman solution and lopsided stakes
 heiner_abm/focal.py        the theory under test: every theory's prediction for every hypothesis
 heiner_abm/special.py      signature tests: each rival theory's distinctive prediction in the shared market
-heiner_abm/theory_content.py  the eight theories, described with the same structure
+heiner_abm/theory_content.py  the nine theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
 ui/common.py               sidebar base scenario, presets, caching, chart helpers

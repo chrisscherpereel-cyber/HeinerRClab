@@ -187,6 +187,10 @@ SELECT_SPACE = {
            "memory": Spec(0.97, 0.8, 0.995, help="Exponential memory of the learned gains"),
            "horizon": Spec(10, 1, 20, "int", "Periods over which a deviation is judged")},
     "aspiration": {"alpha": Spec(0.1, 0.01, 0.5, "log", "Speed at which aspirations adapt")},
+    "periodic": {"interval": Spec(20, 2, 100, "int", "Periods between scheduled reorganizations")},
+    "crisis": {"floor": Spec(0.3, -0.5, 0.9, help="Survival threshold: share of the starting profit below which the "
+                                                   "smoothed profit triggers a reorganization"),
+               "alpha": Spec(0.1, 0.01, 0.5, "log", "Speed at which smoothed profit tracks current profit")},
 }
 TARGET_TEXT = {"model": "best reply on the believed demand curve, with filtered cost and rival forecasts",
                "price": "output that is best at an adaptive price expectation (no demand model)"}
@@ -194,7 +198,11 @@ SELECT_TEXT = {"always": "moves a share φ toward it every period",
                "band": "moves only when the gap exceeds a band that widens with the volatility of the target",
                "rc": ("keeps rule B unless its learned reliability condition holds for changes of that size "
                       "(π·G − (1−π)·D ≥ 0, judged ex post over h periods)"),
-               "aspiration": "keeps its output while profit meets an adaptive aspiration; below it, moves"}
+               "aspiration": "keeps its output while profit meets an adaptive aspiration; below it, moves",
+               "periodic": ("keeps its routine output and reorganizes (moves) only at scheduled intervals, the "
+                            "structural inertia of an established organization"),
+               "crisis": ("keeps its routine output and reorganizes (moves) only when smoothed profit falls below a "
+                          "fixed survival threshold, i.e. when failure threatens")}
 
 
 class Composite(Agent):
@@ -266,6 +274,14 @@ class Composite(Agent):
                 self.A = pr.copy()
             dev = pr < self.A
             self.A = self.A + self.p["alpha"] * (pr - self.A)
+        elif self.SELECT == "periodic":
+            dev = np.full(self.n, self.mk.t) % np.maximum(1, self.p["interval"].astype(int)) == 0
+        elif self.SELECT == "crisis":
+            pr = self.profit
+            if self.A is None:
+                self.A, self.base = pr.copy(), np.maximum(np.abs(pr), 1.0)
+            self.A = self.A + self.p["alpha"] * (pr - self.A)
+            dev = self.A < self.p["floor"] * self.base
         else:  # rc
             t = self.mk.t
             sig = np.abs(cand - q)
@@ -493,18 +509,23 @@ DESIGNS: Dict[str, type] = {d.key: d for d in (
               "aspiration", ("simon1955", "cyert1963")),
     composite("satis_p", "Aspiration search · price-based target", "Satisficing / aspiration-level search", "price",
               "aspiration", ("simon1955", "cyert1963")),
-    Reinforcement, ErevRoth, Imitator, Conformist, RuleB)}
+    Reinforcement, ErevRoth, Imitator, Conformist,
+    composite("ecol_periodic", "Structural inertia · scheduled reorganization", "Organizational ecology (structural "
+              "inertia)", "price", "periodic", ("hannan1984", "hannan1977")),
+    composite("ecol_crisis", "Structural inertia · reorganize under threat of failure", "Organizational ecology "
+              "(structural inertia)", "price", "crisis", ("hannan1984", "nelson1982")),
+    RuleB)}
 
 THEORY_DESIGNS: Dict[str, Tuple[str, ...]] = {
     "heiner": ("heiner_m", "heiner_p"), "optimiser": ("opt_br", "opt_nash"), "options": ("options_m", "options_p"),
     "cobweb": ("cobweb_p", "cobweb_q"), "heuristic": ("heur_wsls", "heur_markup"),
     "satisficing": ("satis_m", "satis_p"), "rl": ("rl_softmax", "rl_erevroth"), "imitation": ("imit_best", "imit_avg"),
-    "ruleb": ("ruleb",)}
+    "ecology": ("ecol_periodic", "ecol_crisis"), "ruleb": ("ruleb",)}
 THEORY_NAMES = {"heiner": "Heiner: reliability condition", "optimiser": "Neoclassical optimization",
                 "options": "Real options", "cobweb": "Cobweb / adaptive expectations",
                 "heuristic": "Simple heuristics (bias–variance)", "satisficing": "Satisficing",
                 "rl": "Reinforcement learning", "imitation": "Imitation / evolutionary selection",
-                "ruleb": "Rule B (benchmark)"}
+                "ecology": "Organizational ecology (structural inertia)", "ruleb": "Rule B (benchmark)"}
 KEYS = list(THEORY_DESIGNS)                       # theories, in tournament slot order
 TUNED = [k for k in KEYS if k != "ruleb"]
 # the target x selection-rule experiment: same targets, four selection rules

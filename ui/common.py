@@ -224,28 +224,52 @@ def v(key):
 
 
 SECTION_NOTES = {
-    "Simulate": "Experiments in the shared market that test every theory on equal terms.",
-    "Special tests": "Tests of one theory's signature prediction, for Heiner and for each rival.",
+    "General simulations": "Fair comparisons: every theory takes part as agents in the same market, with the same "
+                           "information, random draws and tuning budget.",
+    "Special simulations": "Models built around Heiner's framework (rule B, the market model's flexibility φ, the "
+                           "CD-gap and the reliability-condition bookkeeping), with rival predictions where they apply.",
     "Validate & generalize": "Checks against field patterns, laboratory data and other decision tasks.",
     "Reference": "How the agents work, the research behind the hypotheses, and the model's equations.",
 }
 
 
+def _arena():
+    """The agent definitions, looked up at call time (see _literature)."""
+    import heiner_abm.arena as arena
+    return arena
+
+
+def render_agents() -> None:
+    """Sidebar: every theory's agents, with the decision rule each one implements."""
+    ar = _arena()
+    sb = st.sidebar
+    sb.markdown("### Agents")
+    sb.caption("Every theory is implemented as agents that compete in the same market with the same information. "
+               "Open a theory to see its agents' decision rules.")
+    for theory, keys in ar.THEORY_DESIGNS.items():
+        with sb.expander(ar.THEORY_NAMES[theory]):
+            for k in keys:
+                d = ar.DESIGNS[k]
+                params = ", ".join(d.SPACE) or "none"
+                st.markdown(f"**{d.name}** · `{k}`  \n{d.rule}  \n*Tuned parameters:* {params}")
+
+
 def render_navigation(sections, current) -> None:
-    """Sidebar navigation: the theories first, then the theory under test, then the other sections as collapsed
-    groups (the group holding the current page opens)."""
+    """Sidebar navigation: the theories first, then their agents, then the theory under test, then the other sections
+    as collapsed groups (the group holding the current page opens)."""
     sb = st.sidebar
     sb.markdown("## ⚖️ Decision under uncertainty lab")
     sb.markdown("### Theories")
-    sb.caption("Eight theories of decision making under uncertainty, each implemented as agents and tested on equal "
+    sb.caption("Nine theories of decision making under uncertainty, each implemented as agents and tested on equal "
                "terms in the same simulated market.")
     for page in sections["Theories"]:
         sb.page_link(page, label=page.title, icon=page.icon)
+    render_agents()
     sb.markdown("### Theory under test")
     sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                  help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "
                       "research tables and in the tournament reviews. The others are shown as competitors. Heiner's "
-                      "reliability condition is one choice among eight.")
+                      "reliability condition is one choice among nine.")
     for name, pages in sections.items():
         if name == "Theories":
             continue
@@ -513,6 +537,12 @@ def cached_tournament(js: str, n_reps: int, horizon: int):
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
+def cached_agent_track(js: str, n_reps: int, periods: int):
+    from heiner_abm.theories import agent_track
+    return agent_track(from_json(js), n_reps, periods=periods)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
 def cached_horse_race(js: str, n_env: int, n_reps: int, ranges_js: str, horizon: int, continuation: str,
                       env_seed: int, discount: float, oos_split: float, measure: str):
     df = cached_rc_validation(js, n_env, n_reps, ranges_js, horizon, continuation, env_seed, discount, oos_split)
@@ -605,7 +635,7 @@ def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: O
             lines.append(f"* **Alternative ({h.alt_label.lower()}):** {trad}" + (f" *Reasoning:* {extra}" if extra
                                                                                   else ""))
         st.markdown("\n".join(lines))
-        with st.popover("All eight theories", width="stretch"):
+        with st.popover("All nine theories", width="stretch"):
             st.dataframe(pd.DataFrame([dict(Theory=("⭐ " if k == focal else "") + F.title(k),
                                             Prediction=F.prediction(hid, k)[0], Basis=F.prediction(hid, k)[1])
                                        for k in F.FOCAL_KEYS]), hide_index=True, width="stretch")

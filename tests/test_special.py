@@ -26,8 +26,13 @@ def test_sidebar_puts_theory_selector_under_theories_and_collapses_groups():
     at = AppTest.from_file(APP, default_timeout=120)
     at.run()
     md = [m.value for m in at.sidebar.markdown]
-    assert md.index("### Theories") < md.index("### Theory under test") < md.index("### Base scenario")
+    assert md.index("### Theories") < md.index("### Agents") < md.index("### Theory under test") < \
+        md.index("### Base scenario")
     assert all(not e.proto.expanded for e in at.sidebar.expander)       # overview page: every group collapsed
+    labels = [e.label for e in at.sidebar.expander]
+    from heiner_abm.arena import THEORY_NAMES
+    assert all(name in labels for name in THEORY_NAMES.values())       # every theory's agents are described
+    assert labels.index("General simulations") < labels.index("Special simulations")
 
 
 def test_hypothesis_titles_are_neutral_questions():

@@ -6,7 +6,7 @@ from heiner_abm.theory_content import THEORIES
 
 st.title("Theories of decision making under uncertainty")
 st.markdown(
-    "When should a decision maker adapt, and when should it stick to a rule? Eight theories give different answers. "
+    "When should a decision maker adapt, and when should it stick to a rule? Nine theories give different answers. "
     "This laboratory implements each of them in the same cobweb oligopoly, where firms commit output before costs and "
     "prices are known, and tests them against one another on equal terms: directional experiments, out-of-sample "
     "forecasts, an agent tournament with equal tuning budgets, a mechanism study, endogenous rule choice, validation "
@@ -14,7 +14,7 @@ st.markdown(
     "theory is privileged: choose the one to test in the sidebar, and each has its own page with the same sections.")
 
 st.info(f"**Theory under test:** ⭐ {next(t.title for t in THEORIES if t.key == st.session_state.get('focal_theory', 'heiner'))}. "
-        "Choose any of the eight in the sidebar; its predictions are then highlighted on every hypothesis card, in "
+        "Choose any of the nine in the sidebar; its predictions are then highlighted on every hypothesis card, in "
         "the research tables and in the tournament reviews.", icon="🎯")
 st.header("1 · The theories at a glance", divider="gray")
 st.dataframe(pd.DataFrame([{
@@ -38,7 +38,7 @@ st.markdown(
     "environments.")
 
 st.header("3 · How they fared", divider="gray")
-st.caption(f"Agent tournament, registered plan `{TOURNAMENT_PLAN}`: mean rank among nine agents (1 = best) in the "
+st.caption(f"Agent tournament, registered plan `{TOURNAMENT_PLAN}`: mean rank among ten agents (1 = best) in the "
            "main run and three replications with fresh seeds. Rule B (never change output) is included as a "
            "benchmark.")
 rows = []

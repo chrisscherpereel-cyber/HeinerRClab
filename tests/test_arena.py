@@ -85,3 +85,14 @@ def test_quick_protocol_runs_end_to_end():
     assert all(res.tuned.design[t] in THEORY_DESIGNS[t] for t in KEYS)
     assert res.ranking["survived"].between(0, 1).all() and res.ranking["pareto"].any()
     assert len(res.factorial) == len(FACTORIAL)
+
+
+def test_ecology_agents_are_inert():
+    """Organizational ecology's agents change output far less often than an always-adjusting rule on the same target,
+    and the scheduled reorganizer moves only at its interval."""
+    envs = [replace(ENV, seed=s) for s in range(4)]
+    lineup = np.array([["ecol_periodic", "ecol_crisis", "cobweb_p", "ruleb"]] * 4, dtype=object)
+    out = simulate(envs, lineup, {"ecol_periodic": {"interval": 10}}, 300, 20)
+    cr = out["change_rate"].mean(0)
+    assert cr[0] <= 0.1 + 1e-9 and cr[1] < cr[2] and cr[3] == 0
+    assert set(THEORY_DESIGNS["ecology"]) == {"ecol_periodic", "ecol_crisis"}

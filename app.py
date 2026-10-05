@@ -1,4 +1,4 @@
-"""Decision making under uncertainty: an agent-based laboratory comparing eight theories.
+"""Decision making under uncertainty: an agent-based laboratory comparing nine theories.
 
 Run with:  streamlit run app.py
 """
@@ -24,19 +24,22 @@ SECTIONS = {
         st.Page("app_pages/theory_satisficing.py", title="Satisficing", icon="🎚️"),
         st.Page("app_pages/theory_rl.py", title="Reinforcement learning", icon="🧠"),
         st.Page("app_pages/theory_imitation.py", title="Imitation & selection", icon="🧬"),
+        st.Page("app_pages/theory_ecology.py", title="Organizational ecology", icon="🏛️"),
     ],
-    "Simulate": [
+    # fair comparisons: every theory enters as agents (or as stated predictions) in the same market, on equal terms
+    "General simulations": [
+        st.Page("app_pages/theories.py", title="Competing theories (all theories as agents)", icon="🏆"),
+        st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),
+        st.Page("app_pages/rule_choice.py", title="Rule choice (emergence)", icon="🔄"),
+        st.Page("app_pages/special_tests.py", title="Signature tests by theory", icon="🔎"),
+    ],
+    # models built around Heiner's framework: rule B, the market model's flexibility φ, the CD-gap and the RC bookkeeping
+    "Special simulations": [
         st.Page("app_pages/market_lab.py", title="Market lab (single run)", icon="🏭"),
         st.Page("app_pages/hypotheses.py", title="Hypothesis tests", icon="🧪"),
         st.Page("app_pages/uncertainty.py", title="Risk vs Knightian uncertainty", icon="🌪️"),
         st.Page("app_pages/evolution.py", title="Endogenous flexibility", icon="🧬"),
-        st.Page("app_pages/theories.py", title="Competing theories", icon="🏆"),
-        st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),
-        st.Page("app_pages/rule_choice.py", title="Rule choice (emergence)", icon="🔄"),
         st.Page("app_pages/designer.py", title="Experiment designer", icon="🛠️"),
-    ],
-    "Special tests": [
-        st.Page("app_pages/special_tests.py", title="Signature tests by theory", icon="🔎"),
         st.Page("app_pages/rc_validation.py", title="Heiner: does the RC predict performance?", icon="🎯"),
         st.Page("app_pages/dynamic_rc.py", title="Heiner: dynamic RC (1989)", icon="⏱️"),
         st.Page("app_pages/cd_gap.py", title="Heiner: CD-gap explorer", icon="🧭"),

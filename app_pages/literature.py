@@ -15,7 +15,7 @@ st.caption("Every hypothesis in this laboratory is grounded in published researc
 # ------------------------------------------------------------------------------------------------ contribution
 st.header("1 · Contribution to the literature", divider="gray")
 st.markdown(
-    "The laboratory tests eight theories of decision making under uncertainty on equal terms; the sidebar chooses "
+    "The laboratory tests nine theories of decision making under uncertainty on equal terms; the sidebar chooses "
     "which one is highlighted. The question that unites them is the one Heiner's reliability condition answers "
     "most directly. Heiner's reliability condition explains rule-governed behavior as a response to uncertainty: when the gap "
     "between the difficulty of a problem and an agent's competence widens, restricting behavior to simple rules "

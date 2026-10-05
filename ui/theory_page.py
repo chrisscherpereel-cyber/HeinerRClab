@@ -23,7 +23,7 @@ def render(key: str):
     lit = _lit()
     st.title(f"{t.icon} {t.title}")
     st.markdown(f"*{t.tagline}*")
-    st.caption("One of eight theories of decision making under uncertainty tested in this laboratory. Every theory "
+    st.caption("One of nine theories of decision making under uncertainty tested in this laboratory. Every theory "
                "page has the same sections; the *Overview* compares them side by side.")
 
     st.header("1 · Origins and core idea", divider="gray")
@@ -68,7 +68,7 @@ def render(key: str):
     r = TOURNAMENT.get(key)
     if r:
         c = st.columns(3)
-        c[0].metric("Profit rank, main run (1 = best of 9)", f"{r['profit'][0]:.2f}",
+        c[0].metric("Profit rank, main run (1 = best of 10)", f"{r['profit'][0]:.2f}",
                     help="Mean rank by profit in held-out mixed markets.")
         c[1].metric("Profit rank, three replications", f"{min(r['profit'][1:]):.2f}–{max(r['profit'][1:]):.2f}",
                     help="Range of the mean profit rank when the whole protocol is repeated with fresh seeds.")

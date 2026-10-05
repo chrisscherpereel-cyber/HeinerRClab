@@ -1,7 +1,7 @@
-"""The theory under test: what each of the eight theories predicts for each hypothesis.
+"""The theory under test: what each of the nine theories predicts for each hypothesis.
 
 The user picks a focal theory; hypothesis cards, overview tables and the review sections then highlight that theory's
-prediction and show the others as competitors. Heiner's reliability condition is one choice among eight.
+prediction and show the others as competitors. Heiner's reliability condition is one choice among nine.
 
 A theory's prediction for a hypothesis is taken, in this order of precedence, from
     1. the registry itself: the reliability-condition prediction (Heiner) or the registered alternative, when the
@@ -29,7 +29,8 @@ _ALT_PATTERNS = (
     (r"cobweb|adaptive expectations|best.reply dynamics", "cobweb"),
     (r"satisficing|behavioral theory", "satisficing"),
     (r"reinforcement|bayesian learning|adaptive learning", "rl"),
-    (r"evolutionary|ecology|imitation", "imitation"),
+    (r"evolutionary|imitation", "imitation"),
+    (r"ecology|inertia", "ecology"),
 )
 _SIGN_WORDS = {"+": "a positive effect", "-": "a negative effect", "0": "no effect", ">=0": "no harm (non-negative)"}
 
@@ -168,13 +169,37 @@ STATEMENTS: Dict[str, Dict[str, str]] = {
     },
     "imitation": {
         "EMPVAL": "Where people see rivals' outcomes, imitating the most successful predicts their choices.",
-        "H10": "Selection favors inert, reliable organizations regardless of uncertainty.",
         "ARENA": "Imitating successful rivals performs as well as the rules being imitated.",
         "PATTERN": "Imitating the most profitable firm pushes output above the Cournot–Nash level.",
         "CALIB": "Subjects imitate the most successful group member when they see others' profits.",
         "EXPER": "Participants copy what worked for others; uncertainty blurs who is successful.",
         "GEN": "Without others to imitate, the theory makes no prediction.",
         "TRACK": "With a single firm there is no one to imitate; the theory makes no prediction.",
+    },
+    "ecology": {
+        "EMPVAL": "People keep routines and change rarely; their choices are best described by sticky, rule-like "
+                  "behavior.",
+        "H2": "Inertia is favored at every level of profitability; low profit raises the risk that change is fatal.",
+        "H5": "Competition sharpens selection, which favors reliable, inert organizations.",
+        "H6": "Inert firms make prices sticky; markets track equilibrium only slowly.",
+        "H9": "Rules that change rarely, on a schedule or under threat of failure, win.",
+        "H12": "Slow updating of models is a feature of inert organizations, not a mistake to be corrected.",
+        "RC": "Who gains from flexibility is not a question of reliability estimates: inert firms survive regardless.",
+        "DRC": "Change has lasting costs (it resets the liability of newness), so a decision's consequences extend "
+               "well beyond the period.",
+        "SDT": "Organizations do not weigh each signal; they act through routines that change rarely.",
+        "KNIGHT": "Inertia is favored whatever the source of uncertainty.",
+        "PUNCT": "Change is rare and discontinuous: long periods of inertia broken by reorganizations.",
+        "CDGAP": "Selection acts on organizational forms, not on the gap between difficulty and competence.",
+        "MECH1": "Restriction pays because change itself is hazardous, not because deviations are unreliable.",
+        "MECH2": "No kind of uncertainty changes the advantage of inertia.",
+        "EMERGE": "Populations drift toward inert rules in every environment.",
+        "PATTERN": "Inert organizations produce sticky, lumpy adjustment.",
+        "CALIB": "Subjects keep their previous choice most of the time and change in rare, larger steps.",
+        "EXPER": "Participants who change rarely do as well or better, whatever the uncertainty.",
+        "GEN": "Infrequent change pays in any task where change is risky; the benefit does not depend on the level "
+               "of difficulty.",
+        "TRACK": "Without selection among organizations the theory makes no prediction about stakes.",
     },
 }
 

@@ -8,7 +8,8 @@ random streams. They differ only in how they turn that information into output.
 Many designs are compositions of a *target* (where a flexible firm would move) and a *selection rule* (when it moves):
     targets:          model-based (best reply on the believed demand curve, with filtered forecasts)
                       price-based (adaptive expectation of the price; no demand model needed)
-    selection rules:  always · inaction band (real options) · reliability condition (Heiner) · aspiration (satisficing)
+    selection rules:  always · inaction-band heuristic (inspired by real options) · reliability condition (Heiner) ·
+                      aspiration (satisficing)
 so Heiner's claim, that a reliability-based selection rule improves on a flexible rule, can be tested on the same
 target. Other designs (Cournot-Nash play, a markup rule, win-stay/lose-shift, two learners, two imitators) stand alone.
 
@@ -480,10 +481,10 @@ DESIGNS: Dict[str, type] = {d.key: d for d in (
     composite("opt_br", "Filtered best reply", "Neoclassical optimization", "model", "always",
               ("muth1960", "kalman1960")),
     NashRE,
-    composite("options_m", "Inaction band · model-based target", "Real options / value of flexibility", "model",
-              "band", ("dixit1989", "dixit1994")),
-    composite("options_p", "Inaction band · price-based target", "Real options / value of flexibility", "price", "band",
-              ("dixit1989", "dixit1994")),
+    composite("options_m", "Inaction-band heuristic · model-based target", "Real options / value of flexibility",
+              "model", "band", ("dixit1989", "dixit1994")),
+    composite("options_p", "Inaction-band heuristic · price-based target", "Real options / value of flexibility",
+              "price", "band", ("dixit1989", "dixit1994")),
     composite("cobweb_p", "Adaptive price expectations", "Cobweb stability theory", "price", "always",
               ("nerlove1958", "ezekiel1938")),
     composite("cobweb_q", "Adaptive quantity adjustment", "Cobweb stability theory", "model", "always",

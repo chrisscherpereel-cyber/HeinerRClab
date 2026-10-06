@@ -192,7 +192,7 @@ def run_evolution(base: Scenario, reps: int, **_) -> Outcome:
 
 EXPERIMENTS: List[Experiment] = [
     Experiment("free_harm", "E1 · Free flexibility in a stable, low-profit market",
-               "Flexibility costs a = b = 0; low profitability (Bertrand m* = 0.5, or Cournot max cost 95).",
+               "Flexibility costs a = b = 0; low profitability (margin-feedback rule with m* = 0.5, or Cournot max cost 95).",
                "Mean within-market slope of profit on φ",
                dict(heiner="-", neo=">=0", options=">=0", cobweb=">=0", biasvar="-", satisficing=None, ecology="-"),
                run_free_harm,
@@ -227,7 +227,7 @@ EXPERIMENTS: List[Experiment] = [
                     options="More uncertainty raises option value.",
                     cobweb="Additive noise does not change stability.",
                     biasvar="Estimation variance punishes flexible rules."), hid="H8"),
-    Experiment("stakes", "E5 · Fixed costs raise the stakes (Bertrand, margin includes F/q)",
+    Experiment("stakes", "E5 · Fixed costs raise the stakes (margin-feedback rule, margin includes F/q)",
                "b = 0, 500, 1000, 1500; marginal costs unchanged.", "Coefficient of the slope on b",
                dict(heiner="-", neo="0", options=None, cobweb=None, biasvar="0", satisficing=None, ecology=None),
                run_stakes,

@@ -71,7 +71,7 @@ reliable speed is $\beta_0 = 1/[(1+K)(1-f')]$, where $f'$ is the slope of the ta
 | **Difficulty** | Raw-material cost volatility Δ (firms commit output before the new cost is known), unannounced demand-regime shifts, and the number of rivals. |
 | **Competence** | Cost foresight κ and perception noise σ; the measured CD-gap is the RMSE of each firm's cost perception. |
 | **Rule B** | Keep producing last period's quantity. |
-| **Flexible alternative** | The Cournot best reply (partial adjustment φ) or the Bertrand margin-feedback rule. |
+| **Flexible alternative** | The Cournot best reply (partial adjustment φ) or the margin-feedback quantity rule. |
 | **Preferred exception** | A period in which adopting the recommendation earns more than following B, judged by forking the market over a horizon H. |
 | **π, r, w, G, D** | Counted for every firm and every decision. |
 | **Error-to-signal ratio K** | RMS error of the perceived target against the ex-post best reply, relative to the needed adjustment. |
@@ -142,8 +142,13 @@ with $b^*$ increasing in both $\sigma$ and $k$ (hysteresis).""",
               "caballero1999"),
         hypotheses=("H3", "H7", "H8", "H9", "H12", "KNIGHT", "MECH2"),
         tournament_key="options", page="app_pages/theory_options.py",
-        lab_notes="The inaction band's width scales with the measured volatility of the agent's own target, the "
-                  "real-options logic of acting only when the gap is large relative to uncertainty."),
+        lab_notes="The laboratory implements an **inaction-band heuristic inspired by real options**: the band's "
+                  "width scales with the measured volatility of the agent's own target, echoing the real-options "
+                  "logic of acting only when the gap is large relative to uncertainty. It is not a dynamic "
+                  "real-options model: there is no adjustment cost, no irreversibility and no option value computed "
+                  "from a known process; the band width is a tuned parameter. The signature test compares an "
+                  "always-adjusting firm with its rigid twin, without adjustment costs, so it tests whether "
+                  "flexibility gains value with volatility in this market, not real-options theory as a whole."),
     TheoryContent(
         "cobweb", "Cobweb theory and adaptive expectations", "🕸️",
         "Fast adjustment to the latest signal destabilizes markets; slow, adaptive adjustment stabilizes them.",

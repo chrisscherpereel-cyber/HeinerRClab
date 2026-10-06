@@ -4,8 +4,10 @@ import streamlit as st
 
 from heiner_abm.experiments import PARAMS, slope_summary
 from ui.common import CAT, base_scenario, behaviour_horizon, download, measurement, reps, run_sweep_ui, show_errors, slope_chart, style
+from ui.common import evidence_note
 
 st.title("Experiment designer")
+evidence_note("simulation")
 st.markdown(
     "**Purpose.** The other pages run fixed experiments that test registered hypotheses. This page lets you ask your "
     "own *what if* question: how does an outcome change when one or two settings of the market change? Use it to "

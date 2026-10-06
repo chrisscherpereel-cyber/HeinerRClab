@@ -6,8 +6,10 @@ import streamlit as st
 from heiner_abm.arena import ALL_DESIGNS
 from heiner_abm.experiment import PLAN, by_condition, classify, evaluate_experiment, synthetic_participants
 from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
+from ui.common import evidence_note
 
 st.title("Experiment analysis")
+evidence_note("causal")
 st.caption("Pools the files downloaded from Play the market, classifies each participant by the agent design that "
            "best predicts their choices, and tests the pre-registered hypotheses.")
 

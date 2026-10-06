@@ -554,7 +554,7 @@ HYPOTHESES: List[Hypothesis] = [
     Hypothesis(
         "H12", "Does slower learning of a structural change affect how flexibility pays for model-based firms?",
         "Hypothesis tests · H12",
-        "A persistent misspecification (Knightian uncertainty) widens the CD-gap, so the payoff to flexibility "
+        "A persistent misspecification (unannounced structural change) widens the CD-gap, so the payoff to flexibility "
         "falls with the model-updating lag.",
         "Unforeseen contingencies raise the value of flexibility.",
         "Preference for flexibility",
@@ -623,8 +623,8 @@ HYPOTHESES: List[Hypothesis] = [
         contribution="Derives each firm's ROC curve from its own decisions and shows the tolerance limit acting as "
                      "the optimal detection criterion."),
     Hypothesis(
-        "KNIGHT", "Does structural (Knightian) uncertainty affect model-based flexibility differently from risk?",
-        "Risk vs Knightian uncertainty · ①",
+        "KNIGHT", "Does unannounced structural change affect model-based flexibility differently from risk?",
+        "Risk vs structural change · ①",
         "At matched unpredictability, misspecified models make flexibility harmful for model-based firms but not "
         "for model-free firms.",
         "Uncertainty of either kind raises the option value of flexibility; or no theory can be formulated for "
@@ -640,7 +640,7 @@ HYPOTHESES: List[Hypothesis] = [
                      "for model-based and model-free decision rules."),
     Hypothesis(
         "PUNCT", "Is adjustment around structural shifts gradual or punctuated?",
-        "Risk vs Knightian uncertainty · ②",
+        "Risk vs structural change · ②",
         "Imperfect agents keep adjusting slowly until they can locate the new equilibrium reliably, then jump.",
         "Adjustment is smooth and proportional to the shift (adaptive expectations).",
         "Adaptive expectations",
@@ -929,9 +929,10 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
      "capture the gains more robustly. This connects the reliability condition to the regress problem of deciding "
      "how to decide.",
      ["heiner1983", "conlisk1996", "hansen2008"]),
-    ("Risk versus Knightian uncertainty",
-     "Structural uncertainty (misspecified demand models) is compared with risk at matched unpredictability, "
-     "testing whether the RC applies whatever the source of the CD-gap.",
+    ("Risk versus unannounced structural change",
+     "Structural change that agents are not told about (misspecified demand models) is compared with risk at "
+     "matched unpredictability, testing whether the RC applies whatever the source of the CD-gap. The shifts are "
+     "specified by the simulator, so this is not Knightian uncertainty in the unrestricted sense.",
      ["knight1921", "hansen2008", "lucas1977"]),
     ("Which predictions are unique to Heiner",
      "Several predictions are shared with optimal filtering, signal detection or bias–variance reasoning (for "

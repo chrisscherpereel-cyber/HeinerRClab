@@ -10,9 +10,11 @@ from heiner_abm.experiments import MEASURE_LABELS, EnvRanges
 from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from heiner_abm.focal import tournament_key
+from heiner_abm.terminology import rule_option
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
                        fmt_p, measure_opts, measurement, replication_notice, reps, research_panel, show_errors, style,
                        to_json, verdict)
+from ui.common import evidence_note
 
 FOCAL = focal_theory()
 FKEY = tournament_key(FOCAL)                      # the focal theory's key in the directional tournament, if any
@@ -21,6 +23,7 @@ FORECASTS = {"heiner": ("rc", "K"), "optimiser": ("neoclassical",), "options": (
              "heuristic": ("accuracy",), "rl": ("past",)}.get(FOCAL, ())
 
 st.title("Competing theories: a tournament of predictions")
+evidence_note("simulation")
 st.caption("Seven theories make directional predictions about when behavioral flexibility pays under uncertainty. "
            "This page states what each predicts in this market, runs the experiments that tell them apart, and "
            "scores every theory against the results. A second test asks which theory best *forecasts*, out of "
@@ -147,7 +150,7 @@ st.markdown(
     "* **Heiner (1989):** a low error-to-signal ratio K.\n"
     "* **Bias–variance / ecological rationality:** accuracy alone, ln(r/w), without the stakes.\n"
     "* **Stakes only:** a low tolerance limit, without accuracy.\n"
-    "* **Real options:** high volatility Δ.\n"
+    "* **Real options (as operationalized here):** high volatility Δ.\n"
     "* **Cobweb stability:** a stable market (small spectral radius of the linearized dynamics).\n"
     "* **Reinforcement learning (atheoretical benchmark):** flexibility paid off in the first window.\n"
     "* **Neoclassical:** flexibility always pays, the same forecast for everyone (AUC = 0.5 by construction).")
@@ -161,6 +164,7 @@ with st.form("race"):
     n_reps = c[1].number_input("Replications per environment", 1, 10, 2,
                                help="Independent runs (different cost shocks) of each environment.")
     rules = c[2].multiselect("Production rules", ["Bertrand", "Cournot"], default=["Bertrand", "Cournot"],
+                             format_func=rule_option,
                              help="Production rules the environments may use; each firm draws one at random.")
     meas = c[3].radio("Reliability measure", ["full", "static"], format_func=MEASURE_LABELS.get,
                       help="Full dynamic RC (H periods, rivals react) or the one-shot, one-period RC.")
@@ -261,11 +265,12 @@ st.markdown(
 flexibility helps *and* when it hurts, through the CD-gap and the stakes. Neoclassical optimization and real
 options cannot explain free flexibility being harmful, and cobweb stability theory cannot explain effects of
 volatility or noise that leave the market stable. Bias–variance reasoning comes closest, and differs mainly in
-ignoring the stakes. In the reference runs (Bertrand and Cournot markets, two seeds each, 20 replications, H = 20;
+ignoring the stakes. In the reference runs (margin-feedback and Cournot best-reply markets, two seeds each, 20
+replications, H = 20;
 see the README), "superior" holds in one sense and not the other:
 
 * **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
-  contradicted). Its miss was perception noise in Bertrand markets, which *raised* the payoff to flexibility.
+  contradicted). Its miss was perception noise in margin-feedback markets, which *raised* the payoff to flexibility.
 * **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.60) but was far behind a
   firm's own track record (AUC ≈ 0.85), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
@@ -273,7 +278,9 @@ see the README), "superior" holds in one sense and not the other:
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual
 bookkeeping follow his framework. The rival predictions are stylized, and several rivals (satisficing,
 organizational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
-Results depend on the base scenario (Bertrand versus Cournot in particular), so rerun the tournament under both.
+Results depend on the base scenario (margin feedback versus Cournot best reply in particular), so rerun the
+tournament under both. A ❌ means the tested implementation showed the opposite sign in this market; it does not
+refute the theory.
 A simulated market can show that a theory is internally coherent and discriminating. It cannot show that real
 firms behave this way.
 """)

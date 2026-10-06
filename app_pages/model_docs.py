@@ -2,6 +2,10 @@ import pandas as pd
 import streamlit as st
 
 from heiner_abm.literature import bibliography
+from heiner_abm.model_spec import table as spec_table
+from heiner_abm.terminology import (COURNOT_NOTE, EVIDENCE_BY_RESULT, EVIDENCE_LABELS, EVIDENCE_TYPES, FROZEN_PLAN_NOTE,
+                                    IDENTITY_NOTE, INACTION_BAND_NOTE, KNIGHT_NOTE, MARGIN_FEEDBACK_NOTE, OOS_OVERLAP_NOTE,
+                                    SCOPE_NOTE, UNCERTAINTY_TYPES)
 from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT, replication_notice
 
 MODEL_REFS = ["heiner1983", "heiner1986", "heiner1988", "heiner1988b", "heiner1989", "ezekiel1938", "nerlove1958",
@@ -55,7 +59,8 @@ $\varphi_i\in[0,1]$: 0 = inflexible, 1 = full best reply.
 """)
 with c2:
     st.markdown(r"""
-**Bertrand rule** (margin feedback)
+**Margin-feedback quantity rule** (configuration value 'Bertrand'; firms choose quantities, so this is not
+price-setting Bertrand competition)
 
 $$q^*_{i,t} = q_{i,t-1} + \varphi_i\big[(P_{t-1} - \hat c_{i,t} - \mathbb 1_{incl}F_i/q_{i,t-1}) - m^*_i\big]$$
 
@@ -101,6 +106,7 @@ The **measured CD-gap** is $\sqrt{E[(\hat c_{i,t} - c_t)^2]}$, the RMSE of the f
 $\sum$ wrong-deviation losses. The RC is exactly the condition that this sum is positive, and the test suite
 verifies the identity.
 """)
+st.info(IDENTITY_NOTE + " " + OOS_OVERLAP_NOTE, icon="ℹ️")
 
 st.header("Dynamic, out-of-sample and structural extensions", divider="gray")
 st.markdown(
@@ -129,9 +135,9 @@ reply to rivals' actual output, the realized cost and the true demand. $\xi_t = 
 $\Delta^*_t = x^*_t - q_{t-1}$. The reported $K = \mathrm{RMS}(\xi)/\mathrm{RMS}(\Delta^*)$ is a robust version of
 the theorem's bound on $|\xi/\Delta^*|$. The bound is $\beta_0 = 1/((1+K)(1-f'))$ with $f' = -(n-1)/2$.
 
-**Structural (Knightian) uncertainty.** With hazard λ per period a new demand regime is drawn around the baseline:
+**Unannounced structural change.** With hazard λ per period a new demand regime is drawn around the baseline:
 $P_{max}' = P_{max} + s_1 z_1$ and $s' = s\,e^{s_2 z_2}$ (clipped). Markets clear on the true curve. Cournot firms
-compute best replies with the regime of $L$ periods earlier ($L = -1$: never updated). Bertrand firms use only
+compute best replies with the regime of $L$ periods earlier ($L = -1$: never updated). Margin-feedback firms use only
 observed prices. Regime draws come from a separate random stream, so switching them off reproduces the baseline
 exactly.
 
@@ -164,7 +170,7 @@ st.dataframe(pd.DataFrame([
     ("Timing", "Firms decide on last period's price, quantity and cost; the new cost is drawn after clearing", "–"),
     ("Firms", "Flexibility φᵢ = slope·i + intercept, ordered from most rigid to most flexible", "4 firms, slope 0.25"),
     ("Production", "Rounded to whole units, at least the minimum production", "q₀ 200, q_min 15"),
-    ("Bertrand", "Desired margin m*", "m* 5"),
+    ("Margin-feedback rule", "Desired margin m*", "m* 5"),
     ("Selection rules", "Threshold θ for Small and Large", "θ 25"),
     ("Flexibility cost", "Fᵢ = a·φᵢ + b", "a = b = 0"),
     ("Measurement", "Burn-in, horizon H, discount γ, estimation window", "25 periods, H 20, γ 1, 50%"),
@@ -184,6 +190,30 @@ for name, over in PRESETS.items():
                  "Typical result": info.get("typical", "")})
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 replication_notice("presets", "preset_adaptive")
+
+st.header("Terms", divider="gray")
+st.markdown(MARGIN_FEEDBACK_NOTE + "\n\n" + COURNOT_NOTE + "\n\n" + INACTION_BAND_NOTE)
+
+st.header("Kinds of uncertainty", divider="gray")
+st.markdown("The laboratory separates five kinds of uncertainty. Each row says where it appears and what the agents "
+            "know about it.")
+st.dataframe(pd.DataFrame([dict(Kind=name, Definition=d, **{"In this laboratory": where, "What agents know": know})
+                           for _, name, d, where, know in UNCERTAINTY_TYPES]), hide_index=True, width="stretch")
+st.markdown(KNIGHT_NOTE)
+
+st.header("Kinds of evidence", divider="gray")
+st.dataframe(pd.DataFrame([{"Evidence type": label, "What it establishes": does, "What it does not": doesnt}
+                           for _, label, does, doesnt in EVIDENCE_TYPES]), hide_index=True, width="stretch")
+st.markdown("**Which results are which kind of evidence**")
+st.dataframe(pd.DataFrame([{"Result": r, "Evidence type": EVIDENCE_LABELS[k], "Note": note}
+                           for r, k, note in EVIDENCE_BY_RESULT]), hide_index=True, width="stretch")
+st.markdown("**Scope of conclusions.** " + SCOPE_NOTE)
+
+st.header("Model specification", divider="gray")
+st.markdown("Every agent the laboratory runs: what it is built to pursue, what it observes when it decides, what it "
+            "can do, what feedback it learns from and when, and the assumptions and limits of the implementation. "
+            "None of these agents solves an intertemporal optimization problem; *objective* is what the rule aims at.")
+st.dataframe(spec_table(), hide_index=True, width="stretch", height=520)
 
 st.header("Established theory, reduced form and proposed extensions", divider="gray")
 st.markdown("Each part of the laboratory is in one of three classes. **Established theory**: a published result, used or "
@@ -209,15 +239,15 @@ st.dataframe(pd.DataFrame([{
     "Note": _reg.replication_note(k) or ""} for k, (title, files) in _reg.FINDING_SOURCES.items()]),
     hide_index=True, width="stretch")
 
-st.header("Pre-registered plans", divider="gray")
-st.markdown(PREREG_TEXT)
+st.header("Frozen hashed specifications (\"pre-registered plans\")", divider="gray")
+st.markdown(PREREG_TEXT + "\n\n" + FROZEN_PLAN_NOTE)
 
 st.header("Verification", divider="gray")
 st.markdown(
     """
 The model exists twice: a readable object-oriented agent implementation (`heiner_abm/agents.py`: `Firm`, `Market`,
 `Industry`) and a vectorized batch engine (`heiner_abm/engine.py`) for Monte Carlo work. The test suite
-(`pytest tests`) checks that they produce **identical** trajectories and counterfactuals for Bertrand, Cournot and
+(`pytest tests`) checks that they produce **identical** trajectories and counterfactuals for margin-feedback, Cournot and
 mixed markets, with and without forks, evolution, discounting and demand-regime shifts. The persistence
 measure is checked against a brute-force loop, and the estimation and evaluation windows are checked to partition
 the recorded periods. It also checks a reflecting-boundary example

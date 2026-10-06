@@ -19,6 +19,7 @@ from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, Global
                                SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
 from heiner_abm.literature import Hypothesis
 from heiner_abm.theories import run_tournament
+from heiner_abm.terminology import rule_option
 
 # ------------------------------------------------------------------------------------------------
 # Colors (reference palette): firms are ordered by flexibility -> one-hue sequential ramp
@@ -68,10 +69,10 @@ DEFAULTS: Dict[str, object] = dict(
 )
 
 PRESETS: Dict[str, Dict[str, object]] = {
-    "Baseline (Bertrand, 4 firms)": {},
-    "Cournot competition": dict(rule="Cournot"),
-    "Low-profit Bertrand (fierce competition, m* = 0.5)": dict(desired_margin=0.5),
-    "High-profit Bertrand (gentlemanly, m* = 14)": dict(desired_margin=14.0),
+    "Baseline (margin-feedback rule, 4 firms)": {},
+    "Cournot best-reply rule": dict(rule="Cournot"),
+    "Low-profit margin-feedback market (fierce competition, m* = 0.5)": dict(desired_margin=0.5),
+    "High-profit margin-feedback market (gentlemanly, m* = 14)": dict(desired_margin=14.0),
     "Volatile raw materials (Δ = 25)": dict(delta=25.0),
     "Selection rules: SR2 'Large' (θ = 25)": dict(selection="Large", threshold=25.0),
     "Selection rules: SR1 'Small' (θ = 10)": dict(selection="Small", threshold=10.0),
@@ -80,18 +81,18 @@ PRESETS: Dict[str, Dict[str, object]] = {
     "Costly flexibility (a = 500, b = 100, in margin)": dict(flex_cost_slope=500.0, fixed_cost=100.0,
                                                              margin_includes_fixed=True),
     "Ten firms (larger market)": dict(n_firms=10, flex_slope=0.1, q0=80.0),
-    "Knightian uncertainty: demand regime shifts (Cournot, φ ≤ 0.4)": dict(rule="Cournot", flex_slope=0.1,
+    "Unannounced demand shifts (Cournot best reply, φ ≤ 0.4)": dict(rule="Cournot", flex_slope=0.1,
                                                                               struct_on=True, delta=5.0),
-    "Knightian uncertainty: demand regime shifts (Bertrand)": dict(struct_on=True, delta=5.0),
+    "Unannounced demand shifts (margin-feedback rule)": dict(struct_on=True, delta=5.0),
 }
 
 # What each preset changes, why one would run it, and what a typical run shows (6 replications of 1,000 periods,
 # checked against the simulation; "slope" is the change in average profit from the most rigid to the most flexible
 # firm, per firm step).
 PRESET_INFO: Dict[str, Dict[str, str]] = {
-    "Baseline (Bertrand, 4 firms)": dict(
+    "Baseline (margin-feedback rule, 4 firms)": dict(
         setup="Four firms with flexibility φ = 0.25, 0.50, 0.75 and 1.00. Each adjusts output to the observed margin "
-              "(price − cost estimate) relative to a desired margin m* = 5, without a model of demand (Bertrand rule). "
+              "(price − cost estimate) relative to a desired margin m* = 5, without a model of demand (the margin-feedback quantity rule). "
               "Raw-material cost moves by up to Δ = 10 per period; no perception noise, no demand shifts, flexibility "
               "is free.",
         why="The reference point. Every other preset changes one or two settings relative to it, so differences can "
@@ -99,20 +100,20 @@ PRESET_INFO: Dict[str, Dict[str, str]] = {
         hypotheses="H1, H2, H3 (as the comparison case)",
         typical="Average price ≈ 48.6 against cost ≈ 43.7; prices are smoother than costs; more flexible firms earn "
                 "somewhat more (slope ≈ +23)."),
-    "Cournot competition": dict(
+    "Cournot best-reply rule": dict(
         setup="As the baseline, but each firm moves a share φ of the way toward its best reply on the believed demand "
-              "curve (a model-based Cournot rule).",
-        why="Checks whether conclusions depend on how firms decide: model-based (Cournot) versus model-free "
-            "(Bertrand). Model-based decisions interact through rivals' reactions and can overshoot.",
+              "curve (the Cournot best-reply quantity rule, model-based).",
+        why="Checks whether conclusions depend on how firms decide: model-based (Cournot best reply) versus "
+            "model-free (margin feedback). Model-based decisions interact through rivals' reactions and can overshoot.",
         hypotheses="H6, H11, the Competing theories tournament (run under both rules)",
         typical="Prices overshoot (oscillating regime), margins ≈ 11; more flexible firms earn less (slope ≈ −22)."),
-    "Low-profit Bertrand (fierce competition, m* = 0.5)": dict(
+    "Low-profit margin-feedback market (fierce competition, m* = 0.5)": dict(
         setup="Baseline with a desired margin of only 0.5, so firms compete fiercely and margins are close to zero.",
         why="When margins are thin, a wrong move is costly relative to what a right move gains. The reliability "
             "condition predicts that flexibility then hurts even though it is free; optimization predicts it cannot.",
         hypotheses="H1 (free flexibility), H2 (profitability switch)",
         typical="Margin ≈ 0.4 and profit ≈ 70 per period; more flexible firms earn less (slope ≈ −6)."),
-    "High-profit Bertrand (gentlemanly, m* = 14)": dict(
+    "High-profit margin-feedback market (gentlemanly, m* = 14)": dict(
         setup="Baseline with a desired margin of 14: firms compete softly and margins are wide.",
         why="The mirror image of the low-profit case: mistakes are cheap relative to the gains from adjusting, so "
             "flexibility should pay. Together they locate the profitability at which the effect of flexibility "
@@ -167,21 +168,22 @@ PRESET_INFO: Dict[str, Dict[str, str]] = {
             "(1989) and cobweb theory both predict the reliable adjustment speed falls with the number of firms.",
         hypotheses="H11 (number of rivals), E6 in Competing theories",
         typical="Lower profit per firm (≈ 410) with a mildly positive effect of flexibility (slope ≈ +15) under "
-                "Bertrand; rerun under Cournot to see the strategic effect."),
-    "Knightian uncertainty: demand regime shifts (Cournot, φ ≤ 0.4)": dict(
+                "the margin-feedback rule; rerun under Cournot to see the strategic effect."),
+    "Unannounced demand shifts (Cournot best reply, φ ≤ 0.4)": dict(
         setup="Cournot firms (φ = 0.1–0.4, low enough to keep the market stable) face unannounced shifts of the "
               "demand curve (hazard 0.02 per period, intercept s.d. 15, log-slope s.d. 0.4); their demand model is "
               "updated only 20 periods after a shift. Cost volatility is lowered to Δ = 5 so that the shifts dominate.",
-        why="Model misspecification (Knightian uncertainty) rather than risk: firms that rely on a demand model act on "
+        why="Structural change and model misspecification rather than risk: firms that rely on a demand model act on "
             "an outdated model after each shift. Compare with the volatile-costs preset at matched unpredictability.",
-        hypotheses="KNIGHT (risk vs Knightian uncertainty), H12 (model-updating lag), PUNCT (punctuated adjustment)",
+        hypotheses="KNIGHT (risk vs unannounced structural change), H12 (model-updating lag), PUNCT (punctuated adjustment)",
         typical="About 19 shifts per run; prices follow costs between shifts; flexibility hurts (slope ≈ −9)."),
-    "Knightian uncertainty: demand regime shifts (Bertrand)": dict(
-        setup="The same demand shifts with Bertrand (model-free) firms, which react to the observed margin and never "
+    "Unannounced demand shifts (margin-feedback rule)": dict(
+        setup="The same demand shifts with margin-feedback (model-free) firms, which react to the observed margin and "
+              "never "
               "use a demand model.",
         why="The control for the Cournot regime-shift preset: model-free firms are not misled by an outdated model, "
             "so the theories that point to misspecification predict that flexibility still pays here.",
-        hypotheses="KNIGHT (risk vs Knightian uncertainty)",
+        hypotheses="KNIGHT (risk vs unannounced structural change)",
         typical="About 19 shifts per run; flexibility pays (slope ≈ +244)."),
 }
 
@@ -309,10 +311,12 @@ def render_sidebar(sections=None, current=None):
         st.slider("Number of firms", 2, 12, key=K + "n_firms",
                   help="Firms in the market. Firm i gets flexibility φᵢ = intercept + slope·i, so firms are "
                        "ordered from most rigid (firm 1) to most flexible.")
-        st.radio("Production rule", ["Bertrand", "Cournot"], key=K + "rule", horizontal=True,
-                 help="How a firm computes its recommended output q*. **Cournot** (model-based): move a fraction φ "
-                      "of the way toward the best reply on the believed demand curve (φ ≤ 1). **Bertrand** "
-                      "(model-free): q* = q + φ·(observed margin − m*), using only the last price.")
+        st.radio("Production rule", ["Bertrand", "Cournot"], key=K + "rule", horizontal=True, format_func=rule_option,
+                 help="How a firm computes its recommended output q*. **Cournot best reply** (model-based): move a "
+                      "fraction φ of the way toward the best reply on the believed demand curve (φ ≤ 1). "
+                      "**Margin-feedback quantity rule** (model-free): q* = q + φ·(observed margin − m*), using only "
+                      "the last price. Despite its configuration name 'Bertrand', it is not price-setting Bertrand "
+                      "competition: firms choose quantities and the market clears one price.")
         c1, c2 = st.columns(2)
         c1.number_input("Flex intercept", 0.0, 5.0, key=K + "flex_intercept", step=0.05,
                          help="Constant part of each firm's flexibility: φᵢ = intercept + slope·i.")
@@ -350,7 +354,7 @@ def render_sidebar(sections=None, current=None):
         st.number_input("Fixed cost per period b", 0.0, 10000.0, key=K + "fixed_cost", step=50.0,
                         help="Intercept of the per-period cost Fᵢ = a·φᵢ + b, paid by every firm regardless of "
                              "output. Only affects decisions if the margin includes F/q.")
-        st.checkbox("Bertrand margin includes F/q", key=K + "margin_includes_fixed",
+        st.checkbox("Margin-feedback rule: margin includes F/q", key=K + "margin_includes_fixed",
                     help="Off = baseline (margin = P − c). On = margin = P − c − F/q, so fixed costs "
                          "change decisions, not just profit levels.")
 
@@ -406,8 +410,10 @@ def render_sidebar(sections=None, current=None):
 
     with sb.expander("Structural uncertainty (regime shifts)", expanded=False):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
-                  help="Knightian uncertainty: the demand curve occasionally jumps to a new regime that "
-                       "model-based (Cournot) firms don't know about until they update their model.")
+                  help="Unannounced structural change: the demand curve occasionally jumps to a new regime that "
+                       "model-based (Cournot) firms don't know about until they update their model. The simulator "
+                       "specifies the shift process; the firms are not told it (see *Model & methods*, kinds of "
+                       "uncertainty).")
         if v("struct_on"):
             st.slider("Hazard λ (shift probability per period)", 0.0, 0.2, key=K + "hazard", step=0.005,
                       help="Probability that the demand curve jumps to a new regime in any period. "
@@ -706,9 +712,22 @@ PREREG_TEXT = (
 
 
 def prereg_explainer():
-    """An expander explaining pre-registered plans, for every page that runs a frozen plan."""
-    with st.expander("ℹ️ What is a pre-registered plan, and why use one?"):
-        st.markdown(PREREG_TEXT)
+    """An expander explaining frozen plans, for every page that runs one."""
+    from heiner_abm.terminology import FROZEN_PLAN_NOTE
+    with st.expander("ℹ️ What is a frozen ('pre-registered') plan, and what is it not?"):
+        st.markdown(PREREG_TEXT + "\n\n**Frozen hashed specification versus external preregistration.** "
+                    + FROZEN_PLAN_NOTE)
+
+
+def evidence_note(*keys: str, scope: bool = True):
+    """Caption stating what kind of evidence a page's results are (heiner_abm.terminology.EVIDENCE_TYPES) and, for
+    comparisons, that conclusions are limited to the tested implementations and environment."""
+    from heiner_abm.terminology import EVIDENCE_TYPES, SCOPE_NOTE
+    info = {k: (label, does, doesnt) for k, label, does, doesnt in EVIDENCE_TYPES}
+    text = " ".join(f"**Evidence type: {info[k][0]}.** {info[k][1]} *Limits:* {info[k][2]}" for k in keys)
+    if scope and any(k in ("simulation", "behavioral") for k in keys):
+        text += " " + SCOPE_NOTE
+    st.caption(text)
 
 
 def replication_notice(*keys: str, where=None):

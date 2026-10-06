@@ -9,8 +9,10 @@ from heiner_abm.registered import MECHANISMS
 from heiner_abm.tasks import (AXIS_LABELS, LAYER_LABELS, LAYERS, QUICK_TASKS, RANGES, TASKS, TaskPlan, boundary,
                               run_tasks, tercile_table, wide)
 from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
+from ui.common import evidence_note
 
 st.title("Generalization: beyond the market")
+evidence_note("simulation")
 st.caption("If restriction pays only where the flexible rule is unreliable in other decision tasks too, the finding "
            "is about decision making, not about cobweb markets. Three tasks with the same structure but a different "
            "payoff structure are tested with the same selection layers and the same boundary test.")

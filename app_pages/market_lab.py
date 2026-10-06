@@ -10,8 +10,10 @@ from plotly.subplots import make_subplots
 from heiner_abm.params import FirmSpec, RULE_TYPES, SELECTION_RULES
 from ui.common import (CAT, COST_C, PRICE_C, base_scenario, cached_single, download, firm_colors, measure_opts, measurement,
                        show_errors, style, to_json)
+from ui.common import evidence_note
 
 st.title("Market lab: one market, every decision")
+evidence_note("simulation")
 st.caption("A single cobweb market populated by firm agents. Edit the firms below (they start from the sidebar "
            "setup), run, and inspect each firm's reliability: when it deviated from rule B, whether that was a "
            "preferred exception, and what its type I and type II errors cost.")
@@ -34,12 +36,12 @@ with st.expander("Firms in this market (editable)", expanded=True):
             "label": st.column_config.TextColumn("Label", help="Name shown for this firm in charts and tables."),
             "rule": st.column_config.SelectboxColumn(
                 "Rule", options=list(RULE_TYPES), required=True,
-                help="Production rule that recommends q*: Cournot (model-based best reply) or Bertrand "
-                     "(model-free margin feedback)."),
+                help="Production rule that recommends q*: Cournot (model-based best reply) or 'Bertrand', the "
+                     "margin-feedback quantity rule (model-free; not price-setting Bertrand competition)."),
             "flex": st.column_config.NumberColumn("Flexibility φ", min_value=0.0, max_value=10.0, step=0.05,
                                                   format="%.2f",
                                                   help="How strongly the firm reacts: Cournot = share of the way to "
-                                                       "the best reply (≤ 1); Bertrand = output change per unit of "
+                                                       "the best reply (≤ 1); margin feedback ('Bertrand') = output change per unit of "
                                                        "margin gap."),
             "selection": st.column_config.SelectboxColumn("Selection rule", options=list(SELECTION_RULES),
                                                           required=True,
@@ -49,7 +51,7 @@ with st.expander("Firms in this market (editable)", expanded=True):
             "threshold": st.column_config.NumberColumn("θ", min_value=0.0, step=1.0,
                                                       help="Threshold θ on |q* − q| for Small and Large selection rules."),
             "desired_margin": st.column_config.NumberColumn("m*", step=0.5,
-                                                           help="Desired margin (Bertrand only): small = fierce "
+                                                           help="Desired margin (margin-feedback rule only): small = fierce "
                                                                 "competition, large = gentlemanly."),
             "foresight": st.column_config.NumberColumn("κ", min_value=0.0, max_value=1.0, step=0.05,
                                                       help="Competence: share of the coming cost change the firm "

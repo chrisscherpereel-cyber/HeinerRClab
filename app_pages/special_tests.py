@@ -8,8 +8,10 @@ from heiner_abm.literature import REFERENCES
 from heiner_abm.special import HEINER_TESTS, SCALES, SPECIAL_BY_KEY, SPECIAL_TESTS, run_special
 from heiner_abm.theory_content import THEORIES
 from ui.common import CAT, download, replication_notice, style, verdict
+from ui.common import evidence_note
 
 st.title("Signature tests by theory")
+evidence_note("analytical", "simulation")
 st.caption("The hypothesis tests and tournaments compare the theories on common questions. Here each theory is tested "
            "on its own terms: does its signature prediction, the claim that characterizes it, hold when its own "
            "agents act in the simulated market? Each test's criterion is fixed in advance.")

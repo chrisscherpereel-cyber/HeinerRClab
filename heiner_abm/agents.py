@@ -170,7 +170,7 @@ class Firm:
         best = (pm - sl * (prev_quantity - q) - c_hat) / (2.0 * sl)
         if s.rule == "Cournot":
             rec = self.flex * best + (1.0 - self.flex) * q
-        else:  # Bertrand margin feedback (model-free: uses the observed price only)
+        else:  # margin-feedback quantity rule, config "Bertrand" (model-free: uses the observed price only)
             margin = prev_price - c_hat - (self.fixed / q if self.g.margin_includes_fixed else 0.0)
             rec = q + self.flex * (margin - s.desired_margin)
         return max(self.g.q_min, float(np.rint(rec))), best

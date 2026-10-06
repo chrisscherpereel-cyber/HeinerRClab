@@ -271,6 +271,11 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   from the evaluation window). Rerun: horse_race changed slightly (dynamic RC AUC 0.602 -> 0.601, stakes 0.550 ->
 #   0.548, accuracy 0.536 -> 0.539; encompassing gain +0.000 unchanged); README updated with the earlier values in a
 #   revision note. directional, presets, preset_adaptive, special and patterns were rerun and are identical.
+# * 6 October 2026, encompassing test (experiments.py): forecasts are mapped onto training-fold ranks before the logit
+#   is fitted, and a single forecast is scored directly in the direction learned on the training folds. Rerun of
+#   horse_race: every forecast AUC identical; encompassing table changed (rivals 0.851 -> 0.866, RC margin alone
+#   0.515 -> 0.610, gain +0.000 [-0.0045, +0.0045] -> -0.001 [-0.003, +0.000]); README updated with a revision note.
+#   directional, presets and preset_adaptive do not use encompassing_test; rerun and identical.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -290,10 +295,10 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "2c120bb0f337fab6",
-    "horse_race": "efd173417998725e",
-    "presets": "efd173417998725e",
-    "preset_adaptive": "efd173417998725e",
+    "directional": "f0c41db3509da88c",
+    "horse_race": "d2b74d3411afc46a",
+    "presets": "d2b74d3411afc46a",
+    "preset_adaptive": "d2b74d3411afc46a",
     "special": "14f1278441074259",
     "patterns": "8412d0b7d735b8aa",
     "calibration": "854400653fe42159",

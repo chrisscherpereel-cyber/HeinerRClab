@@ -262,7 +262,7 @@ production rules; simulation comparison, not behavioral prediction): the dynamic
 RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.60, 95% CI 0.55–0.65), ahead of
 cobweb stability (0.55), stakes only (0.55), Heiner's K (0.55), accuracy only (0.54) and real options (0.47). A firm's
 own track record in the first half of the run was far better (AUC 0.85), and adding the RC to all rival forecasts
-combined changed cross-validated AUC by +0.000 (95% CI −0.0045 to +0.0045). Heiner's one-shot (one-period) RC scored
+combined changed cross-validated AUC by −0.001 (95% CI −0.003 to +0.000). Heiner's one-shot (one-period) RC scored
 only 0.54. (Sampling seed 12345, base-scenario seed 1, H = 20, full measure.)
 
 *Revision note (6 October 2026, estimation gap).* The estimation window of the H-period measures now ends H − 1
@@ -270,6 +270,15 @@ periods before the evaluation window, so that no estimate uses an outcome it pre
 0.601 [0.554, 0.651], stakes only 0.550 → 0.548, accuracy only 0.536 → 0.539; every other forecast, the track record
 and the one-shot RC are unchanged (they need no gap), and the encompassing gain stays +0.000 (CI −0.0044/+0.0048 →
 −0.0045/+0.0045). The directional tournament does not use the windows and was unchanged.
+
+*Revision note (6 October 2026, encompassing test).* The encompassing test now maps each forecast onto its training
+fold's ranks before fitting, and scores a single forecast directly in the direction learned on the training folds.
+Before, a logit on the raw, heavy-tailed and clipped forecasts could flatten a slope to about zero and flip its sign
+between folds: "RC margin alone" scored 0.515 although the margin's own AUC is 0.60, and leaving out one environment
+moved it by up to 0.10 (now 0.014). Rerun: rivals combined 0.851 → 0.866, rivals + tolerance limit 0.851 → 0.865, RC
+margin alone 0.515 → 0.610, gain +0.000 [−0.0045, +0.0045] → −0.001 [−0.003, +0.000]. The forecast AUCs above are
+unchanged, and the conclusion is the same: the RC adds no significant information once the rival forecasts are
+combined.
 
 ## Agent tournament: results under the frozen plan
 

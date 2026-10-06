@@ -14,6 +14,8 @@ simulated market? Each test fixes its criterion in advance and reports whether i
                    Cyert & March 1963)
     learning       a reinforcement learner improves with experience in a stationary environment (Sutton & Barto 2018)
     imitation      imitating the most profitable firm drives output above the Cournot–Nash level (Vega-Redondo 1997)
+    ecology        inert organizations perform more reliably than flexible ones in every environment (Hannan &
+                   Freeman 1984)
 
 Heiner's reliability condition has its own set of special tests on separate pages (listed in HEINER_TESTS).
 """
@@ -219,6 +221,25 @@ def run_imitation(sc: Dict) -> Dict:
                 result=f"imitate-the-best markets produce {m:.2f} [{lo:.2f}, {hi:.2f}] × the Cournot–Nash output")
 
 
+def run_ecology(sc: Dict) -> Dict:
+    n, T, burn = sc["n_envs"], sc["periods"], sc["burn"]
+    rows = []
+    for delta in (2.0, 10.0, 20.0, 30.0):
+        envs = [_env(9900 + j, delta=delta) for j in range(n)]
+        sd = {}
+        for d in ("ecol_crisis", "cobweb_p"):
+            lineup = np.array([[d, *BACKGROUND]] * n, dtype=object)
+            sd[d] = simulate(envs, lineup, TUNED_PARAMS, T, burn, keep_path=True)["path"][:, :, 0].std(1)
+        rows += [dict(volatility=delta, diff=x) for x in sd["ecol_crisis"] - sd["cobweb_p"]]
+    d = pd.DataFrame(rows)
+    cis = {v: _ci(g["diff"]) for v, g in d.groupby("volatility")}
+    ok = all(hi < 0 for _, _, hi in cis.values())
+    return dict(table=d.groupby("volatility")["diff"].agg(["mean", "std"]).reset_index()
+                .rename(columns={"mean": "inert − flexible twin (s.d. of profit)", "std": "s.d. across markets"}),
+                x="volatility", y="inert − flexible twin (s.d. of profit)", x_title="Cost volatility Δ", ok=ok,
+                result="; ".join(f"Δ = {v:g}: {m:+.0f} [{lo:+.0f}, {hi:+.0f}]" for v, (m, lo, hi) in cis.items()))
+
+
 SPECIAL_TESTS: List[SpecialTest] = [
     SpecialTest("optimiser", "Information is valuable, and full information yields equilibrium",
                 "An optimizer gains from better information, and when every player is rational and fully informed "
@@ -271,6 +292,15 @@ SPECIAL_TESTS: List[SpecialTest] = [
                 "firm); market output relative to the Cournot–Nash output.",
                 "Supported if imitate-the-best markets produce more than the Cournot–Nash output (95% CI above 1).",
                 ("vegaredondo1997", "huck1999"), run_imitation),
+    SpecialTest("ecology", "Inert organizations are more reliable in every environment",
+                "Selection favors organizations that perform reliably, and reliable performance requires structural "
+                "inertia; the advantage does not depend on how volatile the environment is.",
+                "A focal firm that reorganizes only under threat of failure against its flexible twin that adjusts "
+                "toward the same price-based target every period, among the same three tuned rivals and the same "
+                "random draws, at cost volatility Δ = 2, 10, 20 and 30; the standard deviation of its per-period "
+                "profit.",
+                "Supported if the inert firm's profit is less variable than its flexible twin's at every volatility "
+                "(95% CI of the difference below 0).", ("hannan1984", "amburgey1993"), run_ecology),
 ]
 SPECIAL_BY_KEY = {t.key: t for t in SPECIAL_TESTS}
 

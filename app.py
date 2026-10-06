@@ -1,4 +1,4 @@
-"""Decision making under uncertainty: an agent-based laboratory comparing eight theories.
+"""Decision making under uncertainty: an agent-based laboratory comparing nine theories.
 
 Run with:  streamlit run app.py
 """
@@ -24,6 +24,7 @@ SECTIONS = {
         st.Page("app_pages/theory_satisficing.py", title="Satisficing", icon="🎚️"),
         st.Page("app_pages/theory_rl.py", title="Reinforcement learning", icon="🧠"),
         st.Page("app_pages/theory_imitation.py", title="Imitation & selection", icon="🧬"),
+        st.Page("app_pages/theory_ecology.py", title="Organizational ecology", icon="🏛️"),
     ],
     "Simulate": [
         st.Page("app_pages/market_lab.py", title="Market lab (single run)", icon="🏭"),

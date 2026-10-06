@@ -21,7 +21,7 @@ TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization pa
 TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
 EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the market / Experiment analysis)
 
-# Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 9), main run and three
+# Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.
 TOURNAMENT: Dict[str, Dict] = {
     "cobweb": dict(design="Adaptive price expectations", profit=(1.89, 2.91, 2.74, 2.64), aggregate=(3.50, 2.67, 2.33, 2.83)),

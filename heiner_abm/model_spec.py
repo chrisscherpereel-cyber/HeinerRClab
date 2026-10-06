@@ -131,6 +131,13 @@ SELECTIONS: Dict[str, Spec] = {
     "aspiration": Spec("", "", "", "", "Its own last profit and an adaptive aspiration",
                        "only when profit falls below the aspiration", "Own realized profit",
                        "Aspiration adapts at rate α", "Search is triggered by outcomes, not by expected gains"),
+    "periodic": Spec("", "", "", "", "The period count", "only every I periods (scheduled reorganization)", "None",
+                     "Change is routine-bound and rare (structural inertia); interval I is tuned",
+                     "Ignores evidence between reorganizations"),
+    "crisis": Spec("", "", "", "", "Its own smoothed profit and its starting profit",
+                   "only when smoothed profit falls below a survival threshold (a share f of the starting profit)",
+                   "Own realized profit", "Change is a response to the threat of failure; f and α are tuned",
+                   "A fixed threshold from the starting profit; slow to react to good opportunities"),
 }
 VARIANT_NOTES = {
     "true": ("Researcher variant: judges past decisions with the TRUE demand curve (removes model bias); mechanism "

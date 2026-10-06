@@ -1,6 +1,6 @@
 # Decision making under uncertainty: an agent-based laboratory
 
-A Streamlit agent-based simulation laboratory that compares eight theories of when a decision maker should adapt
+A Streamlit agent-based simulation laboratory that compares nine theories of when a decision maker should adapt
 and when it should stick to a rule: Heiner's reliability condition, neoclassical optimization, real options, cobweb
 theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, and
 imitation and evolutionary selection. All are implemented in the same cobweb oligopoly and tested on equal terms.
@@ -126,7 +126,7 @@ settings are collapsed by default; the section holding the current page opens.
 
 | Page | What it does |
 |---|---|
-| Overview | The eight theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
+| Overview | The nine theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
 | One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
 
 **Simulate** (experiments that test every theory on equal terms; hypotheses are stated as neutral questions)
@@ -582,7 +582,7 @@ heiner_abm/tasks.py        generalization tasks: inventory, learning with shifti
 heiner_abm/tracking.py     single-firm tracking benchmark: exact Muth–Kalman solution and lopsided stakes
 heiner_abm/focal.py        the theory under test: every theory's prediction for every hypothesis
 heiner_abm/special.py      signature tests: each rival theory's distinctive prediction in the shared market
-heiner_abm/theory_content.py  the eight theories, described with the same structure
+heiner_abm/theory_content.py  the nine theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 heiner_abm/terminology.py  terms, kinds of uncertainty and evidence, scope of conclusions
 heiner_abm/information.py  information-and-feedback specification, Observation, engine support, agents' needs

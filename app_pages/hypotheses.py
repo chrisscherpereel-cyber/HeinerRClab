@@ -478,7 +478,7 @@ with tabs[9]:
         f.selection = "Adaptive"
     H10 = max(H, 2)
     st.caption(f"Adaptive firms judge each deviation over {scn.adaptive.window} periods from what they have observed "
-               f"({'researcher-only look-ahead feedback' if scn.adaptive.feedback == 'lookahead' else 'no future information'}); "
+               f"({'ORACLE treatment: researcher counterfactual at maturity' if scn.adaptive.feedback == 'oracle' else 'observed information only'}); "
                f"r and w are measured by the researcher over H = {H10} periods (sidebar H, at least 2).")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     if run_state("h10", (tuple(vals), R, H10, cont, str(scn))):

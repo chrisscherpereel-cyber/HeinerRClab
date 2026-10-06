@@ -27,11 +27,21 @@ $n$ firm agents. Each period $t = 1,\dots,T$ runs in this order:
    $c_t = \text{reflect}(c_{t-1} + \Delta\, U_t)$ with $U_t\sim\mathcal U(-1,1)$ and reflecting bounds $[P_{min}, c_{max}]$.
 6. **Book.** Profit $\pi_{i,t} = (P_t - c_t)\,q_{i,t} - F_i$ with $F_i = a\varphi_i + b$.
 7. **Evaluate (researcher).** The counterfactual payoff of the other choice is computed (below) to measure
-   $\pi, r, w, G, D$. This uses future periods and the true demand curve, so it is not shown to the agents.
-8. **Learn (agents).** Adaptive agents judge the decision they made $W-1$ periods ago from what they have observed by
-   now (rivals' actual output, realized costs, prices on their believed demand curve) and update their memories; firms
-   optionally revise $\varphi$ (evolution, from realized profits). The researcher-only *look-ahead* feedback, which
-   instead feeds the counterfactual of step 7 to the agents, can be chosen explicitly to reproduce earlier results.
+   $\pi, r, w, G, D$. This uses periods $t \ldots t+H-1$, the true demand curve and rivals' true rules, so it is
+   never shown to ordinary agents.
+8. **Queue feedback.** Each decision with an opportunity ($q^* \ne q$) enters a pending-feedback queue with its
+   maturity: $t + W - 1$ for observable feedback (its gain accumulates period by period from what the firm observes:
+   rivals' actual output, realized costs, prices on its believed demand curve), or $t + H - 1$ for the
+   researcher-only *oracle* treatment (the counterfactual of step 7).
+9. **Release.** Every item whose last included period is $t$ is released, in order of decision time, and updates the
+   firm's learned table. Released feedback is first used in the decisions of period $t+1$. Items that would mature
+   after the last period are never released (no partial feedback).
+10. **Evolve** (optional): firms revise $\varphi$ by imitating the most profitable rival (realized profits).
+
+Steps 1–2 use only information from period $t-1$ and earlier, except that a firm with cost foresight $\kappa > 0$
+anticipates that share of the coming cost change (a competence parameter; $\kappa = 0$ in the baseline). The same
+schedule governs the vectorized engine, the tournament agents and the interactive market
+(`heiner_abm/agents.py`, `DECISION_SCHEDULE`; `tests/test_information.py`).
 """)
 
 c1, c2 = st.columns(2)

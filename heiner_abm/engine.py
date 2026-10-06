@@ -25,6 +25,7 @@ the RC can be estimated in one window and used to predict performance in the oth
 """
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -122,7 +123,7 @@ def _stack(scns: Sequence[Scenario]):
         fc_slope=m(lambda s: s.firm_globals.flex_cost_slope), fc_fixed=m(lambda s: s.firm_globals.fixed_cost),
         incl=m(lambda s: float(s.firm_globals.margin_includes_fixed)),
         memory=m(lambda s: s.adaptive.memory),
-        lookahead=m(lambda s: float(s.adaptive.feedback == "lookahead")).astype(bool),
+        oracle_fb=m(lambda s: float(s.adaptive.feedback == "oracle")).astype(bool),
         window=m(lambda s: int(s.adaptive.window)).astype(int),
         flex=f(lambda s, fs: fs.flex), threshold=f(lambda s, fs: fs.threshold),
         margin=f(lambda s, fs: fs.desired_margin), kappa=f(lambda s, fs: fs.foresight),
@@ -245,7 +246,6 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     st.update({k: f64() for k in ("profit", "g_static", "g_full")})
     st["dev"] = np.zeros((B, T, N), dtype=bool)
     st["opp"] = np.zeros((B, T, N), dtype=bool)
-    st["bin"] = np.zeros((B, T, N), dtype=np.int8)
     st["q"][:, 0] = q
     st["q_prev"][:, 0] = q
     st["profit"][:, 0] = col(P - cost[:, 0]) * q - F
@@ -258,11 +258,12 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         flex_path[:, 0] = flex
     b_idx = np.arange(B)[:, None]; n_idx = np.arange(N)[None, :]
     mem = col(a["memory"])
+    # Adaptive feedback (agents.DECISION_SCHEDULE): queued at decision time, released only at maturity
     is_adaptive = (a["sel"] == SEL_CODES["Adaptive"]).any(axis=1)                # (B,)
-    look = col(a["lookahead"])                                                   # researcher-only feedback
-    any_lookahead = bool((is_adaptive & a["lookahead"]).any())
-    obs_windows = {int(w): np.flatnonzero(is_adaptive & ~a["lookahead"] & (a["window"] == w))
-                   for w in np.unique(a["window"][is_adaptive & ~a["lookahead"]])}
+    oracle_rows = np.flatnonzero(is_adaptive & a["oracle_fb"])                   # researcher-only treatment
+    obs_windows = {int(w): np.flatnonzero(is_adaptive & ~a["oracle_fb"] & (a["window"] == w))
+                   for w in np.unique(a["window"][is_adaptive & ~a["oracle_fb"]])}
+    pending: deque = deque()
     pmin_b = a["p_min"]
     eye = np.eye(N, dtype=bool)
     hist_full = {}
@@ -282,7 +283,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         prof_alt1 = (p_alt - col(c_now)) * alt - F
         g_static = np.where(dev, profit - prof_alt1, prof_alt1 - profit)
 
-        need_cf = t >= burn or any_lookahead or record_firm_history
+        need_cf = t >= burn or len(oracle_rows) > 0 or record_firm_history
         if H == 1 or not need_cf:
             g_full = g_static
             cum_actual, cum_alt = profit, prof_alt1
@@ -321,17 +322,11 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                 cum_alt = cum[:, 1:, :][:, eye]      # firm i's own profit in its own alternative branch
             g_full = np.where(dev, cum_actual - cum_alt, cum_alt - cum_actual)
 
-        # adaptive learning, feedback "lookahead" (researcher-only): the "full" counterfactual, fed back at once
-        if any_lookahead:
-            cur = learned[b_idx, n_idx, bins]
-            learned[b_idx, n_idx, bins] = np.where(opp & look, mem * cur + (1 - mem) * g_full, cur)
-
         # Heiner (1989) true target: ex-post best reply to rivals' actual output, realized cost, true demand
         br_true = (col(pm) - col(sl) * (col(Qn) - new_q) - col(c_now)) / (2 * col(sl))
         st["q"][:, t], st["q_prev"][:, t], st["rec"][:, t], st["profit"][:, t] = new_q, q, rec, profit
         st["g_static"][:, t], st["g_full"][:, t] = g_static, g_full
         st["dev"][:, t], st["opp"][:, t] = dev, opp
-        st["bin"][:, t] = bins
         st["cerr2"][:, t] = (c_hat - col(c_now)) ** 2
         st["br_perc"][:, t], st["br_true"][:, t] = best, br_true
         if record_firm_history:
@@ -340,19 +335,29 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
             for k, val in (("profit_rule", p_rule), ("profit_default", p_def), ("c_hat", c_hat)):
                 hist_full.setdefault(k, np.zeros((B, T, N)))[:, t] = val
 
+        # feedback: queue this period's decisions, accumulate observed terms, release what matures at t
+        for w, rows in obs_windows.items():
+            pending.append(dict(kind="observable", rows=rows, decided=t, matures=t + w - 1, bins=bins[rows],
+                                opp=opp[rows], x1=rec[rows], x0=q[rows], gain=np.zeros((len(rows), N))))
+        if len(oracle_rows):
+            pending.append(dict(kind="oracle", rows=oracle_rows, decided=t, matures=t + H - 1,
+                                bins=bins[oracle_rows], opp=opp[oracle_rows], gain=g_full[oracle_rows]))
+        for item in pending:
+            if item["kind"] == "observable":
+                r = item["rows"]
+                item["gain"] = item["gain"] + _observed_term(item["x1"], item["x0"], Qn[r, None] - new_q[r],
+                                                             PMB[r, t, None], SLB[r, t, None], cost[r, t, None],
+                                                             pmin_b[r, None])
+        due = [item for item in pending if item["matures"] == t]     # in order of decision time
+        pending = deque(item for item in pending if item["matures"] != t)
+        for item in due:
+            r = item["rows"]
+            cur = learned[r[:, None], n_idx, item["bins"]]
+            m_r = mem[r]
+            learned[r[:, None], n_idx, item["bins"]] = np.where(item["opp"], m_r * cur + (1 - m_r) * item["gain"], cur)
+
         q, Q, P = new_q, Qn, Pn
         price[:, t], quantity[:, t] = P, Q
-        # adaptive learning, feedback "observable": judge the decision made window-1 periods ago, now that every
-        # period it covers has been observed (rivals' actual output, realized cost, believed demand curve)
-        for w, rows in obs_windows.items():
-            d = t - w + 1
-            if d < 1 or not len(rows):
-                continue
-            gain = _observed_gain(rows, d, t, st, quantity, cost, PMB, SLB, pmin_b)
-            bd = st["bin"][rows, d].astype(int)
-            cur = learned[rows[:, None], n_idx, bd]
-            m_r = mem[rows]
-            learned[rows[:, None], n_idx, bd] = np.where(st["opp"][rows, d], m_r * cur + (1 - m_r) * gain, cur)
         window += profit
         if keep_path:
             flex_path[:, t] = flex
@@ -399,22 +404,13 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                        accs=accs, p_max_path=PM, slope_path=SL, shifts=SHIFT, steps=steps)
 
 
-def _observed_gain(rows, d, t, st, quantity, cost, PMB, SLB, pmin):
-    """What an Adaptive agent can compute at the end of period t about its decision at period d <= t: profit from
-    holding the recommended level minus profit from holding its old level (rule B) over periods d..t, with rivals'
-    actual output, realized costs and prices on its believed demand curve. Uses no information from after t.
-    Summed period by period (same order as agents.Industry) so that the two implementations agree exactly."""
-    x1 = st["rec"][rows, d].astype(float)            # (r, N) recommended level
-    x0 = st["q_prev"][rows, d].astype(float)         # (r, N) old level (rule B)
-    lo = pmin[rows][:, None]
-    gain = np.zeros_like(x1)
-    for s in range(d, t + 1):
-        R = quantity[rows, s][:, None] - st["q"][rows, s].astype(float)     # rivals' actual output
-        pm, sl, c = PMB[rows, s][:, None], SLB[rows, s][:, None], cost[rows, s][:, None]
-        pa = np.maximum(lo, pm - sl * (R + x1))
-        pb = np.maximum(lo, pm - sl * (R + x0))
-        gain = gain + ((pa - c) * x1 - (pb - c) * x0)
-    return gain
+def _observed_term(x1, x0, R, pm, sl, c, lo):
+    """One period of what an Adaptive agent observes about a pending decision: profit from holding the recommended
+    level x1 minus profit from holding its old level x0 (rule B), with rivals' actual output R, the realized cost c
+    and prices on its believed demand curve (pm, sl). Same arithmetic as agents.Industry._accumulate_observable."""
+    pa = np.maximum(lo, pm - sl * (R + x1))
+    pb = np.maximum(lo, pm - sl * (R + x0))
+    return (pa - c) * x1 - (pb - c) * x0
 
 
 def _persistence_gain(st, quantity, cost, PM, SL, a, H, gam):

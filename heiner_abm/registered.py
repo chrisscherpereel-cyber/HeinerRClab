@@ -255,6 +255,13 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #     conclusions unchanged. README and the Competing theories page updated.
 #   - preset_adaptive: price 48.56 -> 48.16, share of recommended changes adopted 0.75 -> 0.74, slope +67 -> +58;
 #     typical result in ui/common.PRESET_INFO updated.
+# * 6 October 2026, information-timing correction (agents.py, engine.py, params.py changed). Adaptive feedback now passes
+#   through an explicit pending queue and is released only at maturity (agents.DECISION_SCHEDULE). The immediate
+#   "lookahead" option, which with H > 1 let agents learn from periods that had not yet occurred, was replaced by the
+#   "oracle" treatment, released at t + H - 1. No reported finding used it: every finding listed here uses observable
+#   feedback or no Adaptive agents. All six were rerun with the corrected code (tools/rerun_adaptive_findings.py for
+#   directional seeds B1, B3, C1, C42, horse_race and the presets; signature tests at the Full scale; field patterns at
+#   the registered settings) and reproduced the previously recorded results exactly. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -274,12 +281,12 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "433639db6d3ef9ef",
-    "horse_race": "6df5048a8852d0b3",
-    "presets": "6df5048a8852d0b3",
-    "preset_adaptive": "6df5048a8852d0b3",
-    "special": "13b82f4e79f953ff",
-    "patterns": "a7415a32ea71e964",
+    "directional": "f31ab19bd2cfda91",
+    "horse_race": "95aabe1ec99f0ac6",
+    "presets": "95aabe1ec99f0ac6",
+    "preset_adaptive": "95aabe1ec99f0ac6",
+    "special": "4ada44342edf8f67",
+    "patterns": "f0fa87069a9a1781",
     "calibration": "854400653fe42159",
 }
 

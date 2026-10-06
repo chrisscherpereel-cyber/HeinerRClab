@@ -13,14 +13,17 @@ from typing import List, Optional
 
 RULE_TYPES = ("Bertrand", "Cournot")
 SELECTION_RULES = ("Always", "Never", "Small", "Large", "Adaptive")
-# Feedback the Adaptive selection rule learns from:
-#   "observable" - (default) the agent judges each past decision once the periods it covers have happened, from what it
-#                  can observe: its own and its rivals' realized output, realized costs, and prices on its *believed*
-#                  demand curve. No future information and no researcher-only quantities.
-#   "lookahead"  - the researcher's counterfactual (the forked market over the measurement horizon H, priced on the true
-#                  demand curve, rivals' reactions simulated with their true rules), fed back to the agent at once.
-#                  Uses information the agent cannot have; kept only to reproduce results computed before October 2026.
-ADAPTIVE_FEEDBACK = ("observable", "lookahead")
+# Feedback the Adaptive selection rule learns from. Either way, feedback about a decision is released only once every
+# period it covers has occurred (see DECISION_SCHEDULE in heiner_abm/agents.py):
+#   "observable" - (default) the agent judges its decision from what it has observed over the `window` periods
+#                  starting with the decision: its own and its rivals' realized output, realized costs and prices on its
+#                  *believed* demand curve.
+#   "oracle"     - ORACLE TREATMENT, researcher-only: the researcher's forked-market counterfactual over the measurement
+#                  horizon H (true demand curve, rivals' simulated reactions), released at period t + H - 1. It is
+#                  never used unless chosen explicitly, and results computed with it must be labeled as oracle results.
+# The former "lookahead" option released the H-period counterfactual immediately, before the periods it covers had
+# occurred. It was removed on 6 October 2026; with H = 1 it is identical to "oracle".
+ADAPTIVE_FEEDBACK = ("observable", "oracle")
 
 SELECTION_HELP = {
     "Always": "Always adopt the Cournot/Bertrand recommendation (maximally flexible).",
@@ -87,11 +90,12 @@ class AdaptiveParams:
     """Learning of the Adaptive selection rule. With feedback "observable" (default), the decision made at period d is
     judged at the end of period d + window - 1: the agent compares holding the recommended level with holding its old
     level (rule B) over those `window` periods, with rivals' actual output, realized costs and prices on its believed
-    demand curve, all of which it has observed by then. With feedback "lookahead" it instead receives the researcher's
-    forked-market counterfactual over the measurement horizon H immediately (see ADAPTIVE_FEEDBACK)."""
+    demand curve, all of which it has observed by then. With feedback "oracle" it instead receives the researcher's
+    forked-market counterfactual over the measurement horizon H, at the end of period d + H - 1 (see ADAPTIVE_FEEDBACK).
+    Feedback whose horizon would end after the last simulated period is never released: no partial feedback."""
     bin_edges: tuple = (5.0, 15.0, 30.0, 60.0)   # |q* - q| bin boundaries
     memory: float = 0.97                          # exponential forgetting (lambda)
-    feedback: str = "observable"                  # "observable" or "lookahead" (researcher-only information)
+    feedback: str = "observable"                  # "observable" or "oracle" (researcher-only treatment)
     window: int = 20                              # periods over which an observable judgement is made (>= 1)
 
 
@@ -157,7 +161,10 @@ class Scenario:
                 errs.append(f"Firm {i}: a Cournot firm needs flexibility between 0 and 1.")
             if f.flex < 0:
                 errs.append(f"Firm {i}: flexibility cannot be negative.")
-        if self.adaptive.feedback not in ADAPTIVE_FEEDBACK:
+        if self.adaptive.feedback == "lookahead":
+            errs.append("Adaptive feedback 'lookahead' was removed: it released H-period feedback before the periods "
+                        "it covers had occurred. Use 'oracle' (the same counterfactual, released at maturity).")
+        elif self.adaptive.feedback not in ADAPTIVE_FEEDBACK:
             errs.append(f"Unknown Adaptive feedback {self.adaptive.feedback!r}.")
         if int(self.adaptive.window) < 1:
             errs.append("The Adaptive judgement window must be at least one period.")

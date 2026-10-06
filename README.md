@@ -514,10 +514,25 @@ app_pages/*.py             the Streamlit pages
   window*) have passed: holding the recommended output against holding the old output, with rivals' actual output,
   realized costs and prices on the firm's own believed demand curve (the same judgement as the tournament's
   reliability-condition agents). Until 6 October 2026 it learned instead from the researcher's look-ahead
-  counterfactual over H. That rule is kept as the explicitly researcher-only *look-ahead* feedback, which reproduces
-  the earlier trajectories exactly (`tests/test_information.py`). The findings that involved Adaptive agents (the
-  directional tournament, the out-of-sample forecasts and the Adaptive preset) were rerun under the new rule on
-  6 October 2026; see the revision note under *Competing theories*.
+  counterfactual over H, released immediately. The findings that involved Adaptive agents (the directional
+  tournament, the out-of-sample forecasts and the Adaptive preset) were rerun under the new rule on 6 October 2026;
+  see the revision note under *Competing theories*.
+* **Decision schedule** (`DECISION_SCHEDULE` in `heiner_abm/agents.py`, shown on the *Model & methods* page). In
+  period t: (1) firms decide with information up to t − 1 (plus a share κ of the coming cost change for firms with
+  cost foresight, a competence parameter; κ = 0 in the baseline); (2) the market clears and cost c[t] is realized;
+  (3) the researcher evaluates the counterfactual over H, never shown to ordinary agents; (4) every decision enters a
+  pending-feedback queue with its maturity, t + W − 1 (observable) or t + H − 1 (oracle); (5) items whose last
+  included period is t are released and first used in period t + 1's decisions; items that would mature after the
+  last period are never released (no partial feedback); (6) optional evolution. The vectorized engine follows it
+  exactly, the tournament agents and the interactive market follow the same order (act, clear, update), and
+  `tests/test_information.py` checks that changing shocks after a period changes no earlier decision or learned
+  state in any engine.
+* **Oracle treatment.** The researcher's counterfactual can be given to Adaptive agents only by choosing feedback
+  `"oracle"` explicitly; it is then released at maturity (t + H − 1) and results must be labeled as oracle
+  benchmarks. The former `"lookahead"` option released it immediately, so with H > 1 agents learned from periods that
+  had not yet occurred; it was removed on 6 October 2026 (with H = 1 it is identical to `"oracle"`). The mechanism
+  study's oracle and true-model variants are separate, labeled designs that never enter ordinary tournament
+  lineups.
 
 ## Research basis
 

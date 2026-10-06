@@ -370,7 +370,7 @@ def render_sidebar(sections=None, current=None):
                   help="Periods over which a deviation from rule B is evaluated when measuring π, r, w, G, D. "
                        "H = 1 is Heiner's one-shot comparison, which ignores that production changes persist; "
                        "H ≈ 20+ captures their consequences. Cost grows with H. This is a researcher's measurement: "
-                       "agents never see it, unless the researcher-only *look-ahead* feedback below is chosen.")
+                       "agents never see it, unless the researcher-only *oracle* feedback below is chosen.")
         st.radio("After the decision, in the counterfactual the firm…",
                  ["default", "rules"], key=K + "continuation",
                  format_func=lambda x: {"default": "returns to rule B (Heiner)",
@@ -391,17 +391,18 @@ def render_sidebar(sections=None, current=None):
                        "recommended output versus holding its old output (rule B), with rivals' actual output, "
                        "realized costs and prices on its own believed demand curve. All of it has been observed by "
                        "then, so the firm uses no future information.")
-        st.radio("Adaptive agents learn from…", ["observable", "lookahead"], key=K + "adaptive_feedback",
+        st.radio("Adaptive agents learn from…", ["observable", "oracle"], key=K + "adaptive_feedback",
                  format_func=lambda x: {"observable": "what they have observed (default)",
-                                        "lookahead": "the researcher's counterfactual (look-ahead, researcher-only)"}[x],
-                 help="**Observable** (default): only information available to the firm at the time it learns. "
-                      "**Look-ahead**: the researcher's forked-market counterfactual over H, which uses future "
-                      "periods, the true demand curve and rivals' simulated reactions, fed back at once. It is not "
-                      "information a firm could have; it is kept only to reproduce results computed before "
-                      "October 2026.")
-        if v("adaptive_feedback") == "lookahead":
-            st.warning("Look-ahead feedback gives Adaptive agents researcher-only information. Treat results as a "
-                       "benchmark, not as behavior of an agent with realistic information.", icon="⚠️")
+                                        "oracle": "the researcher's counterfactual (ORACLE treatment)"}[x],
+                 help="**Observable** (default): the firm judges each decision from what it has observed once the "
+                      "judgement window has passed. **Oracle**: the researcher's forked-market counterfactual over H "
+                      "(true demand curve, rivals' simulated reactions), released only once the H periods it covers "
+                      "have occurred. No firm could compute it; use it only as a labeled benchmark. Either way, "
+                      "feedback is never released before the periods it covers have happened.")
+        if v("adaptive_feedback") == "oracle":
+            st.warning("ORACLE treatment: Adaptive agents receive researcher-only counterfactuals (released at maturity). "
+                       "Label any result as an oracle benchmark, not as behavior of an agent with realistic information.",
+                       icon="⚠️")
 
     with sb.expander("Structural uncertainty (regime shifts)", expanded=False):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
@@ -460,9 +461,9 @@ def measure_opts():
 
 def behaviour_horizon(scn: Scenario) -> int:
     """Horizon needed when only profits are reported. H is a researcher's measurement; it changes behavior only when
-    Adaptive agents are given the researcher-only look-ahead feedback, so skip the (costly) forks otherwise."""
-    lookahead = scn.adaptive.feedback == "lookahead" and any(f.selection == "Adaptive" for f in scn.firms)
-    return int(v("horizon")) if lookahead else 1
+    Adaptive agents are given the researcher-only oracle feedback, so skip the (costly) forks otherwise."""
+    oracle = scn.adaptive.feedback == "oracle" and any(f.selection == "Adaptive" for f in scn.firms)
+    return int(v("horizon")) if oracle else 1
 
 
 def reps() -> int:

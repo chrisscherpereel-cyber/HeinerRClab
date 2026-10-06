@@ -3,39 +3,51 @@
 Each Firm is an agent with its own decision rule, selection rule, competence and
 memory. The Market is a single homogeneous-product, market-clearing cobweb market
 with a linear hockey-stick demand curve and a reflecting random-walk raw-material
-cost. The Industry schedules one round:
-
-    1. each firm observes last period's price P[t-1], market quantity Q[t-1] and
-       (its perception of) the raw-material cost;
-    2. its production rule (Cournot / Bertrand) recommends q*. Cournot firms use their
-       *believed* demand curve, which may be out of date after a regime shift;
-    3. its selection rule decides whether to deviate from the default rule B
-       ("keep producing q") and adopt q*;
-    4. the market clears on the *true* demand curve, P[t] = max(Pmin, Pmax[t] - s[t]*Q[t]),
-       and the new cost c[t] is realized (firms decided before seeing it: the CD-gap);
-    5. every firm books profit (P[t]-c[t])*q - F, and the *researcher* evaluates the counterfactual:
-       what it would have earned over the next H periods (discount gamma) had it made the
-       other choice. The market is forked and every agent keeps following its rules.
-       With H = 1 this is Heiner's one-shot comparison with rivals held fixed.
-       This is how Heiner's quantities pi, r, w, G and D are measured;
-    6. Adaptive firms learn. By default (feedback "observable") a firm judges its decision of
-       `window` - 1 periods ago from what it has observed by now: rivals' actual output, realized
-       costs and prices on its believed demand curve. The researcher's counterfactual of step 5 uses
-       future periods, the true demand curve and rivals' true rules, so it is never fed to the agent
-       unless feedback "lookahead" is chosen explicitly (kept to reproduce earlier results).
+cost. The Industry runs the decision schedule below (DECISION_SCHEDULE), which the
+vectorized engine (heiner_abm.engine) follows exactly; tests/test_equivalence.py
+checks that the two agree and tests/test_information.py checks the timing.
 
 `heiner_abm.engine` is a vectorized twin of this module used for Monte-Carlo
-experiments; tests/test_equivalence.py checks that the two agree exactly.
+experiments.
 """
 from __future__ import annotations
 
 import copy
+from collections import deque
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import numpy as np
 
 from .params import Scenario, FirmSpec
+
+DECISION_SCHEDULE = """
+Period t (t = 1, ..., T - 1):
+
+ 1. Decide. Each firm decides with what it knows at the end of period t - 1: last period's price P[t-1] and market
+    quantity Q[t-1], its own output, its believed demand curve, and its cost estimate
+    c_hat[t] = c[t-1] + kappa * (c[t] - c[t-1]) + sigma * eps[t]. Cost foresight kappa is a competence parameter: a
+    firm with kappa > 0 anticipates that share of the coming cost change (kappa = 0 in the baseline). Its selection
+    rule uses its learned table as it stood at the end of period t - 1.
+ 2. Clear. The market clears on the true demand curve, P[t] = max(Pmin, Pmax[t] - s[t] * Q[t]); the cost c[t] is
+    realized and every firm books profit (P[t] - c[t]) * q - F.
+ 3. Researcher evaluation (never visible to agents). The market is forked at t and each firm's decision is valued
+    against rule B over the measurement horizon H (Heiner's pi, r, w, G, D). The forks use periods t .. t + H - 1,
+    the true demand curve and rivals' true rules.
+ 4. Feedback enters the pending queue. Every decision with an opportunity (q* != q) is queued with its maturity:
+      observable (default): matures at t + W - 1 (W = AdaptiveParams.window); its gain accumulates period by period
+                            from what the firm observes (rivals' actual output, realized cost, believed demand);
+      oracle (researcher-only treatment): the researcher's H-period counterfactual of step 3, matures at t + H - 1.
+    Each pending item then adds period t's observed term (observable).
+ 5. Release. Every pending item that matures at t (its last included period is t, which has now occurred) is released
+    to its firm, in order of decision time, and updates the firm's learned table. Released feedback is first used in
+    the decisions of period t + 1. Items maturing after the last period T - 1 are never released (no partial
+    feedback).
+ 6. Evolution (if enabled): firms revise flexibility by imitating the most profitable rival over the window just
+    ended (realized profits only).
+
+With W = 1 or H = 1 the feedback about the decision of period t is released at the end of period t, as before.
+"""
 
 
 def make_streams(seed: int, n_firms: int, periods: int):
@@ -189,20 +201,29 @@ class Firm:
         self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat, best)
         return self.last
 
-    # --- learning ---------------------------------------------------------------
-    def learn(self, gain_from_rule: float):
-        """Feedback "lookahead" (researcher-only information): learn from the counterfactual of the decision just made."""
-        d = self.last
-        change = abs(d.recommended - d.current)
-        if change > 0:
-            self.learn_bin(self._bin(change), gain_from_rule)
-
+    # --- learning: only from released (matured) feedback, see DECISION_SCHEDULE --------------------------------
     def learn_bin(self, b: int, gain_from_rule: float):
         self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
 
 
+@dataclass
+class PendingFeedback:
+    """Feedback about one firm's decision, held until every period it covers has occurred."""
+    firm: int
+    decided: int          # period of the decision
+    matures: int          # last period the feedback covers; released at the end of this period
+    bin: int              # size-of-change bin of the decision
+    x1: float             # recommended output (the deviation)
+    x0: float             # previous output (rule B)
+    kind: str             # "observable" or "oracle"
+    gain: float = 0.0     # observable: accumulated period by period; oracle: the researcher's counterfactual
+
+
 class Industry:
-    """Runs one market populated by heterogeneous firm agents and records everything."""
+    """Runs one market populated by heterogeneous firm agents and records everything.
+
+    feedback_log lists every released item as (released_at, firm, decided, matures, bin, gain, kind);
+    learned_path[t] is every firm's learned table at the end of period t (after release)."""
 
     def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default", discount: float = 1.0):
         errs = scn.validate()
@@ -224,6 +245,10 @@ class Industry:
         self.price = np.zeros(T)
         self.quantity = np.zeros(T)
         self.window_profit = np.zeros(n)
+        self.pending: deque = deque()
+        self.feedback_log: List[Tuple[int, int, int, int, int, float, str]] = []
+        self.learned_path = np.zeros((T, n, len(scn.adaptive.bin_edges) + 1))
+        self._learning = any(f.selection == "Adaptive" for f in scn.firms)
 
     def run(self) -> "Industry":
         scn, mk, firms = self.scn, self.market, self.firms
@@ -265,12 +290,9 @@ class Industry:
                     profit_alt = self._branch(t, chosen[:i] + [alt] + chosen[i + 1:])[i]
                 p_rule, p_def = (own, profit_alt) if d.deviate else (profit_alt, own)
                 evaluated.append((profit, p_rule, p_def))
-            # 2) learn (feedback "lookahead" only: the researcher's counterfactual) and record
-            lookahead = scn.adaptive.feedback == "lookahead"
+            # 2) record (researcher evaluation of step 3 is stored, never shown to the agents)
             for i, (f, d) in enumerate(zip(firms, decisions)):
                 profit, p_rule, p_def = evaluated[i]
-                if lookahead:
-                    f.learn(p_rule - p_def)
                 h = self.h
                 h["q"][t, i], h["rec"][t, i], h["c_hat"][t, i] = d.chosen, d.recommended, d.c_hat
                 h["profit"][t, i], h["profit_rule"][t, i], h["profit_default"][t, i] = profit, p_rule, p_def
@@ -279,30 +301,54 @@ class Industry:
                 h["flex"][t, i] = f.flex
                 h["best_reply"][t, i] = d.best_reply
                 self.window_profit[i] += profit
-            if not lookahead:
-                self._learn_observable(t)
+            # 3) feedback: queue this period's decisions, accumulate, release what has matured
+            if self._learning:
+                self._queue_feedback(t, decisions, evaluated)
+                self._accumulate_observable(t)
+                self._release(t)
+                self.learned_path[t] = [f.learned_gain for f in firms]
             ev = scn.evolution
             if ev.enabled and t % ev.every == 0:
                 self._evolve()
         return self
 
-    def _learn_observable(self, t: int):
-        """Feedback "observable": at the end of period t each firm judges its decision of period d = t - window + 1
-        from information it has by now (see engine._observed_gain, which this mirrors exactly)."""
-        d = t - int(self.scn.adaptive.window) + 1
-        if d < 1:
-            return
-        mk, h, lo = self.market, self.h, self.scn.market.p_min
-        for i, f in enumerate(self.firms):
-            if not h["opportunity"][d, i]:
+    def _queue_feedback(self, t: int, decisions: List[Decision], evaluated):
+        ad = self.scn.adaptive
+        for i, (f, d) in enumerate(zip(self.firms, decisions)):
+            if d.recommended == d.current:
                 continue
-            x1, x0 = float(h["rec"][d, i]), float(h["q"][d - 1, i])
-            gain = 0.0
-            for s in range(d, t + 1):
-                R = self.quantity[s] - h["q"][s, i]
-                pm, sl, c = mk.belief_p_max[s], mk.belief_slope[s], mk.costs[s]
-                gain = gain + ((max(lo, pm - sl * (R + x1)) - c) * x1 - (max(lo, pm - sl * (R + x0)) - c) * x0)
-            f.learn_bin(f._bin(abs(x1 - x0)), gain)
+            item = PendingFeedback(i, t, 0, f._bin(abs(d.recommended - d.current)), float(d.recommended),
+                                   float(d.current), ad.feedback)
+            if ad.feedback == "oracle":
+                _, p_rule, p_def = evaluated[i]
+                item.matures, item.gain = t + self.horizon - 1, p_rule - p_def
+            else:
+                item.matures = t + int(ad.window) - 1
+            self.pending.append(item)
+
+    def _accumulate_observable(self, t: int):
+        """Add period t's observed term to every pending observable item (rivals' actual output, realized cost, prices
+        on the firm's believed demand curve). Mirrored exactly by engine._observed_term."""
+        mk, lo = self.market, self.scn.market.p_min
+        pm, sl, c = mk.belief_p_max[t], mk.belief_slope[t], mk.costs[t]
+        for item in self.pending:
+            if item.kind != "observable":
+                continue
+            R = self.quantity[t] - self.h["q"][t, item.firm]
+            x1, x0 = item.x1, item.x0
+            item.gain = item.gain + ((max(lo, pm - sl * (R + x1)) - c) * x1 - (max(lo, pm - sl * (R + x0)) - c) * x0)
+
+    def _release(self, t: int):
+        """Release, in order of decision time, every item whose last included period is t."""
+        keep = deque()
+        while self.pending:
+            item = self.pending.popleft()
+            if item.matures == t:
+                self.firms[item.firm].learn_bin(item.bin, item.gain)
+                self.feedback_log.append((t, item.firm, item.decided, item.matures, item.bin, item.gain, item.kind))
+            else:
+                keep.append(item)
+        self.pending = keep
 
     def _branch(self, t: int, first_choices: List[float], hold_firm: Optional[int] = None) -> List[float]:
         """Fork the market at period t with the given production choices and let every agent follow

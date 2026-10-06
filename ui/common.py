@@ -16,6 +16,7 @@ from heiner_abm.engine import run_batch
 from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, encompassing_test, evolution_runs,
                                    horse_race, random_environments, rc_validation, regime_event_study, run_sweep,
                                    uncertainty_comparison)
+from heiner_abm.gates import GATE_LABELS
 from heiner_abm.information import DEMAND_LABELS, FEEDBACK_LABELS, InfoSpec, UnsupportedInformation
 from heiner_abm.params import (LEGACY_FEEDBACK, AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams,
                                MarketParams, SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams,
@@ -66,7 +67,8 @@ DEFAULTS: Dict[str, object] = dict(
     desired_margin=5.0, foresight=0.0, noise=0.0, q0=200.0, q_min=15.0,
     flex_cost_slope=0.0, fixed_cost=0.0, margin_includes_fixed=False,
     periods=1000, burn_in=25, reps=20, seed=1, horizon=20, continuation="default", memory=0.97,
-    adaptive_window=20, info_feedback="estimated", info_noise=0.0, info_delay=0, info_demand="believed",
+    adaptive_window=20, gate="gain", adjust_cost=0.0, confidence=0.9, min_evidence=5.0, explore_rate=0.2,
+    on_change="forget", info_feedback="estimated", info_noise=0.0, info_delay=0, info_demand="believed",
     info_announced=False, info_rivals=True,
     discount=1.0, oos_split=0.5,
     struct_on=False, hazard=0.02, intercept_sd=15.0, slope_sd=0.4, belief_lag=20,
@@ -399,6 +401,34 @@ def render_sidebar(sections=None, current=None):
                        "recommended output versus holding its old output (rule B), with rivals' actual output, "
                        "realized costs and prices on its own believed demand curve. All of it has been observed by "
                        "then, so the firm uses no future information.")
+        st.radio("Adaptive agents' selection gate", ["gain", "lcb", "explore"], key=K + "gate",
+                 format_func=lambda x: GATE_LABELS[x],
+                 help="How an Adaptive firm turns its evidence into a decision (the same recommendations in every "
+                      "case). **Estimated gain** (existing): adopt if the estimated advantage is at least the "
+                      "adjustment cost. **Confidence-sensitive**: adopt only with enough evidence and a lower "
+                      "confidence bound above the adjustment cost. **Exploration**: learns from its own payoffs in "
+                      "randomized trials, without counterfactual feedback. The last two are proposed extensions; see "
+                      "the *Reliability gates* page.")
+        if v("gate") != "gain" or float(v("adjust_cost")) > 0:
+            st.number_input("Adjustment cost c (per adaptation)", 0.0, 10000.0, key=K + "adjust_cost", step=5.0,
+                            help="Compared with the estimated advantage of adopting; charged in the net-payoff "
+                                 "accounting, not in market prices. Kept separate from estimation uncertainty.")
+        if v("gate") in ("lcb", "explore"):
+            st.slider("Confidence level of the lower bound", 0.5, 0.99, key=K + "confidence", step=0.01,
+                      help="One-sided level of the Student-t bound on the advantage. 0.5 uses the point estimate. "
+                           "Nominal only for independent, identically distributed feedback, which the market does "
+                           "not guarantee.")
+            st.number_input("Minimum evidence (effective feedback items)", 2.0, 200.0, key=K + "min_evidence",
+                            step=1.0, help="Effective number of feedback items (per arm for exploration) a size bin "
+                                           "needs before the gate acts on it; with less it keeps the default.")
+            st.selectbox("Response to an observed environmental change", ["forget", "reset"], key=K + "on_change",
+                         format_func=lambda x: {"forget": "Exponential memory only",
+                                                "reset": "Discard evidence when a change is seen"}[x],
+                         help="A change is seen when a shift is announced or the firms' demand curve is updated.")
+        if v("gate") == "explore":
+            st.slider("Exploration rate", 0.0, 1.0, key=K + "explore_rate", step=0.05,
+                      help="Probability that an uncertain decision becomes a randomized trial (adopt or keep, each "
+                           "with probability 1/2).")
 
     with sb.expander("Information & feedback", expanded=False):
         st.caption("What firms may observe and what feedback they receive. Unsupported combinations are reported, "
@@ -410,7 +440,8 @@ def render_sidebar(sections=None, current=None):
                       "curve. **Oracle**: the researcher's counterfactual (true demand curve, rivals' simulated "
                       "reactions), a labeled diagnostic benchmark. **Full**: true payoffs of alternatives, available "
                       "only where the design shows them; the cobweb market does not, so it is rejected here. Adaptive "
-                      "firms need estimated or oracle feedback.")
+                      "firms need estimated or oracle feedback, except with the exploration gate, which learns from "
+                      "chosen-action feedback.")
         st.slider("Observation noise (s.d.)", 0.0, 20.0, key=K + "info_noise", step=0.5,
                   help="Noise added to every observed market price and market output (separate random stream).")
         st.number_input("Observation delay (periods)", 0, 20, key=K + "info_delay", step=1,
@@ -468,7 +499,10 @@ def base_scenario() -> Scenario:
                                       flex_cost_slope=float(v("flex_cost_slope")),
                                       fixed_cost=float(v("fixed_cost")),
                                       margin_includes_fixed=bool(v("margin_includes_fixed"))),
-        adaptive=AdaptiveParams(memory=float(v("memory")), window=int(v("adaptive_window"))),
+        adaptive=AdaptiveParams(memory=float(v("memory")), window=int(v("adaptive_window")), gate=str(v("gate")),
+                                adjust_cost=float(v("adjust_cost")), confidence=float(v("confidence")),
+                                min_evidence=float(v("min_evidence")), explore_rate=float(v("explore_rate")),
+                                on_change=str(v("on_change"))),
         info=InfoSpec(feedback=str(v("info_feedback")), obs_noise=float(v("info_noise")),
                       obs_delay=int(v("info_delay")), demand_knowledge=str(v("info_demand")),
                       regime_announced=bool(v("info_announced")), rivals_visible=bool(v("info_rivals"))),
@@ -517,7 +551,9 @@ def from_json(js: str) -> Scenario:
     return Scenario(market=MarketParams(**d["market"]), firms=[FirmSpec(**f) for f in d["firms"]],
                     firm_globals=GlobalFirmParams(**d["firm_globals"]),
                     adaptive=AdaptiveParams(**{k: val for k, val in {**d["adaptive"],
-                                               "bin_edges": tuple(d["adaptive"]["bin_edges"])}.items()
+                                               "bin_edges": tuple(d["adaptive"]["bin_edges"]),
+                                               "oracle_table": tuple(tuple(r) for r in
+                                                                     d["adaptive"].get("oracle_table", ()))}.items()
                                                if k != "feedback"}),
                     info=InfoSpec(**d["info"]) if "info" in d else
                     InfoSpec(feedback=LEGACY_FEEDBACK.get(d["adaptive"].get("feedback", "observable"), "estimated")),
@@ -837,8 +873,9 @@ for _name in [n for n in list(globals()) if n.startswith("cached_")]:
 
 def adaptive_supported(scn: Scenario) -> bool:
     """Whether Adaptive firms could run under the scenario's information specification."""
-    from heiner_abm.information import AGENT_BY_KEY, compatibility
-    return compatibility(AGENT_BY_KEY[("market", "Adaptive")], scn.info, "market").status == "supported"
+    from heiner_abm.information import AGENT_BY_KEY, adaptive_key, compatibility
+    return compatibility(AGENT_BY_KEY[("market", adaptive_key(scn.adaptive.gate))], scn.info,
+                         "market").status == "supported"
 
 
 def set_engine(engine: str, agents=None):
@@ -857,7 +894,7 @@ def info_record() -> dict:
                                           "those of the original experiments."}
     if engine == "market":
         scn = base_scenario()
-        return export_record("market", scn.info, market_agents(scn))
+        return export_record("market", scn.info, market_agents(scn) if agents is None else agents)
     return export_record(engine, agents=agents)
 
 

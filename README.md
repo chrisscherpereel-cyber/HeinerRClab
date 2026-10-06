@@ -72,7 +72,9 @@ In summary:
 | Market lab: margin-feedback quantity rule | Keep the margin near m* | Last price, own output, cost estimate; no demand model | q* = q + φ(P − ĉ − m*) | None | Firms set quantities; one clearing price | Not price-setting Bertrand; ignores rivals and the demand slope |
 | Market lab: Cournot best-reply quantity rule | Move toward the static best reply | Last market output, cost estimate, believed demand curve (lags shifts) | Partial adjustment φ | None | Rivals keep last output | Myopic; misspecified after shifts |
 | Market lab: selection rules (Always, Never, Small, Large) | When to adopt q* | Size of the recommended change | Adopt or keep q | None | Fixed threshold θ | No learning |
-| Market lab: Adaptive selection rule | Deviate only where deviating has paid | Learned gain per size bin | Adopt q* if the learned gain ≥ 0 | Observed gain, released W periods after the decision; oracle treatment only if chosen | Memory λ, window W | Judges with a possibly misspecified model |
+| Market lab: Adaptive selection rule (estimated-gain gate, default) | Deviate only where deviating has paid | Learned gain per size bin | Adopt q* if the learned gain ≥ c (c = 0 by default) | Observed gain, released W periods after the decision; oracle treatment only if chosen | Memory λ, window W | Judges with a possibly misspecified model |
+| Market lab: Adaptive rule, confidence-sensitive gate (extension) | Adopt only where the advantage is reliably above the adjustment cost | Mean, s.e. and effective evidence per size bin | Adopt q* if n_eff ≥ minimum and the lower bound > c | As the default gate | Bound nominal only for independent feedback | Overlapping windows and drift make the bound optimistic; coverage is measured, not assumed |
+| Market lab: Adaptive rule, exploration-enabled gate (extension) | Learn when adopting pays without counterfactual feedback | Its own payoffs after randomized trials, per size bin | Adopt / keep when the interval excludes c; otherwise a randomized trial with the exploration rate, else keep | Own realized payoff over W periods minus a pre-decision baseline, released W periods later | Trials are randomized (separate stream) | Trials cost payoff; stops exploring once confident (optional stopping) |
 | Tournament designs (17) and mechanism variants (4) | A target (model-based best reply or price-based) and a selection rule, or a hand-written rule | Last price, market output, own profit, cost estimate, believed demand; imitators also see rivals' output and profit | Move toward the target when the selection rule says so | Own realized profits; the reliability-condition agent's h-period judgement is released after h periods | Parameters tuned on training environments | True-model and oracle variants are researcher-only and never in tournament lineups |
 | Rule-choosing firms | Use the rule that recently earned most | Recent profits of each rule's users | Logit choice of rule | Realized profits after clearing | Intensity of choice β | Choice ignores why a rule did well |
 | Generalization task agents | Default, flexible, band, learned RC, oracle RC | Observed outcomes so far | Default or flexible action | Observed gain after each period's outcome; oracle values are researcher-only | No cost of deviating | Short histories make learned bins noisy |
@@ -149,6 +151,7 @@ settings are collapsed by default; the section holding the current page opens.
 | Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
 | Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 | Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
+| Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes |
 | Heiner vs optimal filtering (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
 
 **Validate & generalize**
@@ -219,6 +222,8 @@ aspiration searcher does not change more often in more volatile markets; and the
 improve with experience over 1,500 periods. Each of these is a statement about the implementation tested.
 
 ## Competing theories: reference results
+
+> **Requires replication (6 October 2026).** The Adaptive rule gained selection gates (`heiner_abm/gates.py`; `agents.py`, `engine.py` and `params.py` changed). The default gate is meant to reproduce the earlier rule exactly, but until the rerun confirms it, the directional tournament, the out-of-sample forecasts, the preset results, the signature tests and the field patterns reported in this README require replication. <!-- requires-replication:directional --><!-- requires-replication:horse_race --><!-- requires-replication:presets --><!-- requires-replication:preset_adaptive --><!-- requires-replication:special --><!-- requires-replication:patterns -->
 
 > **Revision note (6 October 2026).** This section was rerun after the Adaptive selection rule was changed to learn
 > only from information available to the agent (it previously learned from the researcher's look-ahead
@@ -582,6 +587,8 @@ heiner_abm/theory_content.py  the eight theories, described with the same struct
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 heiner_abm/terminology.py  terms, kinds of uncertainty and evidence, scope of conclusions
 heiner_abm/information.py  information-and-feedback specification, Observation, engine support, agents' needs
+heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
+heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -605,7 +612,7 @@ app_pages/*.py             the Streamlit pages
 * **Proposed extensions** (the laboratory's own constructs): the H-period forked measurement of the reliability
   condition and its decomposition; the reliability condition as a decision rule learned from experience; the oracle
   versus learned decomposition; the error-to-signal boundary K ≈ 1; the lopsided-stakes test against certainty
-  equivalence. Results about these test the laboratory's operationalization, not Heiner's theory as published.
+  equivalence; the confidence-sensitive and exploration-enabled selection gates. Results about these test the laboratory's operationalization, not Heiner's theory as published.
 
 ## Modeling notes
 
@@ -682,6 +689,43 @@ all engines:
   feedback* page shows every agent's access, what each engine supports and a compatibility checker. Every results
   download comes with the specification that produced it (JSON). The default specification reproduces every
   reported result exactly.
+
+## Reliability gates under uncertainty (proposed extension)
+
+The Adaptive selection rule decides whether to adopt its production rule's recommendation x* instead of the default
+x_B (rule B). `heiner_abm/gates.py` makes that decision explicit as a **gate**; the recommendations are identical in
+every gate, so differences come from selection. Heiner (1983) did not propose these gates; they are the laboratory's
+operationalizations of acting on uncertain estimates of one's own reliability.
+
+* **Target.** A = E[payoff over the next W periods with x* − the same with x_B | information at decision time],
+  estimated per size bin of the recommended change, gross of the adjustment cost c, which is a separate setting
+  (`AdaptiveParams.adjust_cost`) used only as the decision threshold and in net-payoff accounting.
+* **Gates.** *Estimated gain* (existing, the default): adopt if the learned gain ≥ c; with no evidence it adopts (the
+  existing optimistic start); with c = 0 it reproduces the earlier rule exactly. *Confidence-sensitive*: adopt only
+  when the bin has at least `min_evidence` effective feedback items and the lower confidence bound exceeds c.
+  *Exploration-enabled*: learns only from its own realized payoffs (chosen-action feedback, so it also runs where
+  counterfactual feedback is unavailable); per bin it compares randomized trials of adopting and keeping, acts when
+  the interval excludes c and otherwise runs a randomized trial with probability `explore_rate` (separate random
+  stream), else keeps. *ORACLE benchmark*: adopts where the true bin advantage, estimated by the researcher from
+  independent runs, exceeds c; the table is accepted by no other gate.
+* **Estimator.** Exponentially weighted mean (memory λ), Kish effective sample size, unbiased weighted variance and a
+  Student-t lower bound (Welch–Satterthwaite for the two arms). A bin without evidence has no estimate; missing
+  outcomes are never counted as zero gains. The bound's nominal coverage assumes independent feedback with a common
+  mean, which overlapping judgement windows, drift, demand shifts and adaptive sampling violate, so no nominal
+  coverage is claimed; the comparison measures it against the ORACLE benchmark.
+* **Environmental change.** `on_change = "forget"` relies on exponential memory; `"reset"` discards evidence and
+  pending feedback when the firms' information shows a change (an announced shift, or an update of the demand curve
+  they are given).
+* **Comparison** (`heiner_abm/gate_study.py`, page *Reliability gates under uncertainty*): every gate on the same
+  markets (common random numbers), with false adaptations and missed opportunities judged by the realized
+  counterfactual and by the ORACLE table, net payoff, calibration, lower-bound coverage, learning delay and net payoff
+  around regime shifts. The ORACLE benchmark decides per bin, so it is a benchmark, not an upper bound. No results of
+  this comparison are reported here; they are produced on the page from the chosen settings.
+* **Tests** (`tests/test_gates.py`): agreement of the two engines for every gate; future shocks change no earlier
+  decision, prediction or evidence; feedback is released at maturity plus delay and used only afterwards;
+  initialization and sparse-data behavior; limiting cases (unreachable evidence or no exploration equal rule B;
+  extreme oracle tables equal Always and Never; confidence 0.5 gives the point estimate); evidence accumulation and
+  forgetting; nominal coverage under independent draws only; separation of the oracle benchmark.
 
 ## Research basis
 

@@ -284,13 +284,13 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
-                    ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py", "theories.py")),
+                    ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py", "theories.py")),
     "horse_race": ("Competing theories: out-of-sample forecasts of which firms beat their rigid twin (AUC)",
-                   ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                   ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "presets": ("Typical results of the preset scenarios without Adaptive agents (sidebar preset descriptions)",
-                ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "preset_adaptive": ("Typical result of the reliability-learning (Adaptive) preset",
-                        ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                        ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "special": ("Signature tests by theory",
                 ("arena.py", "rulechoice.py", "special.py", "analysis.py", "agents.py", "params.py", "#tuned")),
     "patterns": ("Field patterns (pattern-oriented validation)",
@@ -311,7 +311,11 @@ FINDING_FINGERPRINTS: Dict[str, str] = {
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-REPLICATION_REQUIRED: Dict[str, str] = {}
+_GATES_NOTE = ("Requires replication: the Adaptive rule gained selection gates (heiner_abm.gates; agents.py, engine.py, "
+               "params.py changed, 6 October 2026). The default gate is meant to reproduce the earlier rule exactly; "
+               "this finding has not yet been rerun to confirm it.")
+REPLICATION_REQUIRED: Dict[str, str] = {k: _GATES_NOTE for k in ("directional", "horse_race", "presets",
+                                                                 "preset_adaptive", "special", "patterns")}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

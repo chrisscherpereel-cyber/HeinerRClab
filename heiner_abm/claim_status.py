@@ -96,6 +96,12 @@ COMPONENTS: List[Component] = [
               "Restriction is predicted to pay once the flexible rule's error-to-signal ratio K is about 1 or more; "
               "tested in the market and in three other decision tasks.", ("heiner1989",),
               "Mechanisms, Generalization"),
+    Component("extension", "Uncertainty-aware reliability gates",
+              "The Adaptive rule's decision to adopt a recommendation is made by an estimated-gain gate (existing), a "
+              "confidence-sensitive gate (lower confidence bound on the advantage above an adjustment cost, with a "
+              "minimum evidence requirement) or an exploration-enabled gate (randomized trials, learning from its own "
+              "payoffs only), compared with an ORACLE benchmark from independent runs. Heiner did not propose these "
+              "gates; results test the laboratory's operationalization.", (), "Reliability gates page, Market lab"),
     Component("extension", "Lopsided stakes against certainty equivalence",
               "With asymmetric losses and unchanged information, restricting moves in the costly direction is compared "
               "with optimal filtering, which predicts that stakes shift the level of the action but not its response "

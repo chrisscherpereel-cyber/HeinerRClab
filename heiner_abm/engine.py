@@ -35,6 +35,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from . import gates
 from .agents import belief_curves, demand_path, make_streams, observation_noise
 from .params import Scenario
 
@@ -97,9 +98,11 @@ class _Kernel:
     def clearing_firm(self, Qf, pm, sl):
         return np.maximum(self.m["p_min"][..., None], pm[..., None] - sl[..., None] * Qf)
 
-    def decide(self, q, R, P, F, flex, learned, c_obs, c_now, eps, pmb, slb, sel=None):
+    def decide(self, q, R, P, F, flex, mode, c_obs, c_now, eps, pmb, slb, sel=None, trial_adopt=False):
         """Decisions from observations (agents.Industry.observe): q own current output, R rivals' observed output and
-        P observed price per firm, c_obs the observed cost per market, (pmb, slb) the demand curve firms may use."""
+        P observed price per firm, c_obs the observed cost per market, (pmb, slb) the demand curve firms may use.
+        mode (..., N, bins): the Adaptive gate's keep / adopt / uncertain per size bin (heiner_abm.gates);
+        trial_adopt: an uncertain decision is a randomized trial that adopts (explore gate)."""
         m, f = self.m, self.f
         c_hat = c_obs[..., None] + f["kappa"] * (c_now - c_obs)[..., None] + f["sigma"] * eps
         s = slb[..., None]
@@ -113,12 +116,13 @@ class _Kernel:
         change = np.abs(rec - q)
         opp = rec != q
         bins = np.searchsorted(self.edges, change, side="right")
-        lg = np.take_along_axis(learned, bins[..., None], axis=-1)[..., 0]
+        md = np.take_along_axis(mode, bins[..., None], axis=-1)[..., 0]
         sel = f["sel"] if sel is None else sel
         thr = f["threshold"]
+        adapt = opp & ((md == gates.ADAPT) | ((md == gates.UNCERTAIN) & trial_adopt))
         dev = np.select([sel == 0, sel == 1, sel == 2, sel == 3, sel == 4],
-                        [True, False, change < thr, change > thr, opp & (lg >= 0.0)])
-        return rec, dev.astype(bool), opp, bins, c_hat, best
+                        [True, False, change < thr, change > thr, adapt])
+        return rec, dev.astype(bool), opp, bins, c_hat, best, md
 
 
 def _stack(scns: Sequence[Scenario]):
@@ -135,6 +139,10 @@ def _stack(scns: Sequence[Scenario]):
         delay=m(lambda s: int(s.info.obs_delay)).astype(int), obs_noise=m(lambda s: s.info.obs_noise),
         no_dm=m(lambda s: float(s.info.demand_knowledge == "none")).astype(bool),
         window=m(lambda s: int(s.adaptive.window)).astype(int),
+        gate=m(lambda s: gates.GATE_CODES[s.adaptive.gate]).astype(int), adjust_cost=m(lambda s: s.adaptive.adjust_cost),
+        confidence=m(lambda s: s.adaptive.confidence), min_evidence=m(lambda s: s.adaptive.min_evidence),
+        explore_rate=m(lambda s: s.adaptive.explore_rate),
+        reset=m(lambda s: float(s.adaptive.on_change == "reset")).astype(bool),
         flex=f(lambda s, fs: fs.flex), threshold=f(lambda s, fs: fs.threshold),
         margin=f(lambda s, fs: fs.desired_margin), kappa=f(lambda s, fs: fs.foresight),
         sigma=f(lambda s, fs: fs.noise),
@@ -260,28 +268,73 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     st["q_prev"][:, 0] = q
     st["profit"][:, 0] = col(P - cost[:, 0]) * q - F
 
-    learned = np.zeros((B, N, len(edges) + 1))
+    nb = len(edges) + 1
+    learned = np.zeros((B, N, nb))
+    ST = np.zeros((B, N, gates.N_STATS, nb))                  # estimated / oracle feedback statistics (gates.update)
+    XST = np.zeros((B, N, 2, gates.N_STATS, nb))              # explore gate: trials, arm 0 keep / arm 1 adopt
+    TAB = np.zeros((B, N, nb))                                # ORACLE benchmark table (oracle_table gate only)
+    for b, s in enumerate(scns):
+        if s.adaptive.gate == "oracle_table":
+            TAB[b] = np.asarray(s.adaptive.oracle_table, float)
+    g3 = lambda key, rows: a[key][rows][:, None, None]
+    gate_rows = {gates.GATES[c]: np.flatnonzero(a["gate"] == c) for c in np.unique(a["gate"])}
+    # exploration draws (separate stream) and the firms' observed change signal, per market
+    XD = np.ones((B, 2, T, N))
+    for b, s in enumerate(scns):
+        if s.adaptive.gate == "explore":
+            XD[b] = gates.exploration_draws(s.seed, T, N)
+    TRIAL = XD[:, 0] < a["explore_rate"][:, None, None]                     # (B, T, N): an uncertain decision is a trial
+    TADOPT = TRIAL & (XD[:, 1] < 0.5)                                         # ... that adopts
     window = np.zeros((B, N))
     keep_path = evo_on or record_firm_history
     flex_path = np.zeros((B, T if keep_path else 0, N))
     if keep_path:
         flex_path[:, 0] = flex
     b_idx = np.arange(B)[:, None]; n_idx = np.arange(N)[None, :]
+    hist_full = {}
     mem = col(a["memory"])
     # Adaptive feedback (agents.DECISION_SCHEDULE): queued at decision time, released only at maturity
     is_adaptive = (a["sel"] == SEL_CODES["Adaptive"]).any(axis=1)                # (B,)
-    oracle_rows = np.flatnonzero(is_adaptive & a["oracle_fb"])                   # researcher-only treatment
-    # groups of markets that share a judgement window (estimated) or measurement horizon (oracle) and a delay
-    est_groups = {(int(w), int(d)): np.flatnonzero(is_adaptive & ~a["oracle_fb"] & (a["window"] == w) & (D == d))
-                  for w, d in {(a["window"][b], D[b]) for b in np.flatnonzero(is_adaptive & ~a["oracle_fb"])}}
-    oracle_groups = {int(d): np.flatnonzero(is_adaptive & a["oracle_fb"] & (D == d))
+    learns_cf = is_adaptive & np.isin(a["gate"], [gates.GATE_CODES["gain"], gates.GATE_CODES["lcb"]])
+    explores = is_adaptive & (a["gate"] == gates.GATE_CODES["explore"])
+    oracle_rows = np.flatnonzero(learns_cf & a["oracle_fb"])                     # researcher-only treatment
+    # groups of markets that share a judgement window (estimated, trials) or measurement horizon (oracle) and a delay
+    group = lambda mask: {(int(w), int(d)): np.flatnonzero(mask & (a["window"] == w) & (D == d))
+                          for w, d in {(a["window"][b], D[b]) for b in np.flatnonzero(mask)}}
+    est_groups = group(learns_cf & ~a["oracle_fb"])
+    trial_groups = group(explores)
+    oracle_groups = {int(d): np.flatnonzero(learns_cf & a["oracle_fb"] & (D == d))
                      for d in {D[b] for b in oracle_rows}}
+    reset_rows = is_adaptive & a["reset"]
+    SIG = np.zeros((B, T), dtype=bool)
+    for b in np.flatnonzero(reset_rows):
+        SIG[b] = gates.change_signal(scns[b], PMB[b], SLB[b], SHIFT[b])
+    rec_keys = ("adv_pred", "adv_se", "adv_bound", "adv_neff")
+    if record_firm_history:
+        for k in rec_keys + ("fb_value",):
+            hist_full[k] = np.full((B, T, N), np.nan)
+        hist_full["fb_release"] = np.full((B, T, N), -1)
+        hist_full["explored"] = np.zeros((B, T, N), dtype=bool)
+        hist_full["reset"] = np.zeros((B, T), dtype=bool)
     pending: deque = deque()
     pmin_b = a["p_min"]
     eye = np.eye(N, dtype=bool)
-    hist_full = {}
 
     for t in range(1, T):
+        rr = np.flatnonzero(SIG[:, t])                                  # step 0: the firms see a change, forget
+        if len(rr):
+            learned[rr], ST[rr], XST[rr] = 0.0, 0.0, 0.0
+            for item in pending:
+                item["valid"][np.isin(item["rows"], rr)] = False
+            if record_firm_history:
+                hist_full["reset"][rr, t] = True
+        mode = np.zeros((B, N, nb), dtype=np.int8)
+        gt = {}
+        for g, rows in gate_rows.items():
+            gt[g] = gates.gate_table(g, learned[rows], ST[rows], XST[rows], lam=g3("memory", rows),
+                                     cost=g3("adjust_cost", rows), conf=g3("confidence", rows),
+                                     nmin=g3("min_evidence", rows), table=TAB[rows])
+            mode[rows] = gt[g]["mode"]
         c_now = cost[:, t]
         pm, sl = PM[:, t], SL[:, t]
         so = np.maximum(t - 1 - D, 0)                                   # latest observed period per market
@@ -290,8 +343,9 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         if NZ is not None:
             P_obs, Q_obs = P_obs + NZ[bB, 0, so], Q_obs + NZ[bB, 1, so]
         R_obs = Q_obs - st["q"][bB, so].astype(float)
-        rec, dev, opp, bins, c_hat, best = K1.decide(q, R_obs, P_obs, F, flex, learned, cost[bB, so], c_now,
-                                                     EPS[:, t, :], PMB[:, t], SLB[:, t])
+        rec, dev, opp, bins, c_hat, best, md = K1.decide(q, R_obs, P_obs, F, flex, mode, cost[bB, so], c_now,
+                                                         EPS[:, t, :], PMB[:, t], SLB[:, t], trial_adopt=TADOPT[:, t])
+        explored = opp & (md == gates.UNCERTAIN) & TRIAL[:, t] & (a["sel"] == SEL_CODES["Adaptive"])
         new_q = np.where(dev, rec, q)
         alt = np.where(dev, q, rec)
         Qn = new_q.sum(1)
@@ -316,7 +370,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                 fq[:, 1:, :] = np.where(eye[None], alt[:, None, :], fq[:, 1:, :])
             fF = np.broadcast_to(F[:, None, :], fq.shape)
             fflex = np.broadcast_to(flex[:, None, :], fq.shape)
-            flearn = np.broadcast_to(learned[:, None], (B, NF) + learned.shape[1:])
+            fmode = np.broadcast_to(mode[:, None], (B, NF) + mode.shape[1:])
             fQ = fq.sum(-1)
             fP = KF.clearing(fQ, col(pm), col(sl))
             cum = (fP - col(c_now))[..., None] * fq - fF
@@ -341,8 +395,9 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                 oQ = np.repeat(oQ[..., None], N, axis=-1)
                 if NZ is not None:
                     oP, oQ = oP + NZ[bB, 0, fo][:, None, :], oQ + NZ[bB, 1, fo][:, None, :]
-                r2, d2, *_ = KF.decide(fq, oQ - oq, oP, fF, fflex, flearn, col(cost[bB, fo]), cn,
-                                       EPS[:, tt, None, :], col(PMB[:, tt]), col(SLB[:, tt]), sel=fork_sel)
+                r2, d2, *_ = KF.decide(fq, oQ - oq, oP, fF, fflex, fmode, col(cost[bB, fo]), cn,
+                                       EPS[:, tt, None, :], col(PMB[:, tt]), col(SLB[:, tt]), sel=fork_sel,
+                                       trial_adopt=TADOPT[:, tt, None, :])
                 fq = np.where(d2, r2, fq)
                 fQ = fq.sum(-1)
                 fP = KF.clearing(fQ, col(PM[:, tt]), col(SL[:, tt]))
@@ -368,16 +423,31 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
             p_def = np.where(dev, cum_alt, cum_actual)
             for k, val in (("profit_rule", p_rule), ("profit_default", p_def), ("c_hat", c_hat)):
                 hist_full.setdefault(k, np.zeros((B, T, N)))[:, t] = val
+            ad_firm = a["sel"] == SEL_CODES["Adaptive"]
+            for g, rows in gate_rows.items():
+                for k, key in zip(rec_keys, ("pred", "se", "bound", "neff")):
+                    v = np.take_along_axis(gt[g][key], bins[rows][..., None], axis=-1)[..., 0]
+                    hist_full[k][rows, t] = np.where(ad_firm[rows], v, np.nan)
+            hist_full["explored"][:, t] = explored
 
         # feedback: queue this period's decisions, accumulate observed terms, release what matures at t
         for (w, d), rows in est_groups.items():
             pending.append(dict(kind="estimated", rows=rows, decided=t, matures=t + w - 1, release=t + w - 1 + d,
-                                bins=bins[rows], opp=opp[rows], x1=rec[rows], x0=q[rows],
+                                bins=bins[rows], valid=opp[rows], x1=rec[rows], x0=q[rows],
                                 gain=np.zeros((len(rows), N))))
         for d, rows in oracle_groups.items():
             pending.append(dict(kind="oracle", rows=rows, decided=t, matures=t + H - 1, release=t + H - 1 + d,
-                                bins=bins[rows], opp=opp[rows], gain=g_full[rows]))
+                                bins=bins[rows], valid=opp[rows], gain=g_full[rows]))
+        for (w, d), rows in trial_groups.items():        # explore gate: own realized payoff minus a fixed baseline
+            pending.append(dict(kind="chosen", rows=rows, decided=t, matures=t + w - 1, release=t + w - 1 + d,
+                                bins=bins[rows], valid=explored[rows], arm=dev[rows].astype(int),
+                                gain=0.0 - w * st["profit"][rows[:, None], so[rows][:, None], n_idx],
+                                qb=st["q"][rows[:, None], so[rows][:, None], n_idx].astype(float),
+                                cb=cost[rows, so[rows]][:, None]))
         for item in pending:
+            if item["kind"] == "chosen" and item["matures"] >= t:
+                r = item["rows"]
+                item["gain"] = item["gain"] + (profit[r] + item["qb"] * (cost[r, t][:, None] - item["cb"]))
             if item["kind"] == "estimated" and item["matures"] >= t:
                 r = item["rows"]
                 Qo = Qn[r, None] + (NZ[r, 1, t] if NZ is not None else 0.0)     # observed market output
@@ -387,10 +457,21 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         due = [item for item in pending if item["release"] == t]     # in order of decision time
         pending = deque(item for item in pending if item["release"] != t)
         for item in due:
-            r = item["rows"]
-            cur = learned[r[:, None], n_idx, item["bins"]]
+            r, ok, bi = item["rows"], item["valid"], item["bins"]
             m_r = mem[r]
-            learned[r[:, None], n_idx, item["bins"]] = np.where(item["opp"], m_r * cur + (1 - m_r) * item["gain"], cur)
+            if item["kind"] == "chosen":
+                cur4 = XST[r[:, None], n_idx, item["arm"], :, bi]
+                XST[r[:, None], n_idx, item["arm"], :, bi] = np.where(ok[..., None],
+                                                                     gates.update(cur4, item["gain"], m_r), cur4)
+            else:
+                cur = learned[r[:, None], n_idx, bi]
+                learned[r[:, None], n_idx, bi] = np.where(ok, m_r * cur + (1 - m_r) * item["gain"], cur)
+                cur4 = ST[r[:, None], n_idx, :, bi]
+                ST[r[:, None], n_idx, :, bi] = np.where(ok[..., None], gates.update(cur4, item["gain"], m_r), cur4)
+            if record_firm_history:
+                d0 = item["decided"]
+                hist_full["fb_value"][r, d0] = np.where(ok, item["gain"], hist_full["fb_value"][r, d0])
+                hist_full["fb_release"][r, d0] = np.where(ok, t, hist_full["fb_release"][r, d0])
 
         q, Q, P = new_q, Qn, Pn
         price[:, t], quantity[:, t] = P, Q

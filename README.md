@@ -223,6 +223,8 @@ improve with experience over 1,500 periods. Each of these is a statement about t
 
 ## Competing theories: reference results
 
+> **Requires replication (6 October 2026).** `params.py` changed after the last rerun (a validation rule was removed; no computation changed). The findings below and the signature tests and field patterns are flagged until the rerun completes. <!-- requires-replication:directional --><!-- requires-replication:horse_race --><!-- requires-replication:presets --><!-- requires-replication:preset_adaptive --><!-- requires-replication:special --><!-- requires-replication:patterns -->
+
 > **Revision note (6 October 2026).** This section was rerun after the Adaptive selection rule was changed to learn
 > only from information available to the agent (it previously learned from the researcher's look-ahead
 > counterfactual). The protocol was first checked on the old code, which reproduced every number reported here

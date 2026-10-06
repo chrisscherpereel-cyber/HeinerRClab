@@ -317,7 +317,10 @@ FINDING_FINGERPRINTS: Dict[str, str] = {
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-REPLICATION_REQUIRED: Dict[str, str] = {}
+_VALIDATION_NOTE = ("Requires replication: params.py changed (a validation rule on the adjustment cost was removed, "
+                    "6 October 2026; no computation changed). Rerun pending.")
+REPLICATION_REQUIRED: Dict[str, str] = {k: _VALIDATION_NOTE for k in ("directional", "horse_race", "presets",
+                                                                      "preset_adaptive", "special", "patterns")}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

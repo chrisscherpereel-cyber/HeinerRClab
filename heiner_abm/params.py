@@ -99,7 +99,9 @@ class AdaptiveParams:
     # Selection gate (heiner_abm.gates; the gates other than "gain" are proposed extensions). Defaults reproduce the
     # rule before the gates were added.
     gate: str = "gain"            # "gain" (existing), "lcb", "explore" or "oracle_table" (ORACLE benchmark)
-    adjust_cost: float = 0.0      # c: cost of one adaptation, compared with the advantage; kept apart from uncertainty
+    adjust_cost: float = 0.0      # c: cost of one adaptation, compared with the advantage; kept apart from uncertainty.
+    #                               An accounting cost: it does not change prices or market profit (which evolution
+    #                               imitates); the gate study subtracts it in its net payoff.
     confidence: float = 0.9       # one-sided level of the lower bound (lcb, explore); 0.5 = point estimate
     min_evidence: float = 5.0     # effective feedback items per bin (lcb) or per arm (explore) before deciding (>= 2)
     explore_rate: float = 0.2     # explore: probability that an uncertain decision is a randomized trial
@@ -198,9 +200,6 @@ class Scenario:
         if ad.on_change not in ON_CHANGE:
             errs.append(f"Unknown response to environmental change {ad.on_change!r} (choose one of "
                         f"{', '.join(ON_CHANGE)}).")
-        if ad.adjust_cost > 0 and self.evolution.enabled:
-            errs.append("An adjustment cost is accounted outside the market profit that evolution imitates; the two "
-                        "cannot be combined.")
         if ad.gate == "oracle_table":
             nb = len(ad.bin_edges) + 1
             if len(ad.oracle_table) != self.n_firms or any(len(r) != nb for r in ad.oracle_table):

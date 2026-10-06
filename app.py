@@ -51,6 +51,7 @@ SECTIONS = {
         st.Page("app_pages/play_market.py", title="Play the market", icon="🎮"),
         st.Page("app_pages/experiment_analysis.py", title="Experiment analysis", icon="🧾"),
         st.Page("app_pages/generalisation.py", title="Generalization", icon="🌐"),
+        st.Page("app_pages/benchmarks.py", title="Decision benchmarks (Bayes, robust, bandit)", icon="🧮"),
     ],
     "Reference": [
         st.Page("app_pages/agents_reference.py", title="Agents as implemented", icon="🤖"),

@@ -229,8 +229,33 @@ OTHER: List[Spec] = [
 ]
 
 
+_BENCH_ACTIONS = {"inventory": "Order quantity S each period (0.8 critical fractile of its demand forecast)",
+                  "bandit": "Choose one of two options each period"}
+_BENCH_OBJECTIVE = {"competitor": "Maximize payoff with the design's information",
+                    "benchmark": "Bayes-optimal payoff under the true model (researcher benchmark, not ranked)",
+                    "oracle": "ORACLE: best action given the true state (not ranked)",
+                    "reference": "Full-feedback reference for the bandit (not ranked; different feedback)"}
+
+
+def benchmark_specs() -> List[Spec]:
+    """Rows for the decision benchmarks, generated from their family registries."""
+    from . import bench_bandit, bench_inventory
+    rows = []
+    for name, mod in (("inventory", bench_inventory), ("bandit", bench_bandit)):
+        for k, f in mod.FAMILIES.items():
+            tuned = ", ".join(f.space) or "none"
+            rows.append(Spec(f"Decision benchmark · {name}", f.name, mod.REGISTRY_KEY[k], _BENCH_OBJECTIVE[f.role],
+                             f.feedback, _BENCH_ACTIONS[name],
+                             {"inventory": "Observed demand after each period (uncensored)",
+                              "bandit": "Payoff of the chosen option only"}[name] if f.role == "competitor" else
+                             f.feedback, f.assumptions + f" Hyperparameters tuned on training environments: {tuned}.",
+                             f"Compute: {f.compute}" + (" ORACLE information." if f.role in ("benchmark", "oracle")
+                                                         else "")))
+    return rows
+
+
 def all_specs() -> List[Spec]:
-    return MARKET_LAB + tournament_specs() + OTHER
+    return MARKET_LAB + tournament_specs() + OTHER + benchmark_specs()
 
 
 def table():

@@ -160,6 +160,7 @@ settings are collapsed by default; the section holding the current page opens.
 |---|---|
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
+| Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
@@ -585,6 +586,8 @@ heiner_abm/theory_content.py  the eight theories, described with the same struct
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 heiner_abm/terminology.py  terms, kinds of uncertainty and evidence, scope of conclusions
 heiner_abm/information.py  information-and-feedback specification, Observation, engine support, agents' needs
+heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
+                           decision benchmarks: Bayes, robust optimization, bandits; tuning protocol; correctness checks
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
@@ -724,6 +727,34 @@ operationalizations of acting on uncertain estimates of one's own reliability.
   initialization and sparse-data behavior; limiting cases (unreachable evidence or no exploration equal rule B;
   extreme oracle tables equal Always and Never; confidence 0.5 gives the point estimate); evidence accumulation and
   forgetting; nominal coverage under independent draws only; separation of the oracle benchmark.
+
+## Decision benchmarks
+
+Three established decision methods are run in two tasks of the generalization study, whose environment generators
+(`heiner_abm/tasks.py`, part of a frozen plan) are imported unchanged.
+
+| Benchmark | Task and design | Agents (role) | Sources |
+|---|---|---|---|
+| A. Bayesian learning with change detection | Inventory (newsvendor): mean demand jumps by N(0, 30²) with the environment's hazard, clipped to [30, 170]; demand max(0, mean + σ·e), observed with noise τ; order = 0.8 critical fractile of the predictive | Exact grid filter of this process with the true parameters, ordering by posterior expected payoff (**benchmark**, not ranked); Bayesian online change-point detection with a misspecified reset model, tuned (competitor) | Adams & MacKay (2007); Fearnhead & Liu (2007); Arrow, Harris & Marschak (1951) |
+| B. Distributionally robust optimization | The same newsvendor; the last N observed demands | Robust order against every distribution within modified-χ² distance ρ of their empirical distribution, ρ and N calibrated on training environments; empirical (SAA) order as comparator; ρ = 0 reduces to SAA | Ben-Tal et al. (2013) |
+| C. Nonstationary bandit | The learning task with **chosen-action feedback**: only the chosen option's payoff is observed | Sliding-window and discounted UCB, UCB (stationary baseline), ε-greedy with constant step size (competitors); oracle (not ranked); the task's full-feedback learner as a separate reference, not a bandit | Garivier & Moulines (2011); Auer, Cesa-Bianchi & Fischer (2002); Sutton & Barto (2018) |
+
+* **Protocol** (`heiner_abm/bench_tuning.py`): disjoint training, validation and test environments; random search where
+  budget b means the first b sampled configurations; the configuration chosen at each budget is scored on validation
+  environments (the curve of tuning performance against the evaluation budget, with the training runs spent); the
+  final configuration is the best of these on validation; only it is run on the test environments. Correctly
+  specified benchmarks, oracles and references are reported beside the ranking of competitors, never in it.
+* **Correctness first** (`heiner_abm/bench_checks.py`, also shown on the page): grid filter = enumeration of all paths;
+  BOCPD = enumeration of all change-point configurations, and = the conjugate posterior with hazard 0; the documented
+  process reproduces the task's generator draw for draw; ρ = 0 gives the SAA objective and optimum; the worst case
+  equals mean + √(ρ·variance) when no weight hits zero, a numerical optimum otherwise, and the largest loss for
+  ρ ≥ N − 1 (minimax order); SW-UCB with τ ≥ T and D-UCB with γ = 1 equal UCB; bandit agents ignore payoffs they did
+  not observe; noise-free cases give the analytic choices.
+* **Assumptions and computation** of every agent are listed on the page and in the model specification table (for
+  example, BOCPD is O(R) per period for R kept run lengths; the robust order is an exact O(N log N) worst case inside
+  a golden-section search; the grid filter is O(G²) per period).
+* No results of these comparisons are reported here; they are produced on the page (Quick check or Full) with the
+  plan, environments and information specification exported alongside.
 
 ## Research basis
 

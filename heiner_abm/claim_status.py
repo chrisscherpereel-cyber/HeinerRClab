@@ -53,6 +53,17 @@ COMPONENTS: List[Component] = [
     Component("established", "Imitation of the best",
               "Imitating the most profitable rival drives Cournot output above the Cournot–Nash level.",
               ("vegaredondo1997",), "Signature tests, field patterns"),
+    Component("established", "Bayesian online change-point detection",
+              "Exact recursive posterior over the time since the last change point for a product-partition model with "
+              "a constant hazard; used as published (Gaussian segments with known variance) as a decision benchmark "
+              "in the inventory task.", ("adams2007", "fearnhead2007"), "Decision benchmarks"),
+    Component("established", "Distributionally robust optimization with φ-divergence ambiguity sets",
+              "Decisions against the worst-case expectation over distributions within a φ-divergence (here the "
+              "modified χ² distance) of a nominal distribution; used with the empirical distribution of recent demand.",
+              ("bental2013",), "Decision benchmarks"),
+    Component("established", "Upper-confidence-bound policies for switching bandits",
+              "UCB indices computed over a sliding window or with discounting track abrupt changes in the payoffs of "
+              "options observed only when chosen.", ("garivier2011", "auer2002"), "Decision benchmarks"),
     # ---------------------------------------------------------------------------------------- reduced form
     Component("reduced_form", "The market",
               "One homogeneous product, linear demand with a price floor, and a raw-material cost that follows a "

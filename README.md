@@ -26,11 +26,11 @@ python -m pytest -q tests
 2. Go to [share.streamlit.io](https://share.streamlit.io), click **Create app**, and choose **Deploy a public app from GitHub**.
 3. Select the repository and branch, and set **Main file path** to `app.py`.
 4. Optional: under **Advanced settings**, choose Python 3.11 or 3.12.
-5. Click **Deploy**. Dependencies are installed from `requirements.txt`, and the theme comes from
-   `.streamlit/config.toml`.
+5. Click **Deploy**. Dependencies are installed from `requirements.txt`. The repository has no
+   `.streamlit/config.toml`, so Streamlit's default theme is used.
 
-No secrets or data files are needed. The GitHub Actions workflow in `.github/workflows/tests.yml` runs the test
-suite on every push.
+No secrets or data files are needed. The repository has no continuous-integration workflow; run the test suite
+locally (see above) before pushing.
 
 **Resource note:** Community Cloud apps have about 1 GB of memory. The default experiments use well under that. Very
 large runs can hit the limit: for example, hundreds of environments at H = 100, or tens of thousands of periods with
@@ -102,6 +102,11 @@ environments, sample sizes, tuning budgets and seeds) is fixed and, together wit
 into a short hash. This prevents choosing tests or settings after seeing the results, makes the comparison between
 theories fair, and lets anyone verify that a reported result came from exactly that plan and code. Any change produces
 a new hash and the run is labeled exploratory. Every page with a plan explains this in an expandable note.
+
+*What this does not establish.* "Pre-registered" here means frozen in the code and identified by a hash. The
+repository contains no record of any plan being deposited with an external, time-stamped registry (such as OSF or
+AsPredicted), so the hash shows which plan and code produced a result but not that the plan was fixed before the
+results were seen. Some plans were revised during development before they were frozen (see the mechanism study).
 
 **Findings without a frozen plan.** Some reported results were produced without a frozen plan: the directional
 tournament and the out-of-sample forecasts on the *Competing theories* page, the typical results of the presets, the

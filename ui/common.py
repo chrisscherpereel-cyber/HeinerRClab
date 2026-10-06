@@ -694,7 +694,13 @@ PREREG_TEXT = (
     "**Registered versus exploratory.** Changing any setting (or the code) changes the hash, and the app then labels "
     "the run *exploratory*. Exploratory runs are useful for learning and for generating new hypotheses, but they are "
     "not confirmatory evidence. Results reported in the README and on the theory pages are tied to the registered "
-    "hashes, and the test suite fails if the code changes them without the results being rerun (Nosek et al., 2018).")
+    "hashes, and the test suite fails if the code changes them without the results being rerun (Nosek et al., 2018).\n\n"
+    "**What the hash does not show.** In this laboratory a *pre-registered plan* means a plan frozen in the code and "
+    "identified by its hash. The repository contains no record of any plan being deposited with an external, "
+    "time-stamped registry. The hash shows which plan and which code produced a result; it does not show that the plan "
+    "was fixed before the results were seen. Plans were revised during development before they were frozen (see the "
+    "README). Treat registered results accordingly, and deposit a plan externally before a confirmatory run if that "
+    "guarantee is needed.")
 
 
 def prereg_explainer():

@@ -752,7 +752,7 @@ PREREG_TEXT = (
     "**What it is.** Before a confirmatory study is run, its plan is fixed in writing: the hypotheses, the exact test "
     "and decision rule for each (what result counts as support and what does not), the environments and sample sizes, "
     "the tuning budget every agent receives, and the random seeds. The app turns the plan, together with the source "
-    "code of the agents and the analysis, into a short fingerprint (a hash, such as `9699f86a6a899cf7`).\n\n"
+    "code of the agents and the analysis, into a short fingerprint (a hash, such as `110b3146bb072c2c`).\n\n"
     "**Why it matters.**\n"
     "* *No moving the goalposts.* Tests, settings and thresholds cannot be chosen after seeing which ones favor a "
     "theory (the 'garden of forking paths', p-hacking, or hypothesizing after the results are known).\n"

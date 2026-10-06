@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 from heiner_abm.params import FirmSpec, RULE_TYPES, SELECTION_RULES
 from ui.common import (CAT, COST_C, PRICE_C, base_scenario, cached_single, download, firm_colors, measure_opts, measurement,
                        show_errors, style, to_json)
+from heiner_abm.information import access_table, market_agents
 from ui.common import evidence_note
 
 st.title("Market lab: one market, every decision")
@@ -77,6 +78,10 @@ firms = [FirmSpec(rule=r.rule, flex=float(r.flex), selection=r.selection, thresh
                                     "flex": 0.5}).iterrows()]
 scn = base.copy(firms=firms, seed=int(seed))
 scn.evolution.enabled = bool(evolve)
+with st.expander("👁️ What these firms observe and the feedback they receive", expanded=False):
+    st.caption("From the sidebar's *Information & feedback* section. Unsupported combinations are listed and not run; "
+               "the *Information & feedback* page covers every agent and engine.")
+    st.dataframe(access_table(market_agents(scn), scn.info, "market"), hide_index=True, width="stretch")
 if not show_errors(scn):
     st.stop()
 H, cont = measurement()

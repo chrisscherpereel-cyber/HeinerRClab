@@ -35,7 +35,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .agents import belief_index, demand_path, make_streams
+from .agents import belief_curves, demand_path, make_streams, observation_noise
 from .params import Scenario
 
 SEL_CODES = {"Always": 0, "Never": 1, "Small": 2, "Large": 3, "Adaptive": 4}
@@ -87,7 +87,7 @@ class _Kernel:
     def __init__(self, a: dict, edges: np.ndarray, extra_dims: int):
         m_shape = (-1,) + (1,) * extra_dims
         f_shape = (a["flex"].shape[0],) + (1,) * extra_dims + (a["flex"].shape[1],)
-        self.m = {k: a[k].reshape(m_shape) for k in ("p_min", "q_min", "incl")}
+        self.m = {k: a[k].reshape(m_shape) for k in ("p_min", "q_min", "incl", "no_dm")}
         self.f = {k: a[k].reshape(f_shape) for k in ("threshold", "margin", "kappa", "sigma", "cournot", "sel")}
         self.edges = edges
 
@@ -97,15 +97,19 @@ class _Kernel:
     def clearing_firm(self, Qf, pm, sl):
         return np.maximum(self.m["p_min"][..., None], pm[..., None] - sl[..., None] * Qf)
 
-    def decide(self, q, Q, P, F, flex, learned, c_prev, c_now, eps, pmb, slb, sel=None):
+    def decide(self, q, R, P, F, flex, learned, c_obs, c_now, eps, pmb, slb, sel=None):
+        """Decisions from observations (agents.Industry.observe): q own current output, R rivals' observed output and
+        P observed price per firm, c_obs the observed cost per market, (pmb, slb) the demand curve firms may use."""
         m, f = self.m, self.f
-        c_hat = c_prev[..., None] + f["kappa"] * (c_now - c_prev)[..., None] + f["sigma"] * eps
+        c_hat = c_obs[..., None] + f["kappa"] * (c_now - c_obs)[..., None] + f["sigma"] * eps
         s = slb[..., None]
-        best = (pmb[..., None] - s * (Q[..., None] - q) - c_hat) / (2 * s)
+        best = (pmb[..., None] - s * R - c_hat) / (2 * s)
+        best = np.where(self.m["no_dm"][..., None], np.nan, best)
         rec_c = flex * best + (1 - flex) * q
-        margin = P[..., None] - c_hat - np.where(m["incl"][..., None] > 0, F / q, 0.0)
+        margin = P - c_hat - np.where(m["incl"][..., None] > 0, F / q, 0.0)
         rec_b = q + flex * (margin - f["margin"])
-        rec = np.maximum(m["q_min"][..., None], np.rint(np.where(f["cournot"], rec_c, rec_b)))
+        with np.errstate(invalid="ignore"):
+            rec = np.maximum(m["q_min"][..., None], np.rint(np.where(f["cournot"], rec_c, rec_b)))
         change = np.abs(rec - q)
         opp = rec != q
         bins = np.searchsorted(self.edges, change, side="right")
@@ -127,7 +131,9 @@ def _stack(scns: Sequence[Scenario]):
         fc_slope=m(lambda s: s.firm_globals.flex_cost_slope), fc_fixed=m(lambda s: s.firm_globals.fixed_cost),
         incl=m(lambda s: float(s.firm_globals.margin_includes_fixed)),
         memory=m(lambda s: s.adaptive.memory),
-        oracle_fb=m(lambda s: float(s.adaptive.feedback == "oracle")).astype(bool),
+        oracle_fb=m(lambda s: float(s.info.feedback == "oracle")).astype(bool),
+        delay=m(lambda s: int(s.info.obs_delay)).astype(int), obs_noise=m(lambda s: s.info.obs_noise),
+        no_dm=m(lambda s: float(s.info.demand_knowledge == "none")).astype(bool),
         window=m(lambda s: int(s.adaptive.window)).astype(int),
         flex=f(lambda s, fs: fs.flex), threshold=f(lambda s, fs: fs.threshold),
         margin=f(lambda s, fs: fs.desired_margin), kappa=f(lambda s, fs: fs.foresight),
@@ -186,9 +192,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     gam = float(discount)
     N, T, burn = scns[0].n_firms, scns[0].periods, scns[0].burn_in
     for s in scns:
-        errs = s.validate()
-        if errs:
-            raise ValueError("; ".join(errs))
+        s.check_runnable()
         if s.n_firms != N or s.periods != T or s.burn_in != burn:
             raise ValueError("All scenarios in a batch need the same number of firms, periods and burn-in.")
     edges = np.asarray(scns[0].adaptive.bin_edges, dtype=float)
@@ -217,11 +221,13 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     # demand regimes (true) and the firms' believed demand model
     dp = [demand_path(s) for s in scns]
     PM = np.stack([d[0] for d in dp]); SL = np.stack([d[1] for d in dp]); SHIFT = np.stack([d[2] for d in dp])
-    base_pm = np.array([s.market.p_max for s in scns])[:, None]
-    base_sl = np.array([s.market.slope for s in scns])[:, None]
-    BI = np.stack([belief_index(s) for s in scns])
-    PMB = np.where(BI < 0, base_pm, np.take_along_axis(PM, np.maximum(BI, 0), axis=1))
-    SLB = np.where(BI < 0, base_sl, np.take_along_axis(SL, np.maximum(BI, 0), axis=1))
+    bc = [belief_curves(s, PM[b], SL[b]) for b, s in enumerate(scns)]     # the curve firms may use (information spec)
+    PMB = np.stack([x[0] for x in bc]); SLB = np.stack([x[1] for x in bc])
+    # observations: delay d per market, noise on observed price and market quantity (separate stream)
+    D = a["delay"]
+    NZ = (np.stack([a["obs_noise"][b] * observation_noise(s.seed, T, N) for b, s in enumerate(scns)])
+          if (a["obs_noise"] > 0).any() else None)                                       # (B, 2, T, N)
+    bB = np.arange(B)
 
     # raw-material cost: random walk with reflecting bounds
     cost = np.empty((B, T))
@@ -265,18 +271,27 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     # Adaptive feedback (agents.DECISION_SCHEDULE): queued at decision time, released only at maturity
     is_adaptive = (a["sel"] == SEL_CODES["Adaptive"]).any(axis=1)                # (B,)
     oracle_rows = np.flatnonzero(is_adaptive & a["oracle_fb"])                   # researcher-only treatment
-    obs_windows = {int(w): np.flatnonzero(is_adaptive & ~a["oracle_fb"] & (a["window"] == w))
-                   for w in np.unique(a["window"][is_adaptive & ~a["oracle_fb"]])}
+    # groups of markets that share a judgement window (estimated) or measurement horizon (oracle) and a delay
+    est_groups = {(int(w), int(d)): np.flatnonzero(is_adaptive & ~a["oracle_fb"] & (a["window"] == w) & (D == d))
+                  for w, d in {(a["window"][b], D[b]) for b in np.flatnonzero(is_adaptive & ~a["oracle_fb"])}}
+    oracle_groups = {int(d): np.flatnonzero(is_adaptive & a["oracle_fb"] & (D == d))
+                     for d in {D[b] for b in oracle_rows}}
     pending: deque = deque()
     pmin_b = a["p_min"]
     eye = np.eye(N, dtype=bool)
     hist_full = {}
 
     for t in range(1, T):
-        c_prev, c_now = cost[:, t - 1], cost[:, t]
+        c_now = cost[:, t]
         pm, sl = PM[:, t], SL[:, t]
-        rec, dev, opp, bins, c_hat, best = K1.decide(q, Q, P, F, flex, learned, c_prev, c_now, EPS[:, t, :],
-                                                     PMB[:, t], SLB[:, t])
+        so = np.maximum(t - 1 - D, 0)                                   # latest observed period per market
+        P_obs = np.repeat(price[bB, so][:, None], N, axis=1)
+        Q_obs = np.repeat(quantity[bB, so][:, None], N, axis=1)
+        if NZ is not None:
+            P_obs, Q_obs = P_obs + NZ[bB, 0, so], Q_obs + NZ[bB, 1, so]
+        R_obs = Q_obs - st["q"][bB, so].astype(float)
+        rec, dev, opp, bins, c_hat, best = K1.decide(q, R_obs, P_obs, F, flex, learned, cost[bB, so], c_now,
+                                                     EPS[:, t, :], PMB[:, t], SLB[:, t])
         new_q = np.where(dev, rec, q)
         alt = np.where(dev, q, rec)
         Qn = new_q.sum(1)
@@ -305,18 +320,33 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
             fQ = fq.sum(-1)
             fP = KF.clearing(fQ, col(pm), col(sl))
             cum = (fP - col(c_now))[..., None] * fq - fF
+            # fork history (periods t, t+1, ...) for delayed observations inside the forks
+            hP, hQ, hq = np.empty((B, NF, H)), np.empty((B, NF, H)), np.empty((B, NF, H, N))
+            hP[:, :, 0], hQ[:, :, 0], hq[:, :, 0] = fP, fQ, fq
             wgt = 1.0
             for h in range(1, H):
                 tt = t + h
                 if tt >= T:
                     break
                 wgt *= gam
-                cp, cn = col(cost[:, tt - 1]), col(cost[:, tt])
-                r2, d2, *_ = KF.decide(fq, fQ, fP, fF, fflex, flearn, cp, cn, EPS[:, tt, None, :],
-                                       col(PMB[:, tt]), col(SLB[:, tt]), sel=fork_sel)
+                cn = col(cost[:, tt])
+                fo = np.maximum(tt - 1 - D, 0)                          # observed period per market
+                k = fo - t                                              # >= 0: inside the fork
+                kk = np.clip(k, 0, H - 1)
+                inside = (k >= 0)[:, None]
+                oP = np.where(inside, hP[bB, :, kk], price[bB, fo][:, None])
+                oQ = np.where(inside, hQ[bB, :, kk], quantity[bB, fo][:, None])
+                oq = np.where(inside[..., None], hq[bB, :, kk], st["q"][bB, fo][:, None, :].astype(float))
+                oP = np.repeat(oP[..., None], N, axis=-1)
+                oQ = np.repeat(oQ[..., None], N, axis=-1)
+                if NZ is not None:
+                    oP, oQ = oP + NZ[bB, 0, fo][:, None, :], oQ + NZ[bB, 1, fo][:, None, :]
+                r2, d2, *_ = KF.decide(fq, oQ - oq, oP, fF, fflex, flearn, col(cost[bB, fo]), cn,
+                                       EPS[:, tt, None, :], col(PMB[:, tt]), col(SLB[:, tt]), sel=fork_sel)
                 fq = np.where(d2, r2, fq)
                 fQ = fq.sum(-1)
                 fP = KF.clearing(fQ, col(PM[:, tt]), col(SL[:, tt]))
+                hP[:, :, h], hQ[:, :, h], hq[:, :, h] = fP, fQ, fq
                 cum = cum + wgt * ((fP - cn)[..., None] * fq - fF)
             if hold:
                 cum_actual = cum[:, 0::2, :][:, eye]
@@ -340,20 +370,22 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                 hist_full.setdefault(k, np.zeros((B, T, N)))[:, t] = val
 
         # feedback: queue this period's decisions, accumulate observed terms, release what matures at t
-        for w, rows in obs_windows.items():
-            pending.append(dict(kind="observable", rows=rows, decided=t, matures=t + w - 1, bins=bins[rows],
-                                opp=opp[rows], x1=rec[rows], x0=q[rows], gain=np.zeros((len(rows), N))))
-        if len(oracle_rows):
-            pending.append(dict(kind="oracle", rows=oracle_rows, decided=t, matures=t + H - 1,
-                                bins=bins[oracle_rows], opp=opp[oracle_rows], gain=g_full[oracle_rows]))
+        for (w, d), rows in est_groups.items():
+            pending.append(dict(kind="estimated", rows=rows, decided=t, matures=t + w - 1, release=t + w - 1 + d,
+                                bins=bins[rows], opp=opp[rows], x1=rec[rows], x0=q[rows],
+                                gain=np.zeros((len(rows), N))))
+        for d, rows in oracle_groups.items():
+            pending.append(dict(kind="oracle", rows=rows, decided=t, matures=t + H - 1, release=t + H - 1 + d,
+                                bins=bins[rows], opp=opp[rows], gain=g_full[rows]))
         for item in pending:
-            if item["kind"] == "observable":
+            if item["kind"] == "estimated" and item["matures"] >= t:
                 r = item["rows"]
-                item["gain"] = item["gain"] + _observed_term(item["x1"], item["x0"], Qn[r, None] - new_q[r],
+                Qo = Qn[r, None] + (NZ[r, 1, t] if NZ is not None else 0.0)     # observed market output
+                item["gain"] = item["gain"] + _observed_term(item["x1"], item["x0"], Qo - new_q[r],
                                                              PMB[r, t, None], SLB[r, t, None], cost[r, t, None],
                                                              pmin_b[r, None])
-        due = [item for item in pending if item["matures"] == t]     # in order of decision time
-        pending = deque(item for item in pending if item["matures"] != t)
+        due = [item for item in pending if item["release"] == t]     # in order of decision time
+        pending = deque(item for item in pending if item["release"] != t)
         for item in due:
             r = item["rows"]
             cur = learned[r[:, None], n_idx, item["bins"]]
@@ -407,7 +439,8 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
 
     return BatchResult(scenarios=scns, price=price, cost=cost, quantity=quantity, acc=accs[("full", "all")],
                        flex_final=flex.copy(), flex_path=flex_path, firm_hist=hist, burn_in=burn, horizon=H,
-                       meta=dict(continuation=continuation, discount=gam, split_t=split_t, est_end=est_end),
+                       meta=dict(continuation=continuation, discount=gam, split_t=split_t, est_end=est_end,
+                                 info=[s.info.to_dict() for s in scns]),
                        accs=accs, p_max_path=PM, slope_path=SL, shifts=SHIFT, steps=steps)
 
 

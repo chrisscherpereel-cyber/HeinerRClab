@@ -6,10 +6,11 @@ import streamlit as st
 from heiner_abm.calibration import (FORECAST_RULES, QUANTITY_RULES, fit_subjects, prepare_forecasts,
                                     prepare_quantities, summarise, synthetic_cournot_data, synthetic_forecast_data)
 from ui.common import CAT, download, hypothesis_card, replication_notice, style
-from ui.common import evidence_note
+from ui.common import evidence_note, set_engine
 
 st.title("Calibration: which theory predicts people best?")
 evidence_note("behavioral")
+set_engine("none")
 st.caption("Each theory's decision rule is fitted to laboratory data and judged by how well it predicts choices it "
            "has not seen. Two experimental formats are supported: learning-to-forecast cobweb markets (the design "
            "of Hommes et al. 2007) and quantity-setting Cournot markets (the design of Huck et al. 1999).")

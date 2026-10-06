@@ -71,9 +71,10 @@ MARKET_LAB: List[Spec] = [
          "Deviate from rule B only for sizes of change where deviating has paid",
          "Its learned table of gains per size bin (5 bins)",
          "Adopt q* if the learned gain for that size is ≥ 0",
-         "Observable (default): released W periods after each decision; the gain of holding q* vs q, with rivals' "
-         "actual output, realized costs and its believed demand curve. Oracle treatment (researcher-only): the forked "
-         "counterfactual, released after H periods",
+         "Estimated counterfactual (default): released W periods after each decision (plus any observation delay); "
+         "the gain of holding q* vs q, with rivals' observed output, realized costs and its believed demand curve. "
+         "Oracle treatment (researcher-only): the forked counterfactual, released after H periods. Not run under "
+         "chosen-action feedback (it needs a counterfactual)",
          "Exponential memory λ; judgement window W",
          "Judges with a possibly misspecified demand model; learning is noisy when the environment shifts"),
     Spec("Market lab · evolution", "Imitation of flexibility", "evolution",

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .arena import ALL_DESIGNS, P_MIN, Q_MIN, Env, Market, nash_output
+from .information import Observation
 
 
 class InteractiveMarket:
@@ -48,14 +49,23 @@ class InteractiveMarket:
     def done(self) -> bool:
         return self.t >= self.periods - 1
 
-    def info(self) -> Dict:
-        """What the participant sees before deciding in the next period."""
+    def observation(self) -> Observation:
+        """The participant's Observation before deciding in the next period: only the completed period's outcomes,
+        as shown on screen (no demand model, no individual rivals; see information.AGENTS['human'])."""
         if self.pending is None:
             self._prepare()
         mk = self.mk
-        return dict(period=self.t + 1, last_price=float(mk.P_prev[0]), last_market_q=float(mk.Q_prev[0]),
-                    own_q=float(mk.q_prev[0, 0]), own_profit=float(mk.profit_prev[0, 0]),
-                    cost_estimate=float(mk.c_hat[0, 0]), last_cost=float(mk.cost[0, self.t]))
+        return Observation(period=self.t + 1, observed_period=self.t, own_output=float(mk.q_prev[0, 0]),
+                           own_output_then=float(mk.q_prev[0, 0]), own_payoff=float(mk.profit_prev[0, 0]),
+                           price=float(mk.P_prev[0]), market_quantity=float(mk.Q_prev[0]),
+                           observed_cost=float(mk.cost[0, self.t]), cost_estimate=float(mk.c_hat[0, 0]),
+                           demand_model=None, regime_announced=None, rivals=None)
+
+    def info(self) -> Dict:
+        """What the participant sees before deciding in the next period (from observation())."""
+        o = self.observation()
+        return dict(period=o.period, last_price=o.price, last_market_q=o.market_quantity, own_q=o.own_output,
+                    own_profit=o.own_payoff, cost_estimate=o.cost_estimate, last_cost=o.observed_cost)
 
     def _prepare(self):
         mk = self.mk

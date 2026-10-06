@@ -16,7 +16,7 @@ import numpy as np
 from heiner_abm.params import (AdaptiveParams, GlobalFirmParams, MarketParams, Scenario, StructuralParams,
                                linear_flex_firms)
 
-NEW = hasattr(AdaptiveParams(), "feedback")
+NEW = hasattr(AdaptiveParams(), "window")    # observable/estimated Adaptive feedback (6 October 2026 and later)
 
 
 def base(rule="Bertrand", flex_slope=0.25, seed=1, selection="Always", window=None):

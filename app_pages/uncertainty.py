@@ -8,7 +8,7 @@ from heiner_abm.params import FirmSpec, linear_flex_firms
 from heiner_abm.terminology import rule_option
 from ui.common import (CAT, base_scenario, behaviour_horizon, cached_event, cached_uncertainty, download, hypothesis_card,
                        measure_opts, measurement, reps, show_errors, slope_chart, style, to_json, verdict)
-from ui.common import evidence_note
+from ui.common import adaptive_supported, evidence_note
 
 st.title("Risk versus unannounced structural change")
 evidence_note("simulation")
@@ -155,7 +155,8 @@ with st.form("evt"):
     ev_rule = c[0].radio("Firms", ["Cournot", "Bertrand"], horizontal=True, format_func=rule_option,
                          help="Production rule of the firms in the event study.")
     mixed = c[1].toggle("One firm per selection rule", True,
-                        help="On: four firms (Always, Small, Large, Adaptive) side by side. Off: the sidebar's firms, "
+                        help="On: one firm per rule (Always, Small, Large, and Adaptive when the information specification "
+                             "supports it) side by side. Off: the sidebar's firms, "
                              "switched to the chosen rule (Cournot φ capped at 0.4).")
     ev_hazard = c[2].number_input("Hazard λ", 0.001, 0.1, 0.01, 0.001, format="%.3f",
                                    help="Per-period probability of a demand-regime shift. Low values keep shifts apart.")
@@ -170,7 +171,8 @@ ev = base.copy(periods=3000)
 ev.market.delta = min(ev.market.delta, 5.0)
 if mixed:
     phi = 0.3 if ev_rule == "Cournot" else 0.75
-    ev.firms = [FirmSpec(ev_rule, phi, s, threshold=15 if ev_rule == "Cournot" else 5) for s in ("Always", "Small", "Large", "Adaptive")]
+    sels = ("Always", "Small", "Large") + (("Adaptive",) if adaptive_supported(base) else ())   # never extra feedback
+    ev.firms = [FirmSpec(ev_rule, phi, s, threshold=15 if ev_rule == "Cournot" else 5) for s in sels]
 else:
     for f in ev.firms:
         f.rule = ev_rule

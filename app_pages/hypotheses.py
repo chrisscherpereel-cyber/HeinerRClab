@@ -8,7 +8,7 @@ from heiner_abm.experiments import PARAMS, slope_summary, switch_point
 from heiner_abm.params import FirmSpec
 from ui.common import (CAT, base_scenario, behaviour_horizon, download, firm_profit_bars, fmt_p, hypothesis_card, measurement, reps,
                        run_sweep_ui, show_errors, slope_chart, style, verdict)
-from ui.common import evidence_note
+from ui.common import adaptive_supported, evidence_note
 
 st.title("Hypothesis tests")
 evidence_note("simulation")
@@ -415,9 +415,11 @@ with tabs[8]:
     lo_hi = c1.slider("Volatility Δ range", 0.5, 40.0, (2.0, 32.0), key="h9_rng",
                       help="Lowest and highest cost volatility Δ to sweep.")
     steps = c2.slider("Steps", 3, 12, 6, key="h9_steps", help=STEPS_HELP)
-    add_adapt = c3.toggle("Add an Adaptive firm", False, key="h9_adapt",
+    add_adapt = c3.toggle("Add an Adaptive firm", False, key="h9_adapt", disabled=not adaptive_supported(base),
                           help="Adds a fifth firm that learns, per size of change, whether deviating pays, from what it "
-                               "has observed (see the sidebar's Adaptive settings).")
+                               "has observed (see the sidebar's Adaptive settings). Unavailable when the information "
+                               "specification withholds the feedback Adaptive firms learn from.")
+    add_adapt = add_adapt and adaptive_supported(base)
     phi = float(np.mean([f.flex for f in base.firms]))
     thr = float(base.firms[0].threshold)
     sels = ["Always", "Never", "Small", "Large"] + (["Adaptive"] if add_adapt else [])
@@ -483,10 +485,14 @@ with tabs[9]:
         f.selection = "Adaptive"
     H10 = max(H, 2)
     st.caption(f"Adaptive firms judge each deviation over {scn.adaptive.window} periods from what they have observed "
-               f"({'ORACLE treatment: researcher counterfactual at maturity' if scn.adaptive.feedback == 'oracle' else 'observed information only'}); "
+               f"({'ORACLE treatment: researcher counterfactual at maturity' if scn.info.feedback == 'oracle' else 'observed information only'}); "
                f"r and w are measured by the researcher over H = {H10} periods (sidebar H, at least 2).")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
-    if run_state("h10", (tuple(vals), R, H10, cont, str(scn))):
+    if not adaptive_supported(scn):     # never give Adaptive firms feedback the specification withholds
+        st.warning("**Not run under this information specification.** Adaptive firms learn from estimated or oracle "
+                   f"counterfactual feedback; the sidebar sets *{scn.info.feedback}* feedback. Change it in the "
+                   "sidebar's *Information & feedback* section.", icon="⛔")
+    elif run_state("h10", (tuple(vals), R, H10, cont, str(scn))):
         firms, mk = run_sweep_ui(scn, "delta", vals, R, horizon=H10, continuation=cont)
         firms = firms[firms["opportunities"] > 0].copy()
         firms["dev_rate"] = firms["deviations"] / firms["opportunities"]

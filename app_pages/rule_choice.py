@@ -9,10 +9,11 @@ from heiner_abm.registered import TOURNAMENT_PLAN, registered_tuned
 from heiner_abm.rulechoice import (QUICK_CHOICE, RESTRICTED, RULE_LABELS, RULES, default_choice_plan, level_env,
                                    run_choice_study)
 from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
-from ui.common import evidence_note
+from ui.common import evidence_note, set_engine
 
 st.title("Rule choice: do firms drift toward rule-governed behavior?")
 evidence_note("simulation")
+set_engine("arena")
 st.caption("Firms are no longer assigned a decision rule. Each firm switches between six rules according to how well "
            "each rule has recently performed, with an adjustable intensity of choice (Brock & Hommes 1997). The "
            "question is whether restricted, rule-governed behavior emerges as uncertainty rises, and what that does "

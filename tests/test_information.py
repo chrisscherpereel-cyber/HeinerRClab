@@ -12,17 +12,18 @@ import pytest
 from heiner_abm import arena, stepper
 from heiner_abm.agents import DECISION_SCHEDULE, Industry, Market, belief_index
 from heiner_abm.engine import run_batch
-from heiner_abm.params import AdaptiveParams, FirmSpec, Scenario, default_scenario
+from heiner_abm.information import InfoSpec
+from heiner_abm.params import FirmSpec, Scenario, default_scenario
 
 K = 120          # cut-off period for the future-shock tests: everything after K is perturbed
 
 
-def _adaptive_market(periods, feedback="observable", structural=False, seed=5, window=8):
+def _adaptive_market(periods, feedback="estimated", structural=False, seed=5, window=8):
     firms = [FirmSpec("Bertrand", 0.8, "Adaptive"), FirmSpec("Cournot", 0.6, "Adaptive", noise=3.0),
              FirmSpec("Bertrand", 1.2, "Always"), FirmSpec("Cournot", 0.4, "Adaptive", foresight=0.3)]
     s = Scenario(firms=firms, periods=periods, burn_in=10, seed=seed)
     s.market.delta = 20.0
-    s.adaptive.feedback = feedback
+    s.info.feedback = feedback
     s.adaptive.window = window
     s.adaptive.memory = 0.8
     if structural:
@@ -51,7 +52,7 @@ def _perturbed_industry(scn, horizon, k=K):
     return ind
 
 
-@pytest.mark.parametrize("feedback,horizon", [("observable", 1), ("observable", 6), ("oracle", 1), ("oracle", 6)])
+@pytest.mark.parametrize("feedback,horizon", [("estimated", 1), ("estimated", 6), ("oracle", 1), ("oracle", 6)])
 @pytest.mark.parametrize("structural", [False, True])
 def test_future_shocks_change_no_earlier_decision_or_learned_state(feedback, horizon, structural):
     scn = _adaptive_market(260, feedback, structural)
@@ -64,7 +65,7 @@ def test_future_shocks_change_no_earlier_decision_or_learned_state(feedback, hor
     assert not np.array_equal(base.h["q"][K + 1:], pert.h["q"][K + 1:])      # the perturbation does bite later
 
 
-@pytest.mark.parametrize("feedback,horizon", [("observable", 1), ("observable", 6), ("oracle", 1), ("oracle", 12)])
+@pytest.mark.parametrize("feedback,horizon", [("estimated", 1), ("estimated", 6), ("oracle", 1), ("oracle", 12)])
 def test_vectorized_engine_ignores_periods_after_the_run(feedback, horizon):
     """Truncating the run cannot change any earlier decision (the vectorized engine has no learned-state history, so
     the reference engine's future-shock test above is the stronger check; the two engines agree exactly)."""
@@ -123,12 +124,12 @@ def test_interactive_market_future_shocks_change_no_earlier_outcome(monkeypatch)
 
 
 # ------------------------------------------------------------------------------------------------ maturity
-@pytest.mark.parametrize("feedback,horizon,window", [("observable", 1, 1), ("observable", 6, 8), ("oracle", 6, 8),
+@pytest.mark.parametrize("feedback,horizon,window", [("estimated", 1, 1), ("estimated", 6, 8), ("oracle", 6, 8),
                                                      ("oracle", 1, 8)])
 def test_feedback_is_released_exactly_at_maturity(feedback, horizon, window):
     scn = _adaptive_market(200, feedback, window=window)
     ind = Industry(scn, horizon=horizon).run()
-    span = window if feedback == "observable" else horizon
+    span = window if feedback == "estimated" else horizon
     assert ind.feedback_log
     for released, firm, decided, matures, b, gain, kind in ind.feedback_log:
         assert kind == feedback
@@ -140,7 +141,7 @@ def test_feedback_is_released_exactly_at_maturity(feedback, horizon, window):
     assert all(item.matures > scn.periods - 1 for item in ind.pending)     # no partial terminal feedback
 
 
-@pytest.mark.parametrize("feedback,horizon", [("observable", 1), ("oracle", 25)])
+@pytest.mark.parametrize("feedback,horizon", [("estimated", 1), ("oracle", 25)])
 def test_h_period_feedback_is_unavailable_before_maturity(feedback, horizon):
     """With a 25-period span no learned table can move before period 25, however much has been decided."""
     scn = _adaptive_market(120, feedback, window=25)
@@ -168,10 +169,10 @@ def test_measurement_horizon_does_not_change_agent_behavior(structural):
 
 
 def test_oracle_is_opt_in_and_cannot_affect_ordinary_agents():
-    assert AdaptiveParams().feedback == "observable"
+    assert InfoSpec().feedback == "estimated"
     plain = default_scenario(periods=200, seed=4)                  # no Adaptive firms
     oracle = plain.copy()
-    oracle.adaptive.feedback = "oracle"
+    oracle.info.feedback = "oracle"
     a = run_batch([plain], record_firm_history=True, horizon=6)
     b = run_batch([oracle], record_firm_history=True, horizon=6)
     np.testing.assert_array_equal(a.firm_hist["q"], b.firm_hist["q"])
@@ -181,7 +182,7 @@ def test_removed_immediate_lookahead_is_rejected():
     s = _adaptive_market(50, feedback="lookahead")
     assert any("removed" in e for e in s.validate())
     s = _adaptive_market(50, feedback="nonsense")
-    assert any("Unknown Adaptive feedback" in e for e in s.validate())
+    assert any("Unknown feedback treatment" in e for e in s.validate())
 
 
 def test_adaptive_agents_still_learn_to_hold_back():

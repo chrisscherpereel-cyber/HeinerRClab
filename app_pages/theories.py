@@ -11,6 +11,7 @@ from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from heiner_abm.focal import tournament_key
 from heiner_abm.terminology import rule_option
+from ui.common import adaptive_supported
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
                        fmt_p, measure_opts, measurement, replication_notice, reps, research_panel, show_errors, style,
                        to_json, verdict)
@@ -37,7 +38,7 @@ H, cont = measurement()
 disc, split = measure_opts()
 
 SYM = {"+": "↑ rises", "-": "↓ falls", "0": "no effect", ">=0": "≥ 0 (never harmful)", None: "—"}
-OBS = {"+": "↑ rises", "-": "↓ falls", "0": "no significant effect"}
+OBS = {"+": "↑ rises", "-": "↓ falls", "0": "no significant effect", None: "⛔ not run (information spec)"}
 MARK = {"match": "✅", "contradicted": "❌", "inconclusive": "➖", None: ""}
 
 # ------------------------------------------------------------------------------------------------ contenders
@@ -173,6 +174,10 @@ with st.form("race"):
                f"{int(n_env) * int(n_reps) * (base.n_firms + 1):,} at H = {H}.")
     go_race = st.form_submit_button("Run horse race", type="primary")
 ranges = EnvRanges(rules=tuple(rules) or ("Bertrand",))
+if not adaptive_supported(base):        # never give Adaptive firms feedback the specification withholds
+    ranges = EnvRanges(rules=ranges.rules, selections=tuple(x for x in ranges.selections if x != "Adaptive"))
+    st.caption("The information specification does not support Adaptive firms, so the random environments use only "
+               "the other selection rules.")
 rkey = (to_json(base), int(n_env), int(n_reps), json.dumps(asdict(ranges)), H, cont, int(env_seed), disc, split, meas)
 if go_race:
     st.session_state["race_key"] = rkey

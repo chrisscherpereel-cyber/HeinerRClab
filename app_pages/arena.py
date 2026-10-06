@@ -9,10 +9,11 @@ from heiner_abm.arena import (DESIGNS, FEATURES, KEYS, PREREG, QUICK, THEORY_DES
                               pairwise, replicate, run_protocol)
 from heiner_abm.literature import cite
 from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict, prereg_explainer
-from ui.common import evidence_note
+from ui.common import evidence_note, set_engine
 
 st.title("Agent tournament: rival theories as competing agents")
 evidence_note("simulation")
+set_engine("arena")
 st.caption("Each theory of flexibility under uncertainty is implemented as decision rules. The rules compete in the "
            "same cobweb market, with the same information and the same random shocks, under a fairness protocol "
            "fixed in advance. This replaces predictions written by the modeler with behavior that can win or lose.")

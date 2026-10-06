@@ -581,6 +581,7 @@ heiner_abm/special.py      signature tests: each rival theory's distinctive pred
 heiner_abm/theory_content.py  the eight theories, described with the same structure
 heiner_abm/registered.py   registered results shown on the theory pages, tied to the plan hashes
 heiner_abm/terminology.py  terms, kinds of uncertainty and evidence, scope of conclusions
+heiner_abm/information.py  information-and-feedback specification, Observation, engine support, agents' needs
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -642,9 +643,9 @@ app_pages/*.py             the Streamlit pages
   period t: (1) firms decide with information up to t − 1 (plus a share κ of the coming cost change for firms with
   cost foresight, a competence parameter; κ = 0 in the baseline); (2) the market clears and cost c[t] is realized;
   (3) the researcher evaluates the counterfactual over H, never shown to ordinary agents; (4) every decision enters a
-  pending-feedback queue with its maturity, t + W − 1 (observable) or t + H − 1 (oracle); (5) items whose last
-  included period is t are released and first used in period t + 1's decisions; items that would mature after the
-  last period are never released (no partial feedback); (6) optional evolution. The vectorized engine follows it
+  pending-feedback queue with its maturity, t + W − 1 (estimated) or t + H − 1 (oracle); (5) items are released at
+  maturity plus the observation delay and first used in the next period's decisions; items that would be released
+  after the last period are never released (no partial feedback); (6) optional evolution. The vectorized engine follows it
   exactly, the tournament agents and the interactive market follow the same order (act, clear, update), and
   `tests/test_information.py` checks that changing shocks after a period changes no earlier decision or learned
   state in any engine.
@@ -654,6 +655,33 @@ app_pages/*.py             the Streamlit pages
   had not yet occurred; it was removed on 6 October 2026 (with H = 1 it is identical to `"oracle"`). The mechanism
   study's oracle and true-model variants are separate, labeled designs that never enter ordinary tournament
   lineups.
+
+## Information and feedback
+
+Every scenario carries an information specification (`Scenario.info`, `heiner_abm.information.InfoSpec`), shared by
+all engines:
+
+* **Feedback treatments:** *chosen-action* (only the payoff of the agent's own action); *full* (payoffs of alternative
+  actions, only where the design shows them: the generalization tasks do, the cobweb market does not, so it is
+  rejected there); *estimated counterfactual* (the default for Adaptive firms: estimated from the firm's own believed
+  demand curve and its observations); *oracle* (true counterfactual values, a clearly labeled diagnostic benchmark).
+* **Information controls:** observation noise on observed prices and market output (its own random stream);
+  observation delay (outcomes and feedback arrive d periods late); demand knowledge (none, believed, or the true
+  curve as ORACLE information); announced regime shifts; visibility of rivals' individual actions and payoffs; and
+  observability of censored outcomes such as unmet demand (not applicable in the cobweb market, which clears).
+* **Observation object.** Firms decide from an `Observation` built only from observed periods; it carries no
+  researcher-only quantity and no future state (apart from the share κ of the coming cost change that cost foresight,
+  a competence parameter, grants). The interactive market builds the participant's screen from one as well.
+* **Engines and agents.** Each engine declares the specifications it can run: the cobweb-market engines run any
+  supported one; the tournament, task and tracking engines are covered by frozen plans and run only their native
+  specification. Each agent declares what it needs (feedback, a demand model, visible rivals). An agent that needs
+  information the specification withholds is reported as unsupported and is not run; experiments that would need it
+  are shown as *not run* (and excluded from scoring) rather than run with extra information. Oracle and true-model
+  variants are labeled as such.
+* **UI and export.** The sidebar's *Information & feedback* section sets the specification; the *Information &
+  feedback* page shows every agent's access, what each engine supports and a compatibility checker. Every results
+  download comes with the specification that produced it (JSON). The default specification reproduces every
+  reported result exactly.
 
 ## Research basis
 

@@ -9,10 +9,11 @@ from heiner_abm.arena import KEYS, PREREG, QUICK, THEORY_NAMES, tune
 from heiner_abm.mechanisms import (AXES, MAP_RANGES, QUICK_STUDY, TARGETS, VARIANT_LABELS, StudyPlan, default_plan,
                                    gain_map, run_study, theory_maps)
 from ui.common import CAT, DIVERGING, download, hypothesis_card, style, verdict, prereg_explainer
-from ui.common import evidence_note
+from ui.common import evidence_note, set_engine
 
 st.title("Mechanisms: when does restricting flexibility pay?")
 evidence_note("simulation")
+set_engine("arena")
 st.caption("Two experiments built on the agent tournament. The first separates Heiner's principle (restrict "
            "deviations when they are unreliable) from the cost of applying it. The second maps, across separate "
            "sources of uncertainty, where restriction pays and which decision rule does best.")

@@ -1,6 +1,7 @@
 """Shared Streamlit pieces: base-scenario sidebar, presets, cached runners, chart helpers."""
 from __future__ import annotations
 
+import functools
 import json
 from dataclasses import asdict
 from typing import Dict, List, Optional, Sequence
@@ -15,8 +16,10 @@ from heiner_abm.engine import run_batch
 from heiner_abm.experiments import (EnvRanges, adjustment_bound_experiment, encompassing_test, evolution_runs,
                                    horse_race, random_environments, rc_validation, regime_event_study, run_sweep,
                                    uncertainty_comparison)
-from heiner_abm.params import (AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams, MarketParams,
-                               SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams, linear_flex_firms)
+from heiner_abm.information import DEMAND_LABELS, FEEDBACK_LABELS, InfoSpec, UnsupportedInformation
+from heiner_abm.params import (LEGACY_FEEDBACK, AdaptiveParams, EvolutionParams, FirmSpec, GlobalFirmParams,
+                               MarketParams, SELECTION_HELP, SELECTION_RULES, Scenario, StructuralParams,
+                               linear_flex_firms)
 from heiner_abm.literature import Hypothesis
 from heiner_abm.theories import run_tournament
 from heiner_abm.terminology import rule_option
@@ -63,7 +66,8 @@ DEFAULTS: Dict[str, object] = dict(
     desired_margin=5.0, foresight=0.0, noise=0.0, q0=200.0, q_min=15.0,
     flex_cost_slope=0.0, fixed_cost=0.0, margin_includes_fixed=False,
     periods=1000, burn_in=25, reps=20, seed=1, horizon=20, continuation="default", memory=0.97,
-    adaptive_window=20, adaptive_feedback="observable",
+    adaptive_window=20, info_feedback="estimated", info_noise=0.0, info_delay=0, info_demand="believed",
+    info_announced=False, info_rivals=True,
     discount=1.0, oos_split=0.5,
     struct_on=False, hazard=0.02, intercept_sd=15.0, slope_sd=0.4, belief_lag=20,
 )
@@ -395,18 +399,34 @@ def render_sidebar(sections=None, current=None):
                        "recommended output versus holding its old output (rule B), with rivals' actual output, "
                        "realized costs and prices on its own believed demand curve. All of it has been observed by "
                        "then, so the firm uses no future information.")
-        st.radio("Adaptive agents learn from…", ["observable", "oracle"], key=K + "adaptive_feedback",
-                 format_func=lambda x: {"observable": "what they have observed (default)",
-                                        "oracle": "the researcher's counterfactual (ORACLE treatment)"}[x],
-                 help="**Observable** (default): the firm judges each decision from what it has observed once the "
-                      "judgement window has passed. **Oracle**: the researcher's forked-market counterfactual over H "
-                      "(true demand curve, rivals' simulated reactions), released only once the H periods it covers "
-                      "have occurred. No firm could compute it; use it only as a labeled benchmark. Either way, "
-                      "feedback is never released before the periods it covers have happened.")
-        if v("adaptive_feedback") == "oracle":
-            st.warning("ORACLE treatment: Adaptive agents receive researcher-only counterfactuals (released at maturity). "
-                       "Label any result as an oracle benchmark, not as behavior of an agent with realistic information.",
-                       icon="⚠️")
+
+    with sb.expander("Information & feedback", expanded=False):
+        st.caption("What firms may observe and what feedback they receive. Unsupported combinations are reported, "
+                   "never run with extra information. Every agent's access is on the *Information & feedback* page.")
+        st.radio("Feedback treatment", ["chosen", "estimated", "oracle", "full"], key=K + "info_feedback",
+                 format_func=lambda x: FEEDBACK_LABELS[x],
+                 help="**Chosen-action**: only the payoff of the firm's own action. **Estimated** (default): the firm "
+                      "estimates the payoff of the alternative from its observations and its own believed demand "
+                      "curve. **Oracle**: the researcher's counterfactual (true demand curve, rivals' simulated "
+                      "reactions), a labeled diagnostic benchmark. **Full**: true payoffs of alternatives, available "
+                      "only where the design shows them; the cobweb market does not, so it is rejected here. Adaptive "
+                      "firms need estimated or oracle feedback.")
+        st.slider("Observation noise (s.d.)", 0.0, 20.0, key=K + "info_noise", step=0.5,
+                  help="Noise added to every observed market price and market output (separate random stream).")
+        st.number_input("Observation delay (periods)", 0, 20, key=K + "info_delay", step=1,
+                        help="Periods before a period's market outcomes (price, output, cost, payoffs) are observed. "
+                             "Feedback is released that many periods after it matures.")
+        st.radio("Demand knowledge", ["believed", "true", "none"], key=K + "info_demand",
+                 format_func=lambda x: DEMAND_LABELS[x],
+                 help="**Believed**: the baseline curve, updated L periods after a shift. **True**: the true current "
+                      "curve (ORACLE information). **None**: no demand model; the Cournot rule and estimated feedback "
+                      "need one and are then rejected.")
+        st.checkbox("Regime shifts are announced (with the new demand curve)", key=K + "info_announced")
+        st.checkbox("Rivals' individual outputs and payoffs are visible", key=K + "info_rivals",
+                    help="Needed by evolution of flexibility (imitating the most profitable firm).")
+        if v("info_feedback") == "oracle" or v("info_demand") == "true":
+            st.warning("ORACLE information: firms receive researcher-only quantities. Label any result as an oracle "
+                       "benchmark, not as behavior of an agent with realistic information.", icon="⚠️")
 
     with sb.expander("Structural uncertainty (regime shifts)", expanded=False):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
@@ -448,8 +468,10 @@ def base_scenario() -> Scenario:
                                       flex_cost_slope=float(v("flex_cost_slope")),
                                       fixed_cost=float(v("fixed_cost")),
                                       margin_includes_fixed=bool(v("margin_includes_fixed"))),
-        adaptive=AdaptiveParams(memory=float(v("memory")), window=int(v("adaptive_window")),
-                                feedback=str(v("adaptive_feedback"))),
+        adaptive=AdaptiveParams(memory=float(v("memory")), window=int(v("adaptive_window"))),
+        info=InfoSpec(feedback=str(v("info_feedback")), obs_noise=float(v("info_noise")),
+                      obs_delay=int(v("info_delay")), demand_knowledge=str(v("info_demand")),
+                      regime_announced=bool(v("info_announced")), rivals_visible=bool(v("info_rivals"))),
         structural=StructuralParams(enabled=bool(v("struct_on")), hazard=float(v("hazard")),
                                     intercept_sd=float(v("intercept_sd")), slope_sd=float(v("slope_sd")),
                                     belief_lag=int(v("belief_lag"))),
@@ -468,7 +490,7 @@ def measure_opts():
 def behaviour_horizon(scn: Scenario) -> int:
     """Horizon needed when only profits are reported. H is a researcher's measurement; it changes behavior only when
     Adaptive agents are given the researcher-only oracle feedback, so skip the (costly) forks otherwise."""
-    oracle = scn.adaptive.feedback == "oracle" and any(f.selection == "Adaptive" for f in scn.firms)
+    oracle = scn.info.feedback == "oracle" and any(f.selection == "Adaptive" for f in scn.firms)
     return int(v("horizon")) if oracle else 1
 
 
@@ -494,7 +516,11 @@ def from_json(js: str) -> Scenario:
     d = json.loads(js)
     return Scenario(market=MarketParams(**d["market"]), firms=[FirmSpec(**f) for f in d["firms"]],
                     firm_globals=GlobalFirmParams(**d["firm_globals"]),
-                    adaptive=AdaptiveParams(**{**d["adaptive"], "bin_edges": tuple(d["adaptive"]["bin_edges"])}),
+                    adaptive=AdaptiveParams(**{k: val for k, val in {**d["adaptive"],
+                                               "bin_edges": tuple(d["adaptive"]["bin_edges"])}.items()
+                                               if k != "feedback"}),
+                    info=InfoSpec(**d["info"]) if "info" in d else
+                    InfoSpec(feedback=LEGACY_FEEDBACK.get(d["adaptive"].get("feedback", "observable"), "estimated")),
                     evolution=EvolutionParams(**d["evolution"]),
                     structural=StructuralParams(**d.get("structural", {})),
                     periods=d["periods"], burn_in=d["burn_in"], seed=d["seed"])
@@ -790,8 +816,60 @@ def firm_profit_bars(firms: pd.DataFrame, by: str, by_title: str, fmt=lambda x: 
     return style(fig)
 
 
+def _explain_unsupported(fn):
+    """Wrap a cached runner: if the information specification does not support an agent the experiment needs, say
+    so and stop the page instead of running it (never with extra information)."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except UnsupportedInformation as err:
+            st.warning(f"**Not run: the information specification does not support this experiment.** {err} Change "
+                       "it in the sidebar's *Information & feedback* section; the *Information & feedback* page shows "
+                       "what every agent needs.", icon="⛔")
+            st.stop()
+    return wrapper
+
+
+for _name in [n for n in list(globals()) if n.startswith("cached_")]:
+    globals()[_name] = _explain_unsupported(globals()[_name])
+
+
+def adaptive_supported(scn: Scenario) -> bool:
+    """Whether Adaptive firms could run under the scenario's information specification."""
+    from heiner_abm.information import AGENT_BY_KEY, compatibility
+    return compatibility(AGENT_BY_KEY[("market", "Adaptive")], scn.info, "market").status == "supported"
+
+
+def set_engine(engine: str, agents=None):
+    """Declare which simulation engine (and agents) produced this page's results; app.py resets it to the market
+    engine on every run. The information specification of that engine is exported with every download."""
+    st.session_state["_info_engine"] = (engine, agents)
+
+
+def info_record() -> dict:
+    """The information-and-feedback specification behind the current page's results."""
+    from heiner_abm.information import export_record, market_agents
+    engine, agents = st.session_state.get("_info_engine", ("market", None))
+    if engine == "none":
+        return {"engine": "none", "note": "Rules fitted to recorded human choices; no simulated agents, so no "
+                                          "information treatment applies. The data's own information conditions are "
+                                          "those of the original experiments."}
+    if engine == "market":
+        scn = base_scenario()
+        return export_record("market", scn.info, market_agents(scn))
+    return export_record(engine, agents=agents)
+
+
 def download(df: pd.DataFrame, name: str, label: str = "Download CSV"):
-    st.download_button(label, df.to_csv(index=False).encode(), file_name=name, mime="text/csv")
+    """CSV of the results, with the information-and-feedback specification that produced them beside it."""
+    c1, c2 = st.columns(2)
+    c1.download_button(label, df.to_csv(index=False).encode(), file_name=name, mime="text/csv", width="stretch")
+    c2.download_button("Information spec (JSON)", json.dumps(info_record(), indent=1).encode(),
+                       file_name=name.rsplit(".", 1)[0] + "_information_spec.json", mime="application/json",
+                       width="stretch", key=f"_spec_{name}_{id(df)}",
+                       help="What the agents could observe and what feedback they received when these results were "
+                            "produced (engine, specification, and each agent's access).")
 
 
 def fmt_p(p):

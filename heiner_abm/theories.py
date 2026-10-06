@@ -18,6 +18,7 @@ import pandas as pd
 
 from .analysis import flex_profit_by_market, instability_index, ols, summarize_slopes
 from .experiments import apply_param, evolution_runs, run_sweep
+from .information import UnsupportedInformation
 from .literature import THEORY_SOURCES, cite
 from .params import Scenario
 
@@ -274,9 +275,10 @@ EXPERIMENTS: List[Experiment] = [
 EXPERIMENT_BY_KEY = {e.key: e for e in EXPERIMENTS}
 
 
-def score(prediction: Optional[str], observed: str) -> Optional[str]:
-    """'match', 'contradicted', 'inconclusive' (directional prediction, no significant effect) or None."""
-    if prediction is None:
+def score(prediction: Optional[str], observed: Optional[str]) -> Optional[str]:
+    """'match', 'contradicted', 'inconclusive' (directional prediction, no significant effect) or None (no prediction,
+    or the experiment was not run because the information specification does not support it)."""
+    if prediction is None or observed is None:
         return None
     if prediction == "0":
         return "match" if observed == "0" else "contradicted"
@@ -307,7 +309,10 @@ def run_tournament(base: Scenario, reps: int, horizon: int = 20,
     for k, e in enumerate(EXPERIMENTS):
         if progress:
             progress(k / len(EXPERIMENTS), e.title)
-        out[e.key] = e.runner(base, reps, horizon=horizon)
+        try:
+            out[e.key] = e.runner(base, reps, horizon=horizon)
+        except UnsupportedInformation as err:      # disable the comparison; never run it with extra information
+            out[e.key] = Outcome(float("nan"), float("nan"), None, f"not run: {err}", pd.DataFrame())
     if progress:
         progress(1.0, "done")
     return out

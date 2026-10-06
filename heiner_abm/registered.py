@@ -276,6 +276,11 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   horse_race: every forecast AUC identical; encompassing table changed (rivals 0.851 -> 0.866, RC margin alone
 #   0.515 -> 0.610, gain +0.000 [-0.0045, +0.0045] -> -0.001 [-0.003, +0.000]); README updated with a revision note.
 #   directional, presets and preset_adaptive do not use encompassing_test; rerun and identical.
+# * 6 October 2026, information-and-feedback specification (agents.py, engine.py, params.py, theories.py): firms decide
+#   from an Observation built under Scenario.info; Adaptive feedback settings moved to InfoSpec. With the default
+#   specification every finding was rerun (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42, presets,
+#   horse_race; signature tests at the Full scale; field patterns at the registered settings) and every output was
+#   identical. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -295,12 +300,12 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "f0c41db3509da88c",
-    "horse_race": "d2b74d3411afc46a",
-    "presets": "d2b74d3411afc46a",
-    "preset_adaptive": "d2b74d3411afc46a",
-    "special": "14f1278441074259",
-    "patterns": "8412d0b7d735b8aa",
+    "directional": "8d87542d3ea8894e",
+    "horse_race": "8fd7c314f65f314e",
+    "presets": "8fd7c314f65f314e",
+    "preset_adaptive": "8fd7c314f65f314e",
+    "special": "e91aba824acd51bd",
+    "patterns": "1e174e87d47d968e",
     "calibration": "854400653fe42159",
 }
 

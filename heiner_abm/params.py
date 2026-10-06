@@ -11,21 +11,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace, asdict
 from typing import List, Optional
 
+from .information import InfoSpec, UnsupportedInformation, scenario_errors
+
 # Production rules. "Bertrand" is the configuration value of the margin-feedback quantity rule (kept for compatibility
 # with saved scenarios and registered results); it is not price-setting Bertrand competition. See heiner_abm.terminology.
 RULE_TYPES = ("Bertrand", "Cournot")
 SELECTION_RULES = ("Always", "Never", "Small", "Large", "Adaptive")
-# Feedback the Adaptive selection rule learns from. Either way, feedback about a decision is released only once every
-# period it covers has occurred (see DECISION_SCHEDULE in heiner_abm/agents.py):
-#   "observable" - (default) the agent judges its decision from what it has observed over the `window` periods
-#                  starting with the decision: its own and its rivals' realized output, realized costs and prices on its
-#                  *believed* demand curve.
-#   "oracle"     - ORACLE TREATMENT, researcher-only: the researcher's forked-market counterfactual over the measurement
-#                  horizon H (true demand curve, rivals' simulated reactions), released at period t + H - 1. It is
-#                  never used unless chosen explicitly, and results computed with it must be labeled as oracle results.
-# The former "lookahead" option released the H-period counterfactual immediately, before the periods it covers had
-# occurred. It was removed on 6 October 2026; with H = 1 it is identical to "oracle".
-ADAPTIVE_FEEDBACK = ("observable", "oracle")
+# The feedback the Adaptive selection rule learns from, and everything else agents may observe, is set by the scenario's
+# information specification (Scenario.info, heiner_abm.information.InfoSpec): "estimated" (default; the firm judges
+# its past deviations from its own observations and believed demand curve) or "oracle" (researcher-only diagnostic).
+# Feedback is released only once every period it covers has occurred (heiner_abm.agents.DECISION_SCHEDULE).
+# Older settings: AdaptiveParams.feedback "observable" is now InfoSpec.feedback "estimated"; "lookahead" was removed.
+LEGACY_FEEDBACK = {"observable": "estimated", "oracle": "oracle"}
 
 SELECTION_HELP = {
     "Always": "Always adopt the production rule's recommendation (maximally flexible).",
@@ -89,15 +86,15 @@ class GlobalFirmParams:
 
 @dataclass
 class AdaptiveParams:
-    """Learning of the Adaptive selection rule. With feedback "observable" (default), the decision made at period d is
-    judged at the end of period d + window - 1: the agent compares holding the recommended level with holding its old
-    level (rule B) over those `window` periods, with rivals' actual output, realized costs and prices on its believed
-    demand curve, all of which it has observed by then. With feedback "oracle" it instead receives the researcher's
-    forked-market counterfactual over the measurement horizon H, at the end of period d + H - 1 (see ADAPTIVE_FEEDBACK).
-    Feedback whose horizon would end after the last simulated period is never released: no partial feedback."""
+    """Learning of the Adaptive selection rule. With estimated feedback (Scenario.info.feedback, default), the decision
+    made at period d is judged once the `window` periods d .. d + window - 1 have been observed: the agent compares
+    holding the recommended level with holding its old level (rule B) over those periods, with rivals' observed output,
+    realized costs and prices on its believed demand curve. With oracle feedback it instead receives the researcher's
+    forked-market counterfactual over the measurement horizon H, after period d + H - 1. An observation delay postpones
+    every release by that many periods. Feedback that would be released after the last simulated period is never
+    released: no partial feedback."""
     bin_edges: tuple = (5.0, 15.0, 30.0, 60.0)   # |q* - q| bin boundaries
     memory: float = 0.97                          # exponential forgetting (lambda)
-    feedback: str = "observable"                  # "observable" or "oracle" (researcher-only treatment)
     window: int = 20                              # periods over which an observable judgement is made (>= 1)
 
 
@@ -139,6 +136,7 @@ class Scenario:
     adaptive: AdaptiveParams = field(default_factory=AdaptiveParams)
     evolution: EvolutionParams = field(default_factory=EvolutionParams)
     structural: StructuralParams = field(default_factory=StructuralParams)
+    info: InfoSpec = field(default_factory=InfoSpec)        # what agents observe and what feedback they receive
     periods: int = 1000
     burn_in: int = 25
     seed: int = 0
@@ -164,16 +162,25 @@ class Scenario:
                 errs.append(f"Firm {i}: a Cournot firm needs flexibility between 0 and 1.")
             if f.flex < 0:
                 errs.append(f"Firm {i}: flexibility cannot be negative.")
-        if self.adaptive.feedback == "lookahead":
-            errs.append("Adaptive feedback 'lookahead' was removed: it released H-period feedback before the periods "
-                        "it covers had occurred. Use 'oracle' (the same counterfactual, released at maturity).")
-        elif self.adaptive.feedback not in ADAPTIVE_FEEDBACK:
-            errs.append(f"Unknown Adaptive feedback {self.adaptive.feedback!r}.")
+        errs += self.info_errors()             # information spec: engine support and every agent's needs
         if int(self.adaptive.window) < 1:
             errs.append("The Adaptive judgement window must be at least one period.")
         if self.burn_in >= self.periods - 2:
             errs.append("Burn-in must end before the simulation does.")
         return errs
+
+    def info_errors(self) -> List[str]:
+        """Why the agents of this scenario cannot run under its information specification (empty if they can)."""
+        return scenario_errors(self)
+
+    def check_runnable(self):
+        """Raise UnsupportedInformation for an unsupported information specification, ValueError for other errors."""
+        info = self.info_errors()
+        if info:
+            raise UnsupportedInformation("; ".join(info))
+        errs = self.validate()
+        if errs:
+            raise ValueError("; ".join(errs))
 
     def copy(self, **changes) -> "Scenario":
         s = replace(
@@ -184,6 +191,7 @@ class Scenario:
             adaptive=replace(self.adaptive),
             evolution=replace(self.evolution),
             structural=replace(self.structural),
+            info=replace(self.info),
         )
         return replace(s, **changes) if changes else s
 

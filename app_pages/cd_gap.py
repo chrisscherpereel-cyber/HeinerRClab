@@ -8,7 +8,7 @@ from heiner_abm.experiments import slope_summary
 from heiner_abm.params import SELECTION_RULES
 from ui.common import (CAT, DIVERGING, SEQUENTIAL, base_scenario, download, fmt_p, hypothesis_card, measurement, reps,
                        run_sweep_ui, show_errors, style, verdict)
-from ui.common import evidence_note
+from ui.common import adaptive_supported, evidence_note
 
 st.title("CD-gap explorer: difficulty versus competence")
 evidence_note("simulation")
@@ -34,9 +34,10 @@ d_steps = c[2].slider("Difficulty steps", 2, 10, 5, help="Number of evenly space
 k_steps = c[3].slider("Competence steps (κ from 0 to 1)", 2, 6, 3,
                       help="Number of evenly spaced foresight values κ between 0 and 1 (grid rows).")
 c = st.columns(3)
+sel_opts = [s for s in SELECTION_RULES if s != "Never" and (s != "Adaptive" or adaptive_supported(base))]
 sel_default = base.firms[0].selection if base.firms[0].selection not in ("Always", "Never") else "Adaptive"
-sel = c[0].selectbox("Selection rule for all firms", [s for s in SELECTION_RULES if s != "Never"],
-                     index=[s for s in SELECTION_RULES if s != "Never"].index(sel_default),
+sel_default = sel_default if sel_default in sel_opts else "Large"
+sel = c[0].selectbox("Selection rule for all firms", sel_opts, index=sel_opts.index(sel_default),
                      help="With 'Always', r = w = 1 by construction and only π, G and D can move. "
                           "Adaptive or Large rules let r and w respond to uncertainty.")
 n_reps = c[1].number_input("Replications per cell", 1, 100, max(4, min(reps(), 10)),

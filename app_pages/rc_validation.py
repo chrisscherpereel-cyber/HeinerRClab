@@ -10,6 +10,7 @@ from heiner_abm.analysis import confusion, ols
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges, prediction_table
 from heiner_abm.params import SELECTION_RULES
 from heiner_abm.terminology import IDENTITY_NOTE, OOS_GAP_NOTE, rule_option
+from ui.common import adaptive_supported
 from ui.common import (CAT, base_scenario, cached_rc_validation, download, hypothesis_card, measure_opts,
                        measurement, show_errors, style, to_json, verdict)
 from ui.common import evidence_note
@@ -68,8 +69,9 @@ with st.form("rcv"):
     lag = c[3].slider("Model-updating lag L", 0, 100, (20, 20),
                       help="Range for how many periods Cournot firms keep the old demand curve after a regime shift. "
                            "Only matters when the hazard λ range is above 0.")
-    sels = st.multiselect("Selection rules", [s for s in SELECTION_RULES if s != "Never"],
-                          default=["Always", "Small", "Large", "Adaptive"],
+    _sel_opts = [s for s in SELECTION_RULES if s != "Never" and (s != "Adaptive" or adaptive_supported(base))]
+    sels = st.multiselect("Selection rules", _sel_opts,
+                          default=[s for s in ("Always", "Small", "Large", "Adaptive") if s in _sel_opts],
                           help="Selection rules firms may be given. Never is excluded because it is the rigid twin "
                                "every firm is compared with.")
     st.caption(f"Measurement: horizon **H = {H}**, discount γ = {disc:g}, estimation window = first "
@@ -77,6 +79,8 @@ with st.form("rcv"):
                f"(firms + 1) = {int(n_env) * int(n_reps) * (base.n_firms + 1):,}. Cost grows with H.")
     go_btn = st.form_submit_button("Run validation", type="primary")
 
+if not adaptive_supported(base):
+    st.caption("The information specification does not support Adaptive firms, so they are not offered here.")
 ranges = EnvRanges(delta=delta, desired_margin=margin, c_max=cmax, flex=flex, threshold=thr, foresight=fore,
                    selections=tuple(sels) or ("Always",), rules=tuple(rules) or ("Bertrand",), hazard=hazard,
                    belief_lag=(float(lag[0]), float(lag[1])))

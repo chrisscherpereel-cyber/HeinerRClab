@@ -19,30 +19,36 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from .information import Observation
 from .params import Scenario, FirmSpec
 
 DECISION_SCHEDULE = """
 Period t (t = 1, ..., T - 1):
 
- 1. Decide. Each firm decides with what it knows at the end of period t - 1: last period's price P[t-1] and market
-    quantity Q[t-1], its own output, its believed demand curve, and its cost estimate
-    c_hat[t] = c[t-1] + kappa * (c[t] - c[t-1]) + sigma * eps[t]. Cost foresight kappa is a competence parameter: a
-    firm with kappa > 0 anticipates that share of the coming cost change (kappa = 0 in the baseline). Its selection
-    rule uses its learned table as it stood at the end of period t - 1.
+ 1. Decide. Each firm receives an Observation (heiner_abm.information) built from what it has observed under the
+    scenario's information specification: the market outcomes of period s = t - 1 - delay (price and market output,
+    with observation noise; the cost c[s]; its own output and payoff; rivals' individual outputs and payoffs if
+    visible), its current output, the demand curve it may use (believed, true or none; updated at once if shifts
+    are announced) and its cost estimate c_hat[t] = c[s] + kappa * (c[t] - c[s]) + sigma * eps[t]. Cost foresight
+    kappa is a competence parameter: a firm with kappa > 0 anticipates that share of the coming cost change (kappa = 0
+    in the baseline). Its selection rule uses its learned table as it stood at the end of period t - 1.
  2. Clear. The market clears on the true demand curve, P[t] = max(Pmin, Pmax[t] - s[t] * Q[t]); the cost c[t] is
     realized and every firm books profit (P[t] - c[t]) * q - F.
  3. Researcher evaluation (never visible to agents). The market is forked at t and each firm's decision is valued
     against rule B over the measurement horizon H (Heiner's pi, r, w, G, D). The forks use periods t .. t + H - 1,
-    the true demand curve and rivals' true rules.
+    the true demand curve and rivals' true rules; inside the forks, firms decide from observations built the same
+    way (from the actual history before t and the fork's own history from t on).
  4. Feedback enters the pending queue. Every decision with an opportunity (q* != q) is queued with its maturity:
-      observable (default): matures at t + W - 1 (W = AdaptiveParams.window); its gain accumulates period by period
-                            from what the firm observes (rivals' actual output, realized cost, believed demand);
-      oracle (researcher-only treatment): the researcher's H-period counterfactual of step 3, matures at t + H - 1.
-    Each pending item then adds period t's observed term (observable).
- 5. Release. Every pending item that matures at t (its last included period is t, which has now occurred) is released
-    to its firm, in order of decision time, and updates the firm's learned table. Released feedback is first used in
-    the decisions of period t + 1. Items maturing after the last period T - 1 are never released (no partial
-    feedback).
+      estimated (default): matures at t + W - 1 (W = AdaptiveParams.window); its gain accumulates period by period,
+                           up to maturity, from what the firm observes (rivals' observed output, realized cost,
+                           believed demand);
+      oracle (researcher-only diagnostic): the researcher's H-period counterfactual of step 3, matures at t + H - 1.
+    Each pending estimated item that has not yet matured then adds period t's observed term.
+ 5. Release. Every pending item whose release period, maturity + observation delay, is t is released to its firm, in
+    order of decision time, and updates the firm's learned table. Released feedback is first used in the decisions
+    of period t + 1. Items that would be released after the last period T - 1 are never released (no partial
+    feedback). Chosen-action and full feedback carry no counterfactual for the Adaptive rule, which the information
+    specification therefore rejects under those treatments.
  6. Evolution (if enabled): firms revise flexibility by imitating the most profitable rival over the window just
     ended (realized profits only).
 
@@ -63,6 +69,13 @@ def regime_draws(seed: int, periods: int) -> np.ndarray:
     ss = np.random.SeedSequence(seed).spawn(4)[3]
     rng = np.random.default_rng(ss)
     return np.stack([rng.random(periods), rng.standard_normal(periods), rng.standard_normal(periods)])
+
+
+def observation_noise(seed: int, periods: int, n_firms: int) -> np.ndarray:
+    """Separate stream (5th child) for observation noise on (price, market quantity) per period and firm, shape
+    (2, periods, n_firms); enabling it leaves every other stream intact."""
+    ss = np.random.SeedSequence(seed).spawn(5)[4]
+    return np.random.default_rng(ss).standard_normal((2, periods, n_firms))
 
 
 def demand_path(scn: Scenario) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -110,14 +123,24 @@ def cost_path(scn: Scenario, u: np.ndarray) -> np.ndarray:
     return c
 
 
+def belief_curves(scn: Scenario, p_max: np.ndarray, slope: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """The demand curve firms decide with in each period. 'believed': the baseline curve, updated L periods after a
+    shift, or at once if shifts are announced; 'true': the true current curve (ORACLE information); with 'none' the
+    curve is kept only for the researcher's diagnostics and is not given to the firms."""
+    info = scn.info
+    if info.demand_knowledge == "true" or info.regime_announced:
+        return p_max.copy(), slope.copy()
+    bi = belief_index(scn)
+    return (np.where(bi < 0, scn.market.p_max, p_max[np.maximum(bi, 0)]),
+            np.where(bi < 0, scn.market.slope, slope[np.maximum(bi, 0)]))
+
+
 class Market:
     def __init__(self, scn: Scenario, u: np.ndarray):
         self.p = scn.market
         self.costs = cost_path(scn, u)
         self.p_max, self.slope, self.shift = demand_path(scn)
-        bi = belief_index(scn)
-        self.belief_p_max = np.where(bi < 0, scn.market.p_max, self.p_max[np.maximum(bi, 0)])
-        self.belief_slope = np.where(bi < 0, scn.market.slope, self.slope[np.maximum(bi, 0)])
+        self.belief_p_max, self.belief_slope = belief_curves(scn, self.p_max, self.slope)
         self.price = 0.0
         self.quantity = 0.0
 
@@ -163,15 +186,17 @@ class Firm:
         return c_prev + s.foresight * (c_next - c_prev) + s.noise * eps
 
     # --- production rule: recommendation q* ------------------------------------
-    def recommend(self, market: Market, t: int, prev_price: float, prev_quantity: float,
-                  c_hat: float) -> Tuple[float, float]:
-        s, q = self.spec, self.q
-        pm, sl = market.belief_p_max[t], market.belief_slope[t]
-        best = (pm - sl * (prev_quantity - q) - c_hat) / (2.0 * sl)
+    def recommend(self, obs: Observation) -> Tuple[float, float]:
+        s, q, c_hat = self.spec, self.q, obs.cost_estimate
+        if obs.demand_model is not None:
+            pm, sl = obs.demand_model
+            best = (pm - sl * obs.rivals_output - c_hat) / (2.0 * sl)
+        else:
+            best = float("nan")          # no demand model: no perceived best reply (the validation rejects Cournot)
         if s.rule == "Cournot":
             rec = self.flex * best + (1.0 - self.flex) * q
         else:  # margin-feedback quantity rule, config "Bertrand" (model-free: uses the observed price only)
-            margin = prev_price - c_hat - (self.fixed / q if self.g.margin_includes_fixed else 0.0)
+            margin = obs.price - c_hat - (self.fixed / q if self.g.margin_includes_fixed else 0.0)
             rec = q + self.flex * (margin - s.desired_margin)
         return max(self.g.q_min, float(np.rint(rec))), best
 
@@ -194,16 +219,32 @@ class Firm:
             return change > 0 and self.learned_gain[self._bin(change)] >= 0.0
         raise ValueError(rule)
 
-    def decide(self, market: Market, t: int, prev_price, prev_quantity, eps) -> Decision:
-        c_hat = self.perceive_cost(market.costs[t - 1], market.costs[t], eps)
-        rec, best = self.recommend(market, t, prev_price, prev_quantity, c_hat)
+    def decide(self, obs: Observation) -> Decision:
+        """Decide from an Observation only (see heiner_abm.information)."""
+        rec, best = self.recommend(obs)
         dev = self.select(rec)
-        self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat, best)
+        self.last = Decision(rec, self.q, dev, rec if dev else self.q, obs.cost_estimate, best)
         return self.last
 
     # --- learning: only from released (matured) feedback, see DECISION_SCHEDULE --------------------------------
     def learn_bin(self, b: int, gain_from_rule: float):
         self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
+
+
+class _History:
+    """Market outcomes by period: the recorded arrays, with optional overrides (a forked market's own periods)."""
+
+    def __init__(self, price, quantity, q, profit):
+        self.price, self.quantity, self.q, self.profit = price, quantity, q, profit
+        self.over = {}
+
+    def set(self, s, P, Q, q, profit):
+        self.over[s] = (P, Q, np.asarray(q, float), np.asarray(profit, float))
+
+    def at(self, s):
+        if s in self.over:
+            return self.over[s]
+        return self.price[s], self.quantity[s], self.q[s], self.profit[s]
 
 
 @dataclass
@@ -215,8 +256,9 @@ class PendingFeedback:
     bin: int              # size-of-change bin of the decision
     x1: float             # recommended output (the deviation)
     x0: float             # previous output (rule B)
-    kind: str             # "observable" or "oracle"
-    gain: float = 0.0     # observable: accumulated period by period; oracle: the researcher's counterfactual
+    kind: str             # "estimated" or "oracle"
+    gain: float = 0.0     # estimated: accumulated period by period up to maturity; oracle: the researcher's counterfactual
+    release: int = 0      # maturity + observation delay: the period at whose end it is released
 
 
 class Industry:
@@ -226,9 +268,7 @@ class Industry:
     learned_path[t] is every firm's learned table at the end of period t (after release)."""
 
     def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default", discount: float = 1.0):
-        errs = scn.validate()
-        if errs:
-            raise ValueError("; ".join(errs))
+        scn.check_runnable()
         self.scn = scn
         self.horizon = max(1, int(horizon))
         self.continuation = continuation
@@ -245,6 +285,9 @@ class Industry:
         self.price = np.zeros(T)
         self.quantity = np.zeros(T)
         self.window_profit = np.zeros(n)
+        info = scn.info
+        self.delay = int(info.obs_delay)
+        self.obs_nz = info.obs_noise * observation_noise(scn.seed, T, n) if info.obs_noise > 0 else None
         self.pending: deque = deque()
         self.feedback_log: List[Tuple[int, int, int, int, int, float, str]] = []
         self.learned_path = np.zeros((T, n, len(scn.adaptive.bin_edges) + 1))
@@ -262,8 +305,9 @@ class Industry:
             self.h["profit"][0, i] = (P - costs[0]) * f.q - f.fixed
             self.h["flex"][0, i] = f.flex
 
+        actual = _History(self.price, self.quantity, self.h["q"], self.h["profit"])
         for t in range(1, scn.periods):
-            decisions = [f.decide(mk, t, P, Q, self.eps[t, i]) for i, f in enumerate(firms)]
+            decisions = [f.decide(self.observe(i, t, actual, f)) for i, f in enumerate(firms)]
             for f, d in zip(firms, decisions):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)
@@ -312,38 +356,61 @@ class Industry:
                 self._evolve()
         return self
 
+    # --- observation -------------------------------------------------------------------------------------------
+    def observe(self, i: int, t: int, hist: "_History", firm: Optional[Firm] = None) -> Observation:
+        """Firm i's Observation for its decision in period t, built from `hist` (actual or forked history) up to the
+        latest observed period s = t - 1 - delay. Nothing from after s enters, except the firm's own current output
+        and its cost estimate (which includes cost foresight kappa, a competence parameter)."""
+        info, mk = self.scn.info, self.market
+        firm = firm or self.firms[i]
+        s = max(t - 1 - self.delay, 0)
+        P, Q, qs, prof = hist.at(s)
+        if self.obs_nz is not None:
+            P, Q = P + self.obs_nz[0, s, i], Q + self.obs_nz[1, s, i]
+        c_hat = firm.perceive_cost(mk.costs[s], mk.costs[t], self.eps[t, i])
+        dm = None if info.demand_knowledge == "none" else (mk.belief_p_max[t], mk.belief_slope[t])
+        rivals = (tuple((float(qs[j]), float(prof[j])) for j in range(len(qs)) if j != i)
+                  if info.rivals_visible else None)
+        return Observation(period=t, observed_period=s, own_output=float(firm.q), own_output_then=float(qs[i]),
+                           own_payoff=float(prof[i]), price=float(P), market_quantity=float(Q),
+                           observed_cost=float(mk.costs[s]), cost_estimate=float(c_hat), demand_model=dm,
+                           regime_announced=bool(mk.shift[t]) if info.regime_announced else None, rivals=rivals)
+
+    # --- feedback -----------------------------------------------------------------------------------------------
     def _queue_feedback(self, t: int, decisions: List[Decision], evaluated):
-        ad = self.scn.adaptive
+        kind = self.scn.info.feedback
         for i, (f, d) in enumerate(zip(self.firms, decisions)):
             if d.recommended == d.current:
                 continue
             item = PendingFeedback(i, t, 0, f._bin(abs(d.recommended - d.current)), float(d.recommended),
-                                   float(d.current), ad.feedback)
-            if ad.feedback == "oracle":
+                                   float(d.current), kind)
+            if kind == "oracle":
                 _, p_rule, p_def = evaluated[i]
                 item.matures, item.gain = t + self.horizon - 1, p_rule - p_def
             else:
-                item.matures = t + int(ad.window) - 1
+                item.matures = t + int(self.scn.adaptive.window) - 1
+            item.release = item.matures + self.delay
             self.pending.append(item)
 
     def _accumulate_observable(self, t: int):
-        """Add period t's observed term to every pending observable item (rivals' actual output, realized cost, prices
-        on the firm's believed demand curve). Mirrored exactly by engine._observed_term."""
+        """Add period t's observed term to every pending estimated item that has not yet matured (rivals' observed
+        output, realized cost, prices on the firm's believed demand curve). Mirrored exactly by engine._observed_term."""
         mk, lo = self.market, self.scn.market.p_min
         pm, sl, c = mk.belief_p_max[t], mk.belief_slope[t], mk.costs[t]
         for item in self.pending:
-            if item.kind != "observable":
+            if item.kind != "estimated" or item.matures < t:
                 continue
-            R = self.quantity[t] - self.h["q"][t, item.firm]
+            Q = self.quantity[t] + (self.obs_nz[1, t, item.firm] if self.obs_nz is not None else 0.0)
+            R = Q - self.h["q"][t, item.firm]
             x1, x0 = item.x1, item.x0
             item.gain = item.gain + ((max(lo, pm - sl * (R + x1)) - c) * x1 - (max(lo, pm - sl * (R + x0)) - c) * x0)
 
     def _release(self, t: int):
-        """Release, in order of decision time, every item whose last included period is t."""
+        """Release, in order of decision time, every item whose release period (maturity + delay) is t."""
         keep = deque()
         while self.pending:
             item = self.pending.popleft()
-            if item.matures == t:
+            if item.release == t:
                 self.firms[item.firm].learn_bin(item.bin, item.gain)
                 self.feedback_log.append((t, item.firm, item.decided, item.matures, item.bin, item.gain, item.kind))
             else:
@@ -362,15 +429,18 @@ class Industry:
             f.q = qc
         Q = sum(f.q for f in firms)
         P = mk.clearing_price(Q, t)
+        hist = _History(self.price, self.quantity, self.h["q"], self.h["profit"])     # actual before t, fork from t
+        hist.set(t, P, Q, [f.q for f in firms], [(P - costs[t]) * f.q - f.fixed for f in firms])
         cum = [(P - costs[t]) * f.q - f.fixed for f in firms]
         w = 1.0
         for tt in range(t + 1, min(t + self.horizon, T)):
             w *= self.discount
-            ds = [f.decide(mk, tt, P, Q, self.eps[tt, i]) for i, f in enumerate(firms)]
+            ds = [f.decide(self.observe(i, tt, hist, f)) for i, f in enumerate(firms)]
             for f, d in zip(firms, ds):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)
             P = mk.clearing_price(Q, tt)
+            hist.set(tt, P, Q, [f.q for f in firms], [(P - costs[tt]) * f.q - f.fixed for f in firms])
             for i, f in enumerate(firms):
                 cum[i] += w * ((P - costs[tt]) * f.q - f.fixed)
         return cum

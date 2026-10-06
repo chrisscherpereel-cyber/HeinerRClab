@@ -53,6 +53,7 @@ SECTIONS = {
     ],
     "Reference": [
         st.Page("app_pages/agents_reference.py", title="Agents as implemented", icon="🤖"),
+        st.Page("app_pages/information.py", title="Information & feedback", icon="👁️"),
         st.Page("app_pages/literature.py", title="Research & contribution", icon="📚"),
         st.Page("app_pages/model_docs.py", title="Model & methods", icon="📐"),
     ],
@@ -60,4 +61,5 @@ SECTIONS = {
 
 nav = st.navigation(SECTIONS, position="hidden")
 render_sidebar(SECTIONS, nav)
+st.session_state["_info_engine"] = ("market", None)   # pages on other engines override this
 nav.run()

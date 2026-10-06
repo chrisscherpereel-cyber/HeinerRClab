@@ -8,10 +8,11 @@ import streamlit as st
 from heiner_abm.tracking import (FAMILY_LABELS, QUICK_TRACK, TrackPlan, gains, kalman_gain, loss_of_speed,
                                  optimal_offset, run_tracking, weights)
 from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
-from ui.common import evidence_note
+from ui.common import evidence_note, set_engine
 
 st.title("A benchmark solvable on paper")
 evidence_note("analytical", "simulation")
+set_engine("tracking")
 st.caption("One firm tracks a moving target that it observes with noise. Here the best adjustment speed can be "
            "derived exactly (Muth 1960; Kalman 1960), so the simulation can be checked against theory. Then the stakes "
            "are made lopsided, the one case in which Heiner's reliability condition and optimal filtering make "

@@ -141,24 +141,31 @@ learner does not improve with experience over 1,500 periods.
 
 ## Competing theories: reference results
 
-<!-- requires-replication:directional --><!-- requires-replication:horse_race -->
-> **Requires replication (6 October 2026).** The records and forecasts in this section were computed when the
-> Adaptive selection rule learned from the researcher's look-ahead counterfactual (future periods, the true demand
-> curve, rivals' simulated reactions). It now learns only from information available to the agent. Experiment E7
-> and about a quarter of the firms in the forecasting environments use that rule, so these numbers are left as
-> originally reported but must be rerun before they are relied on. The earlier rule remains available as the
-> researcher-only *look-ahead* feedback and reproduces the earlier trajectories exactly.
+> **Revision note (6 October 2026).** This section was rerun after the Adaptive selection rule was changed to learn
+> only from information available to the agent (it previously learned from the researcher's look-ahead
+> counterfactual). The protocol was first checked on the old code, which reproduced every number reported here
+> before. Only experiment E7 (the Adaptive agents' deviation rate) uses that rule; every other experiment gave
+> bit-identical results. Under the new rule E7's deviation rate falls significantly with volatility in every run
+> (Bertrand slope about −0.008 instead of −0.011; Cournot about −0.019 instead of −0.002, which had not been
+> significant in the first Cournot seed). As a result the first Cournot run changed: Heiner 5/1/3 → 6/1/2,
+> neoclassical 3/1/3 → 3/2/2, real options 1/3/3 → 2/3/2, satisficing 0/0/1 → 0/1/0. The forecasting results moved
+> by at most 0.02 AUC and their ranking and conclusions are unchanged. Earlier values: Cournot records in the table
+> as given above; AUCs 0.61 (dynamic RC), 0.58, 0.56, 0.56, 0.54, 0.47, track record 0.86, encompassing gain −0.001,
+> one-shot RC 0.55.
 
 From the *Competing theories* page with 1,000 periods, 20 replications per condition and H = 20, for the default
-Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
+Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds (1 and 3 for Bertrand, 1 and 42 for Cournot;
+the second seeds were not recorded originally and were identified as those that reproduce the earlier records on the
+old code). Across eight seeds per market (1, 3, 21, 42, 100, 1000, 12345, 2026) Heiner has the best net record in
+every run:
 
 | Theory | Tournament record, Bertrand (✅ / ❌ / ➖) | Tournament record, Cournot (✅ / ❌ / ➖) |
 |---|---|---|
-| Heiner: reliability condition | 6/1/2 and 5/1/3 | 5/1/3 and 6/1/2 |
+| Heiner: reliability condition | 6/1/2 and 5/1/3 | 6/1/2 (both seeds) |
 | Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
 | Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
-| Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
-| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
+| Real options | 2/4/1 and 2/3/2 | 2/3/2 (both seeds) |
+| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/2/2 (both seeds) |
 
 Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
 perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
@@ -167,10 +174,11 @@ fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 19
 does not discriminate between them.
 
 Out-of-sample forecasting (100 random environments × 2 replications, 800 firms, both production rules): the dynamic
-RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.61, 95% CI 0.56–0.66), ahead of
-cobweb stability (0.58), stakes only (0.56), Heiner's K (0.56), accuracy only (0.54) and real options (0.47). A firm's
-own track record in the first half of the run was far better (AUC 0.86), and adding the RC to all rival forecasts
-combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). Heiner's one-shot (one-period) RC scored only 0.55.
+RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.60, 95% CI 0.55–0.65), ahead of
+cobweb stability (0.55), stakes only (0.55), Heiner's K (0.55), accuracy only (0.54) and real options (0.47). A firm's
+own track record in the first half of the run was far better (AUC 0.85), and adding the RC to all rival forecasts
+combined changed cross-validated AUC by +0.000 (95% CI −0.004 to +0.005). Heiner's one-shot (one-period) RC scored
+only 0.54. (Sampling seed 12345, base-scenario seed 1, H = 20, full measure.)
 
 ## Agent tournament: registered results
 
@@ -507,9 +515,9 @@ app_pages/*.py             the Streamlit pages
   realized costs and prices on the firm's own believed demand curve (the same judgement as the tournament's
   reliability-condition agents). Until 6 October 2026 it learned instead from the researcher's look-ahead
   counterfactual over H. That rule is kept as the explicitly researcher-only *look-ahead* feedback, which reproduces
-  the earlier trajectories exactly (`tests/test_information.py`); results computed with it are flagged as requiring
-  replication. <!-- requires-replication:preset_adaptive --> This includes the typical result of the
-  reliability-learning (Adaptive) preset.
+  the earlier trajectories exactly (`tests/test_information.py`). The findings that involved Adaptive agents (the
+  directional tournament, the out-of-sample forecasts and the Adaptive preset) were rerun under the new rule on
+  6 October 2026; see the revision note under *Competing theories*.
 
 ## Research basis
 

@@ -41,14 +41,16 @@ TOURNAMENT: Dict[str, Dict] = {
 }
 
 # Directional tournament of experiments (Competing theories page): matches / contradictions / inconclusive, for the
-# Bertrand and the Cournot reference market, two seeds each (1,000 periods, 20 replications, H = 20).
+# Bertrand and the Cournot reference market, two seeds each (1,000 periods, 20 replications, H = 20). Seeds: 1 and 3
+# (Bertrand), 1 and 42 (Cournot). Rerun on 6 October 2026 with the observable Adaptive rule; only the Cournot seed-1
+# records changed (see the revision notes under FINDING_FINGERPRINTS).
 DIRECTIONAL: Dict[str, Dict[str, Tuple[str, str]]] = {
-    "heiner": {"Bertrand": ("6/1/2", "5/1/3"), "Cournot": ("5/1/3", "6/1/2")},
-    "neo": {"Bertrand": ("2/4/1", "1/4/2"), "Cournot": ("3/1/3", "3/2/2")},
-    "options": {"Bertrand": ("2/4/1", "2/3/2"), "Cournot": ("1/3/3", "2/3/2")},
+    "heiner": {"Bertrand": ("6/1/2", "5/1/3"), "Cournot": ("6/1/2", "6/1/2")},
+    "neo": {"Bertrand": ("2/4/1", "1/4/2"), "Cournot": ("3/2/2", "3/2/2")},
+    "options": {"Bertrand": ("2/4/1", "2/3/2"), "Cournot": ("2/3/2", "2/3/2")},
     "cobweb": {"Bertrand": ("1/5/1", "2/4/1"), "Cournot": ("4/3/0", "4/3/0")},
     "biasvar": {"Bertrand": ("4/2/0", "3/2/1"), "Cournot": ("3/2/1", "3/2/1")},
-    "satisficing": {"Bertrand": ("0/1/0", "0/1/0"), "Cournot": ("0/0/1", "0/1/0")},
+    "satisficing": {"Bertrand": ("0/1/0", "0/1/0"), "Cournot": ("0/1/0", "0/1/0")},
     "ecology": {"Bertrand": ("2/0/0", "2/0/0"), "Cournot": ("1/1/0", "1/1/0")},
 }
 
@@ -240,7 +242,19 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   - special, patterns: re-fingerprinted after a rerun. They use the arena agents, not the Adaptive rule; rerun
 #     with the new code (signature tests at the Full scale, field patterns at the registered settings), every
 #     signature-test line in SPECIAL_RESULTS and every field-pattern number in the README was reproduced exactly.
-#   - directional, horse_race, preset_adaptive: involve Adaptive agents; listed in REPLICATION_REQUIRED, not rerun.
+#   - directional, horse_race, preset_adaptive: involve Adaptive agents; listed in REPLICATION_REQUIRED at first.
+# * 6 October 2026, rerun of directional, horse_race and preset_adaptive under the observable Adaptive rule. The
+#   protocol was first run on the old code (469619d), which reproduced every previously reported number: the
+#   directional records with seeds 1 and 3 (Bertrand) and 1 and 42 (Cournot), the forecasting AUCs and encompassing
+#   gain, and the baseline preset (price 48.6, cost 43.7, slope +23; seeds 1-6). Then rerun on the new code:
+#   - directional: only E7 (Adaptive agents) changed; every other experiment was bit-identical. The Cournot seed-1
+#     records changed (Heiner 5/1/3 -> 6/1/2, neoclassical 3/1/3 -> 3/2/2, real options 1/3/3 -> 2/3/2, satisficing
+#     0/0/1 -> 0/1/0); DIRECTIONAL updated. Over eight seeds per market Heiner keeps the best net record in every run.
+#   - horse_race: 100 environments x 2 replications, sampling seed 12345, H = 20. Dynamic RC 0.612 -> 0.602,
+#     track record 0.859 -> 0.851, encompassing gain -0.001 -> +0.000, one-shot RC 0.546 -> 0.537; ranking and
+#     conclusions unchanged. README and the Competing theories page updated.
+#   - preset_adaptive: price 48.56 -> 48.16, share of recommended changes adopted 0.75 -> 0.74, slope +67 -> +58;
+#     typical result in ui/common.PRESET_INFO updated.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -260,10 +274,10 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "5aaa956c3408bbcd",
-    "horse_race": "6905268aa24b0379",
+    "directional": "433639db6d3ef9ef",
+    "horse_race": "6df5048a8852d0b3",
     "presets": "6df5048a8852d0b3",
-    "preset_adaptive": "6905268aa24b0379",
+    "preset_adaptive": "6df5048a8852d0b3",
     "special": "13b82f4e79f953ff",
     "patterns": "a7415a32ea71e964",
     "calibration": "854400653fe42159",
@@ -271,19 +285,7 @@ FINDING_FINGERPRINTS: Dict[str, str] = {
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-_OBSERVABLE_FEEDBACK = (
-    "On 6 October 2026 the Adaptive selection rule was changed to learn only from information available to the agent "
-    "(feedback 'observable'). It previously learned from the researcher's look-ahead counterfactual, which uses future "
-    "periods, the true demand curve and rivals' simulated reactions. This finding involves Adaptive agents and was "
-    "computed with the old rule; it has not been rerun under the new one. The old rule remains available as the "
-    "researcher-only 'look-ahead' feedback and reproduces the earlier trajectories exactly.")
-REPLICATION_REQUIRED: Dict[str, str] = {
-    "directional": _OBSERVABLE_FEEDBACK + " Affected: experiment E7 (Adaptive agents' deviation rate), and through it "
-                   "the match / contradiction counts of every theory with a prediction on E7.",
-    "horse_race": _OBSERVABLE_FEEDBACK + " Affected: about a quarter of the firms in the random environments use the "
-                  "Adaptive rule, so the forecast AUCs and the encompassing test change.",
-    "preset_adaptive": _OBSERVABLE_FEEDBACK,
-}
+REPLICATION_REQUIRED: Dict[str, str] = {}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

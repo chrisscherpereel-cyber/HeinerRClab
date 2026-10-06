@@ -266,8 +266,8 @@ see the README), "superior" holds in one sense and not the other:
 
 * **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
   contradicted). Its miss was perception noise in Bertrand markets, which *raised* the payoff to flexibility.
-* **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.61) but was far behind a
-  firm's own track record (AUC ≈ 0.86), and added nothing once the rival forecasts were combined. The one-shot,
+* **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.60) but was far behind a
+  firm's own track record (AUC ≈ 0.85), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
 
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual

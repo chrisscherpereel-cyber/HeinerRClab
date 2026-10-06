@@ -62,6 +62,7 @@ DEFAULTS: Dict[str, object] = dict(
     desired_margin=5.0, foresight=0.0, noise=0.0, q0=200.0, q_min=15.0,
     flex_cost_slope=0.0, fixed_cost=0.0, margin_includes_fixed=False,
     periods=1000, burn_in=25, reps=20, seed=1, horizon=20, continuation="default", memory=0.97,
+    adaptive_window=20, adaptive_feedback="observable",
     discount=1.0, oos_split=0.5,
     struct_on=False, hazard=0.02, intercept_sd=15.0, slope_sd=0.4, belief_lag=20,
 )
@@ -74,7 +75,8 @@ PRESETS: Dict[str, Dict[str, object]] = {
     "Volatile raw materials (Δ = 25)": dict(delta=25.0),
     "Selection rules: SR2 'Large' (θ = 25)": dict(selection="Large", threshold=25.0),
     "Selection rules: SR1 'Small' (θ = 10)": dict(selection="Small", threshold=10.0),
-    "Reliability-learning (Adaptive) agents, H = 25": dict(selection="Adaptive", horizon=25),
+    "Reliability-learning (Adaptive) agents, judged over 25 periods": dict(selection="Adaptive", horizon=25,
+                                                                           adaptive_window=25),
     "Costly flexibility (a = 500, b = 100, in margin)": dict(flex_cost_slope=500.0, fixed_cost=100.0,
                                                              margin_includes_fixed=True),
     "Ten firms (larger market)": dict(n_firms=10, flex_slope=0.1, q0=80.0),
@@ -139,14 +141,17 @@ PRESET_INFO: Dict[str, Dict[str, str]] = {
             "should hurt.",
         hypotheses="H9 (selection rules)",
         typical="Profit falls with flexibility (slope ≈ −171)."),
-    "Reliability-learning (Adaptive) agents, H = 25": dict(
+    "Reliability-learning (Adaptive) agents, judged over 25 periods": dict(
         setup="Every firm learns, for each size of recommended change, whether deviating from keeping its output has "
-              "paid off over the following 25 periods (judged against the counterfactual of not deviating), and "
-              "deviates only where it has. Nothing is imposed about how often to deviate.",
+              "paid off, and deviates only where it has. It judges each deviation once the 25 periods it covers have "
+              "passed, from what it has observed: rivals' actual output, realized costs and prices on its own "
+              "believed demand curve (no future information). The researcher's measurement horizon H is also 25. "
+              "Nothing is imposed about how often to deviate.",
         why="Lets restraint emerge from experience rather than imposing it. Needed for the predictability hypothesis "
             "and for the reliability-condition validation, which measure how often firms choose to deviate.",
         hypotheses="H10 (predictability), RC validation, CD-gap explorer",
-        typical="Similar prices to the baseline; learning firms deviate less where deviations have not paid."),
+        typical="Average price ≈ 48.2 (baseline 48.6); firms adopt about 74% of the recommended changes, and "
+                "flexibility pays more than in the baseline (slope ≈ +58 against +23)."),
     "Costly flexibility (a = 500, b = 100, in margin)": dict(
         setup="Flexibility now costs F = 500·φ + 100 per period, and the fixed cost is included in the margin firms "
               "react to (margin = P − c − F/q).",
@@ -277,6 +282,8 @@ def render_sidebar(sections=None, current=None):
         with sb.popover("About this preset", width="stretch"):
             st.markdown(f"**Setup.** {info['setup']}\n\n**Why run it.** {info['why']}\n\n"
                         f"**Used for.** {info['hypotheses']}\n\n**Typical result.** {info['typical']}")
+            chosen = PRESETS.get(st.session_state.get("preset_choice"), {})
+            replication_notice("preset_adaptive" if chosen.get("selection") == "Adaptive" else "presets")
     c1, c2 = sb.columns(2)
     c1.button("Apply preset", on_click=apply_preset, width="stretch")
     c2.button("Reset", on_click=reset_defaults, width="stretch")
@@ -362,8 +369,8 @@ def render_sidebar(sections=None, current=None):
         st.slider("Counterfactual horizon H", 1, 100, key=K + "horizon",
                   help="Periods over which a deviation from rule B is evaluated when measuring π, r, w, G, D. "
                        "H = 1 is Heiner's one-shot comparison, which ignores that production changes persist; "
-                       "H ≈ 20+ captures their consequences. Cost grows with H. Profit-only experiments skip it "
-                       "unless Adaptive agents (who learn from it) are present.")
+                       "H ≈ 20+ captures their consequences. Cost grows with H. This is a researcher's measurement: "
+                       "agents never see it, unless the researcher-only *oracle* feedback below is chosen.")
         st.radio("After the decision, in the counterfactual the firm…",
                  ["default", "rules"], key=K + "continuation",
                  format_func=lambda x: {"default": "returns to rule B (Heiner)",
@@ -379,6 +386,23 @@ def render_sidebar(sections=None, current=None):
         st.slider("Adaptive agents' memory λ", 0.5, 0.999, key=K + "memory", step=0.005,
                   help="Forgetting factor of Adaptive firms' learned payoff to deviating: new estimate = "
                        "λ·old + (1 − λ)·latest gain. Closer to 1 = longer memory, slower learning.")
+        st.slider("Adaptive agents' judgement window", 1, 100, key=K + "adaptive_window",
+                  help="An Adaptive firm judges each past deviation once this many periods have passed: holding the "
+                       "recommended output versus holding its old output (rule B), with rivals' actual output, "
+                       "realized costs and prices on its own believed demand curve. All of it has been observed by "
+                       "then, so the firm uses no future information.")
+        st.radio("Adaptive agents learn from…", ["observable", "oracle"], key=K + "adaptive_feedback",
+                 format_func=lambda x: {"observable": "what they have observed (default)",
+                                        "oracle": "the researcher's counterfactual (ORACLE treatment)"}[x],
+                 help="**Observable** (default): the firm judges each decision from what it has observed once the "
+                      "judgement window has passed. **Oracle**: the researcher's forked-market counterfactual over H "
+                      "(true demand curve, rivals' simulated reactions), released only once the H periods it covers "
+                      "have occurred. No firm could compute it; use it only as a labeled benchmark. Either way, "
+                      "feedback is never released before the periods it covers have happened.")
+        if v("adaptive_feedback") == "oracle":
+            st.warning("ORACLE treatment: Adaptive agents receive researcher-only counterfactuals (released at maturity). "
+                       "Label any result as an oracle benchmark, not as behavior of an agent with realistic information.",
+                       icon="⚠️")
 
     with sb.expander("Structural uncertainty (regime shifts)", expanded=False):
         st.toggle("Unannounced demand-regime shifts", key=K + "struct_on",
@@ -418,7 +442,8 @@ def base_scenario() -> Scenario:
                                       flex_cost_slope=float(v("flex_cost_slope")),
                                       fixed_cost=float(v("fixed_cost")),
                                       margin_includes_fixed=bool(v("margin_includes_fixed"))),
-        adaptive=AdaptiveParams(memory=float(v("memory"))),
+        adaptive=AdaptiveParams(memory=float(v("memory")), window=int(v("adaptive_window")),
+                                feedback=str(v("adaptive_feedback"))),
         structural=StructuralParams(enabled=bool(v("struct_on")), hazard=float(v("hazard")),
                                     intercept_sd=float(v("intercept_sd")), slope_sd=float(v("slope_sd")),
                                     belief_lag=int(v("belief_lag"))),
@@ -435,9 +460,10 @@ def measure_opts():
 
 
 def behaviour_horizon(scn: Scenario) -> int:
-    """Horizon needed when only profits are reported: H changes behavior only through Adaptive agents'
-    learning, so skip the (costly) counterfactual forks otherwise."""
-    return int(v("horizon")) if any(f.selection == "Adaptive" for f in scn.firms) else 1
+    """Horizon needed when only profits are reported. H is a researcher's measurement; it changes behavior only when
+    Adaptive agents are given the researcher-only oracle feedback, so skip the (costly) forks otherwise."""
+    oracle = scn.adaptive.feedback == "oracle" and any(f.selection == "Adaptive" for f in scn.firms)
+    return int(v("horizon")) if oracle else 1
 
 
 def reps() -> int:
@@ -670,13 +696,31 @@ PREREG_TEXT = (
     "**Registered versus exploratory.** Changing any setting (or the code) changes the hash, and the app then labels "
     "the run *exploratory*. Exploratory runs are useful for learning and for generating new hypotheses, but they are "
     "not confirmatory evidence. Results reported in the README and on the theory pages are tied to the registered "
-    "hashes, and the test suite fails if the code changes them without the results being rerun (Nosek et al., 2018).")
+    "hashes, and the test suite fails if the code changes them without the results being rerun (Nosek et al., 2018).\n\n"
+    "**What the hash does not show.** In this laboratory a *pre-registered plan* means a plan frozen in the code and "
+    "identified by its hash. The repository contains no record of any plan being deposited with an external, "
+    "time-stamped registry. The hash shows which plan and which code produced a result; it does not show that the plan "
+    "was fixed before the results were seen. Plans were revised during development before they were frozen (see the "
+    "README). Treat registered results accordingly, and deposit a plan externally before a confirmatory run if that "
+    "guarantee is needed.")
 
 
 def prereg_explainer():
     """An expander explaining pre-registered plans, for every page that runs a frozen plan."""
     with st.expander("ℹ️ What is a pre-registered plan, and why use one?"):
         st.markdown(PREREG_TEXT)
+
+
+def replication_notice(*keys: str, where=None):
+    """Flag reported findings whose code changed after they were reported (heiner_abm.registered). The reported
+    numbers stay as they were; the notice says they require replication until rerun."""
+    from heiner_abm import registered
+    where = where or st
+    for key in keys:
+        note = registered.replication_note(key)
+        if note:
+            where.warning(f"**Requires replication: {registered.FINDING_SOURCES[key][0]}.** {note} The numbers shown "
+                          "are those originally reported; rerun the study before relying on them.", icon="⚠️")
 
 
 def verdict(kind: str, text: str):

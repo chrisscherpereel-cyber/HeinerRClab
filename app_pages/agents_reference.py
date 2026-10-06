@@ -79,14 +79,20 @@ st.dataframe(pd.DataFrame([(k, t) for k, t in SELECTION_HELP.items()], columns=[
              hide_index=True, width="stretch")
 st.markdown(
     "The **Adaptive** rule groups recommended changes |q\\* − q| into five size bins (edges 5, 15, 30 and 60 units). "
-    "For each bin it keeps a learned gain E_b, updated whenever a change of that size was recommended:")
-st.latex(r"E_b \leftarrow \lambda\,E_b + (1-\lambda)\,g,\qquad g = \sum_{h=0}^{H-1}\gamma^h\big(\pi^{\text{deviate}}"
-         r"_{t+h} - \pi^{\text{keep}}_{t+h}\big)")
+    "For each bin it keeps a learned gain E_b. A change of that size recommended at period d is judged at the end of "
+    "period d + W − 1, once every period it covers has been observed:")
+st.latex(r"E_b \leftarrow \lambda\,E_b + (1-\lambda)\,g_d,\qquad g_d = \sum_{s=d}^{d+W-1}\big[(\tilde P_s(x_1)-c_s)\,x_1"
+         r" - (\tilde P_s(x_0)-c_s)\,x_0\big],\quad \tilde P_s(x) = \max\{P_{min},\ \tilde P_{max,s} - \tilde s_s(R_s + x)\}")
 st.markdown(
-    "where g is the counterfactual profit difference between deviating and keeping output over the horizon H "
-    "(computed by forking the market; after the decision the firm either returns to rule B or keeps following its "
-    "own rules, as set in the sidebar). The firm deviates in a bin only if E_b ≥ 0. Nothing tells it how often to "
-    "deviate: restraint, if it appears, is learned.\n\n"
+    "where x₁ is the recommended output, x₀ the old output (rule B), R_s the rivals' actual output, c_s the realized "
+    "cost and P̃ the firm's *believed* demand curve. Every term is known to the firm by the end of period d + W − 1, so "
+    "it learns only from information available to it (the same judgement as the tournament's reliability-condition "
+    "agents). The firm deviates in a bin only if E_b ≥ 0. Nothing tells it how often to deviate: restraint, if it "
+    "appears, is learned.\n\n"
+    "*Oracle treatment (researcher-only).* With *oracle* feedback (sidebar), g is instead the researcher's "
+    "counterfactual over the measurement horizon H, computed by forking the market with the true demand curve and "
+    "rivals' simulated reactions. It is held in a pending queue and released at the end of period d + H − 1, once "
+    "every period it covers has occurred. No firm could compute it; results with it are oracle benchmarks.\n\n"
     "**Cost of flexibility.** Each firm pays Fᵢ = a·φᵢ + b per period. **Endogenous flexibility** (Evolution page): "
     "every 50 periods each firm copies the flexibility of the most profitable firm with probability 0.5 and adds a "
     "small mutation (s.d. 0.03), within [0, 1].")

@@ -13,14 +13,26 @@ from typing import List, Optional
 
 RULE_TYPES = ("Bertrand", "Cournot")
 SELECTION_RULES = ("Always", "Never", "Small", "Large", "Adaptive")
+# Feedback the Adaptive selection rule learns from. Either way, feedback about a decision is released only once every
+# period it covers has occurred (see DECISION_SCHEDULE in heiner_abm/agents.py):
+#   "observable" - (default) the agent judges its decision from what it has observed over the `window` periods
+#                  starting with the decision: its own and its rivals' realized output, realized costs and prices on its
+#                  *believed* demand curve.
+#   "oracle"     - ORACLE TREATMENT, researcher-only: the researcher's forked-market counterfactual over the measurement
+#                  horizon H (true demand curve, rivals' simulated reactions), released at period t + H - 1. It is
+#                  never used unless chosen explicitly, and results computed with it must be labeled as oracle results.
+# The former "lookahead" option released the H-period counterfactual immediately, before the periods it covers had
+# occurred. It was removed on 6 October 2026; with H = 1 it is identical to "oracle".
+ADAPTIVE_FEEDBACK = ("observable", "oracle")
 
 SELECTION_HELP = {
     "Always": "Always adopt the Cournot/Bertrand recommendation (maximally flexible).",
     "Never": "Never deviate from the default rule B: keep last period's production (fully rigid).",
     "Small": "SR1 - deviate only when the recommended change |q* - q| < threshold (change is risky).",
     "Large": "SR2 - deviate only when |q* - q| > threshold (large signals are clear signals).",
-    "Adaptive": "Learns, per size-of-change bin, whether deviating has paid off (ex-post counterfactual "
-                "payoffs) and deviates only where its learned net gain is positive.",
+    "Adaptive": "Learns, per size-of-change bin, whether deviating has paid off and deviates only where its learned "
+                "net gain is positive. It judges each past deviation, once the periods it covers have happened, from "
+                "realized outcomes priced on its own believed demand curve (no future information).",
 }
 
 
@@ -75,8 +87,16 @@ class GlobalFirmParams:
 
 @dataclass
 class AdaptiveParams:
+    """Learning of the Adaptive selection rule. With feedback "observable" (default), the decision made at period d is
+    judged at the end of period d + window - 1: the agent compares holding the recommended level with holding its old
+    level (rule B) over those `window` periods, with rivals' actual output, realized costs and prices on its believed
+    demand curve, all of which it has observed by then. With feedback "oracle" it instead receives the researcher's
+    forked-market counterfactual over the measurement horizon H, at the end of period d + H - 1 (see ADAPTIVE_FEEDBACK).
+    Feedback whose horizon would end after the last simulated period is never released: no partial feedback."""
     bin_edges: tuple = (5.0, 15.0, 30.0, 60.0)   # |q* - q| bin boundaries
     memory: float = 0.97                          # exponential forgetting (lambda)
+    feedback: str = "observable"                  # "observable" or "oracle" (researcher-only treatment)
+    window: int = 20                              # periods over which an observable judgement is made (>= 1)
 
 
 @dataclass
@@ -141,6 +161,13 @@ class Scenario:
                 errs.append(f"Firm {i}: a Cournot firm needs flexibility between 0 and 1.")
             if f.flex < 0:
                 errs.append(f"Firm {i}: flexibility cannot be negative.")
+        if self.adaptive.feedback == "lookahead":
+            errs.append("Adaptive feedback 'lookahead' was removed: it released H-period feedback before the periods "
+                        "it covers had occurred. Use 'oracle' (the same counterfactual, released at maturity).")
+        elif self.adaptive.feedback not in ADAPTIVE_FEEDBACK:
+            errs.append(f"Unknown Adaptive feedback {self.adaptive.feedback!r}.")
+        if int(self.adaptive.window) < 1:
+            errs.append("The Adaptive judgement window must be at least one period.")
         if self.burn_in >= self.periods - 2:
             errs.append("Burn-in must end before the simulation does.")
         return errs

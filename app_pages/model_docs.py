@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from heiner_abm.literature import bibliography
-from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT
+from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT, replication_notice
 
 MODEL_REFS = ["heiner1983", "heiner1986", "heiner1988", "heiner1988b", "heiner1989", "ezekiel1938", "nerlove1958",
               "theocharis1960", "carlson1967", "carlson1968", "knight1921", "green1966", "scarf1960", "lindblom1959",
@@ -26,8 +26,22 @@ $n$ firm agents. Each period $t = 1,\dots,T$ runs in this order:
 5. **Shock.** The new raw-material cost is realized:
    $c_t = \text{reflect}(c_{t-1} + \Delta\, U_t)$ with $U_t\sim\mathcal U(-1,1)$ and reflecting bounds $[P_{min}, c_{max}]$.
 6. **Book.** Profit $\pi_{i,t} = (P_t - c_t)\,q_{i,t} - F_i$ with $F_i = a\varphi_i + b$.
-7. **Evaluate & learn.** The counterfactual payoff of the other choice is computed (below). Adaptive agents update
-   their memories, and firms optionally revise $\varphi$ (evolution).
+7. **Evaluate (researcher).** The counterfactual payoff of the other choice is computed (below) to measure
+   $\pi, r, w, G, D$. This uses periods $t \ldots t+H-1$, the true demand curve and rivals' true rules, so it is
+   never shown to ordinary agents.
+8. **Queue feedback.** Each decision with an opportunity ($q^* \ne q$) enters a pending-feedback queue with its
+   maturity: $t + W - 1$ for observable feedback (its gain accumulates period by period from what the firm observes:
+   rivals' actual output, realized costs, prices on its believed demand curve), or $t + H - 1$ for the
+   researcher-only *oracle* treatment (the counterfactual of step 7).
+9. **Release.** Every item whose last included period is $t$ is released, in order of decision time, and updates the
+   firm's learned table. Released feedback is first used in the decisions of period $t+1$. Items that would mature
+   after the last period are never released (no partial feedback).
+10. **Evolve** (optional): firms revise $\varphi$ by imitating the most profitable rival (realized profits).
+
+Steps 1–2 use only information from period $t-1$ and earlier, except that a firm with cost foresight $\kappa > 0$
+anticipates that share of the coming cost change (a competence parameter; $\kappa = 0$ in the baseline). The same
+schedule governs the vectorized engine, the tournament agents and the interactive market
+(`heiner_abm/agents.py`, `DECISION_SCHEDULE`; `tests/test_information.py`).
 """)
 
 c1, c2 = st.columns(2)
@@ -56,7 +70,7 @@ st.markdown(
 | **Never** | never (rule B only, rigid) | rule-governed behavior (Heiner 1983) |
 | **Small** (SR1) | \\|q* − q\\| < θ ("change is risky") | incrementalism (Lindblom 1959) |
 | **Large** (SR2) | \\|q* − q\\| > θ ("big imbalances send clear signals") | signal detection, (S, s) inaction bands (Green & Swets 1966; Scarf 1960) |
-| **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins) | reinforcement learning (Erev & Roth 1998) |
+| **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins, judged from observed outcomes over W periods) | reinforcement learning (Erev & Roth 1998) |
 """)
 
 st.header("Measuring Heiner's quantities", divider="gray")
@@ -169,6 +183,31 @@ for name, over in PRESETS.items():
                  "Why run it": info.get("why", ""), "Used for": info.get("hypotheses", ""),
                  "Typical result": info.get("typical", "")})
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+replication_notice("presets", "preset_adaptive")
+
+st.header("Established theory, reduced form and proposed extensions", divider="gray")
+st.markdown("Each part of the laboratory is in one of three classes. **Established theory**: a published result, used or "
+            "reproduced as stated. **Reduced-form implementation**: the laboratory's stylized stand-in for a market "
+            "feature or a theory's mechanism, a modeling choice rather than a claim of the cited work. **Proposed "
+            "extension**: a construct the laboratory adds; its results test that construct, not the original theory.")
+from heiner_abm.claim_status import COMPONENTS, STATUS_LABELS  # noqa: E402
+from heiner_abm.literature import REFERENCES as _REFS  # noqa: E402
+st.dataframe(pd.DataFrame([{
+    "Status": STATUS_LABELS[c.status], "Component": c.name, "What it is": c.what,
+    "Sources": "; ".join(_REFS[k].cite for k in c.sources) or "the laboratory's own", "Where": c.where}
+    for c in COMPONENTS]), hide_index=True, width="stretch")
+
+st.header("Status of reported findings without a frozen plan", divider="gray")
+st.markdown("Findings from a frozen plan are tied to its hash. The findings below were produced without one, so each is "
+            "tied to a fingerprint of the source files that produce it. When those files change, the finding is "
+            "marked *requires replication* here, on the pages that report it and in the README; its numbers are left "
+            "as originally reported until the study is rerun.")
+from heiner_abm import registered as _reg  # noqa: E402
+st.dataframe(pd.DataFrame([{
+    "Finding": title, "Source files": ", ".join(f.replace("#tuned", "registered tuned parameters") for f in files),
+    "Status": "requires replication" if _reg.replication_note(k) else "current (code unchanged since reported)",
+    "Note": _reg.replication_note(k) or ""} for k, (title, files) in _reg.FINDING_SOURCES.items()]),
+    hide_index=True, width="stretch")
 
 st.header("Pre-registered plans", divider="gray")
 st.markdown(PREREG_TEXT)

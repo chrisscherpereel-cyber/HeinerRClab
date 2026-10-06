@@ -411,8 +411,8 @@ with tabs[8]:
                       help="Lowest and highest cost volatility Δ to sweep.")
     steps = c2.slider("Steps", 3, 12, 6, key="h9_steps", help=STEPS_HELP)
     add_adapt = c3.toggle("Add an Adaptive firm", False, key="h9_adapt",
-                          help="Adds a fifth firm that learns, per size of change, whether deviating pays. It needs the "
-                               "counterfactual horizon H, so runs are slower.")
+                          help="Adds a fifth firm that learns, per size of change, whether deviating pays, from what it "
+                               "has observed (see the sidebar's Adaptive settings).")
     phi = float(np.mean([f.flex for f in base.firms]))
     thr = float(base.firms[0].threshold)
     sels = ["Always", "Never", "Small", "Large"] + (["Adaptive"] if add_adapt else [])
@@ -462,8 +462,8 @@ with tabs[8]:
 with tabs[9]:
     hypothesis_card(
         "H10",
-        "Every firm uses the **Adaptive** selection rule, which learns from counterfactual payoffs when deviating from "
-        "keeping its output pays; no rule is imposed on how often to deviate. Cost volatility is swept and the share "
+        "Every firm uses the **Adaptive** selection rule, which learns from its own observed experience when deviating "
+        "from keeping its output pays; no rule is imposed on how often to deviate. Cost volatility is swept and the share "
         "of periods in which firms change their output is measured.",
         notes={"heiner": "This is Heiner's (1983) central claim, 'The origin of predictable behavior': imperfect "
                          "agents facing more uncertainty restrict themselves to fewer, more rule-governed actions.",
@@ -477,7 +477,9 @@ with tabs[9]:
     for f in scn.firms:
         f.selection = "Adaptive"
     H10 = max(H, 2)
-    st.caption(f"Adaptive firms learn from the counterfactual over H = {H10} periods (sidebar H, at least 2).")
+    st.caption(f"Adaptive firms judge each deviation over {scn.adaptive.window} periods from what they have observed "
+               f"({'ORACLE treatment: researcher counterfactual at maturity' if scn.adaptive.feedback == 'oracle' else 'observed information only'}); "
+               f"r and w are measured by the researcher over H = {H10} periods (sidebar H, at least 2).")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
     if run_state("h10", (tuple(vals), R, H10, cont, str(scn))):
         firms, mk = run_sweep_ui(scn, "delta", vals, R, horizon=H10, continuation=cont)

@@ -26,11 +26,11 @@ python -m pytest -q tests
 2. Go to [share.streamlit.io](https://share.streamlit.io), click **Create app**, and choose **Deploy a public app from GitHub**.
 3. Select the repository and branch, and set **Main file path** to `app.py`.
 4. Optional: under **Advanced settings**, choose Python 3.11 or 3.12.
-5. Click **Deploy**. Dependencies are installed from `requirements.txt`, and the theme comes from
-   `.streamlit/config.toml`.
+5. Click **Deploy**. Dependencies are installed from `requirements.txt`. The repository has no
+   `.streamlit/config.toml`, so Streamlit's default theme is used.
 
-No secrets or data files are needed. The GitHub Actions workflow in `.github/workflows/tests.yml` runs the test
-suite on every push.
+No secrets or data files are needed. The repository has no continuous-integration workflow; run the test suite
+locally (see above) before pushing.
 
 **Resource note:** Community Cloud apps have about 1 GB of memory. The default experiments use well under that. Very
 large runs can hit the limit: for example, hundreds of environments at H = 100, or tens of thousands of periods with
@@ -103,6 +103,20 @@ into a short hash. This prevents choosing tests or settings after seeing the res
 theories fair, and lets anyone verify that a reported result came from exactly that plan and code. Any change produces
 a new hash and the run is labeled exploratory. Every page with a plan explains this in an expandable note.
 
+*What this does not establish.* "Pre-registered" here means frozen in the code and identified by a hash. The
+repository contains no record of any plan being deposited with an external, time-stamped registry (such as OSF or
+AsPredicted), so the hash shows which plan and code produced a result but not that the plan was fixed before the
+results were seen. Some plans were revised during development before they were frozen (see the mechanism study).
+
+**Findings without a frozen plan.** Some reported results were produced without a frozen plan: the directional
+tournament and the out-of-sample forecasts on the *Competing theories* page, the typical results of the presets, the
+signature tests, the field patterns and the calibration recovery rates. Each is tied to a fingerprint of the source
+files that produce it (`FINDING_SOURCES` and `FINDING_FINGERPRINTS` in `heiner_abm/registered.py`). When one of those
+files changes, the test suite fails until the finding is either rerun (and re-fingerprinted with a revision note) or
+listed in `REPLICATION_REQUIRED`. A listed finding keeps its originally reported numbers and is flagged *requires
+replication* here, on every page that reports it, and in a status table on the *Model & methods* page. The baseline
+fingerprints were taken from the code of 6 October 2026 (commit `469619d`); the findings were not rerun at that time.
+
 ## Signature tests by theory
 
 Each rival theory's distinctive prediction, tested with its own agents in the shared market (Full scale; deterministic
@@ -127,16 +141,31 @@ learner does not improve with experience over 1,500 periods.
 
 ## Competing theories: reference results
 
+> **Revision note (6 October 2026).** This section was rerun after the Adaptive selection rule was changed to learn
+> only from information available to the agent (it previously learned from the researcher's look-ahead
+> counterfactual). The protocol was first checked on the old code, which reproduced every number reported here
+> before. Only experiment E7 (the Adaptive agents' deviation rate) uses that rule; every other experiment gave
+> bit-identical results. Under the new rule E7's deviation rate falls significantly with volatility in every run
+> (Bertrand slope about −0.008 instead of −0.011; Cournot about −0.019 instead of −0.002, which had not been
+> significant in the first Cournot seed). As a result the first Cournot run changed: Heiner 5/1/3 → 6/1/2,
+> neoclassical 3/1/3 → 3/2/2, real options 1/3/3 → 2/3/2, satisficing 0/0/1 → 0/1/0. The forecasting results moved
+> by at most 0.02 AUC and their ranking and conclusions are unchanged. Earlier values: Cournot records in the table
+> as given above; AUCs 0.61 (dynamic RC), 0.58, 0.56, 0.56, 0.54, 0.47, track record 0.86, encompassing gain −0.001,
+> one-shot RC 0.55.
+
 From the *Competing theories* page with 1,000 periods, 20 replications per condition and H = 20, for the default
-Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
+Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds (1 and 3 for Bertrand, 1 and 42 for Cournot;
+the second seeds were not recorded originally and were identified as those that reproduce the earlier records on the
+old code). Across eight seeds per market (1, 3, 21, 42, 100, 1000, 12345, 2026) Heiner has the best net record in
+every run:
 
 | Theory | Tournament record, Bertrand (✅ / ❌ / ➖) | Tournament record, Cournot (✅ / ❌ / ➖) |
 |---|---|---|
-| Heiner: reliability condition | 6/1/2 and 5/1/3 | 5/1/3 and 6/1/2 |
+| Heiner: reliability condition | 6/1/2 and 5/1/3 | 6/1/2 (both seeds) |
 | Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
 | Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
-| Real options | 2/4/1 and 2/3/2 | 1/3/3 and 2/3/2 |
-| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/1/3 and 3/2/2 |
+| Real options | 2/4/1 and 2/3/2 | 2/3/2 (both seeds) |
+| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/2/2 (both seeds) |
 
 Heiner had the best net record in all four runs. Its one contradiction differs by market: in Bertrand markets
 perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
@@ -145,10 +174,11 @@ fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 19
 does not discriminate between them.
 
 Out-of-sample forecasting (100 random environments × 2 replications, 800 firms, both production rules): the dynamic
-RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.61, 95% CI 0.56–0.66), ahead of
-cobweb stability (0.58), stakes only (0.56), Heiner's K (0.56), accuracy only (0.54) and real options (0.47). A firm's
-own track record in the first half of the run was far better (AUC 0.86), and adding the RC to all rival forecasts
-combined changed cross-validated AUC by −0.001 (95% CI −0.005 to +0.002). Heiner's one-shot (one-period) RC scored only 0.55.
+RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.60, 95% CI 0.55–0.65), ahead of
+cobweb stability (0.55), stakes only (0.55), Heiner's K (0.55), accuracy only (0.54) and real options (0.47). A firm's
+own track record in the first half of the run was far better (AUC 0.85), and adding the RC to all rival forecasts
+combined changed cross-validated AUC by +0.000 (95% CI −0.004 to +0.005). Heiner's one-shot (one-period) RC scored
+only 0.54. (Sampling seed 12345, base-scenario seed 1, H = 20, full measure.)
 
 ## Agent tournament: registered results
 
@@ -440,6 +470,23 @@ ui/common.py               sidebar base scenario, presets, caching, chart helper
 app_pages/*.py             the Streamlit pages
 ```
 
+## Established theory, reduced form and proposed extensions
+
+`heiner_abm/claim_status.py` classifies every part of the laboratory, and the *Model & methods* page shows the table.
+
+* **Established theory** (used or reproduced as published): the reliability condition (Heiner 1983); the
+  partial-adjustment bound β₀ (Heiner 1989); optimal filtering of a random walk (Muth 1960; Kalman 1960); cobweb
+  cycles and their damping (Ezekiel 1938; Nerlove 1958); logit rule choice (Brock & Hommes 1997); imitation of the
+  best (Vega-Redondo 1997).
+* **Reduced-form implementations** (modeling choices, not claims of the cited work): the stylized market; the
+  model-based and model-free production rules; difficulty and competence as Δ, rivals, demand shifts, κ and σ;
+  Knightian uncertainty as unannounced regime shifts; each rival theory as one or two agent designs with stylized
+  directional predictions.
+* **Proposed extensions** (the laboratory's own constructs): the H-period forked measurement of the reliability
+  condition and its decomposition; the reliability condition as a decision rule learned from experience; the oracle
+  versus learned decomposition; the error-to-signal boundary K ≈ 1; the lopsided-stakes test against certainty
+  equivalence. Results about these test the laboratory's operationalization, not Heiner's theory as published.
+
 ## Modeling notes
 
 * The core model is a cobweb oligopoly: firms commit to output before a random raw-material cost is realized, using
@@ -460,7 +507,32 @@ app_pages/*.py             the Streamlit pages
   Because production changes persist and rivals react, that measure says "deviate" almost always and does not
   predict flexible-vs-rigid performance. The model therefore forks the market at each decision and compares the
   two branches over H periods. By default the firm returns to rule B afterwards, which is Heiner's "deviate at this
-  instance, otherwise follow B". H = 1 gives the one-shot measure. The default is H = 20.
+  instance, otherwise follow B". H = 1 gives the one-shot measure. The default is H = 20. H is a researcher's
+  measurement: the forks use future periods, the true demand curve and rivals' true rules, so agents never see them.
+* **What agents learn from.** Agents decide and learn only from information available to them at the time. The
+  Adaptive selection rule judges each past deviation once the W periods it covers (default 20, sidebar *judgement
+  window*) have passed: holding the recommended output against holding the old output, with rivals' actual output,
+  realized costs and prices on the firm's own believed demand curve (the same judgement as the tournament's
+  reliability-condition agents). Until 6 October 2026 it learned instead from the researcher's look-ahead
+  counterfactual over H, released immediately. The findings that involved Adaptive agents (the directional
+  tournament, the out-of-sample forecasts and the Adaptive preset) were rerun under the new rule on 6 October 2026;
+  see the revision note under *Competing theories*.
+* **Decision schedule** (`DECISION_SCHEDULE` in `heiner_abm/agents.py`, shown on the *Model & methods* page). In
+  period t: (1) firms decide with information up to t − 1 (plus a share κ of the coming cost change for firms with
+  cost foresight, a competence parameter; κ = 0 in the baseline); (2) the market clears and cost c[t] is realized;
+  (3) the researcher evaluates the counterfactual over H, never shown to ordinary agents; (4) every decision enters a
+  pending-feedback queue with its maturity, t + W − 1 (observable) or t + H − 1 (oracle); (5) items whose last
+  included period is t are released and first used in period t + 1's decisions; items that would mature after the
+  last period are never released (no partial feedback); (6) optional evolution. The vectorized engine follows it
+  exactly, the tournament agents and the interactive market follow the same order (act, clear, update), and
+  `tests/test_information.py` checks that changing shocks after a period changes no earlier decision or learned
+  state in any engine.
+* **Oracle treatment.** The researcher's counterfactual can be given to Adaptive agents only by choosing feedback
+  `"oracle"` explicitly; it is then released at maturity (t + H − 1) and results must be labeled as oracle
+  benchmarks. The former `"lookahead"` option released it immediately, so with H > 1 agents learned from periods that
+  had not yet occurred; it was removed on 6 October 2026 (with H = 1 it is identical to `"oracle"`). The mechanism
+  study's oracle and true-model variants are separate, labeled designs that never enter ordinary tournament
+  lineups.
 
 ## Research basis
 

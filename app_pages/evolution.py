@@ -63,7 +63,8 @@ if run:
 if st.session_state.get("evo_key") != key:
     st.stop()
 if H > 1:
-    st.caption(f"Adaptive firms learn from counterfactuals over H = {H} periods. Evolution itself uses realized profits.")
+    st.caption(f"ORACLE treatment: Adaptive firms learn from the researcher's counterfactual over H = {H} periods, "
+               "released once those periods have occurred. Evolution itself uses realized profits.")
 with st.spinner("Evolving industries…"):
     paths, summ = cached_evolution(*key)
 

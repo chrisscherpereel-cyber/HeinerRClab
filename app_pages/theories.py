@@ -11,7 +11,8 @@ from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from heiner_abm.focal import tournament_key
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
-                       fmt_p, measure_opts, measurement, reps, research_panel, show_errors, style, to_json, verdict)
+                       fmt_p, measure_opts, measurement, replication_notice, reps, research_panel, show_errors, style,
+                       to_json, verdict)
 
 FOCAL = focal_theory()
 FKEY = tournament_key(FOCAL)                      # the focal theory's key in the directional tournament, if any
@@ -251,6 +252,7 @@ else:
     lines.append(f"* **Added value of the reliability condition:** combining all rival forecasts and then adding the "
                  f"RC changes the cross-validated AUC by {race[2].get('gain', np.nan):+.3f}.")
     st.markdown("\n".join(lines))
+replication_notice("directional", "horse_race")
 st.markdown("**Reference results for the reliability condition.** The notes below summarize how Heiner's theory "
             "fared in the reference runs; the rows above follow the theory chosen in the sidebar.")
 st.markdown(
@@ -264,8 +266,8 @@ see the README), "superior" holds in one sense and not the other:
 
 * **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
   contradicted). Its miss was perception noise in Bertrand markets, which *raised* the payoff to flexibility.
-* **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.61) but was far behind a
-  firm's own track record (AUC ≈ 0.86), and added nothing once the rival forecasts were combined. The one-shot,
+* **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.60) but was far behind a
+  firm's own track record (AUC ≈ 0.85), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
 
 **Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual

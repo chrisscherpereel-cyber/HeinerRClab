@@ -9,6 +9,7 @@ from heiner_abm.registered import DIRECTIONAL, MECHANISMS, STUDY_PLAN, TOURNAMEN
 from heiner_abm.theories import EXPERIMENTS
 from heiner_abm.theory_content import THEORY_BY_KEY
 from ui.illustrations import ILLUSTRATIONS
+from ui.common import replication_notice
 
 SYM = {"+": "↑ rises", "-": "↓ falls", "0": "no effect", ">=0": "≥ 0 (never harmful)", None: "—"}
 
@@ -81,6 +82,7 @@ def render(key: str):
         d = DIRECTIONAL[t.tournament_key]
         st.markdown("**Tournament of experiments** (matches / contradictions / inconclusive, two seeds each): "
                     + "; ".join(f"{m} market {a} and {b}" for m, (a, b) in d.items()))
+        replication_notice("directional")
     if key in MECHANISMS:
         st.markdown(f"**Mechanism study** (registered plan `{STUDY_PLAN}`): {MECHANISMS[key]}")
     st.caption("Rerun any of these on the *Competing theories*, *Agent tournament* and *Mechanisms* pages.")

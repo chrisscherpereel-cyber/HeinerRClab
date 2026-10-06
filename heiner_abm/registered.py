@@ -41,14 +41,16 @@ TOURNAMENT: Dict[str, Dict] = {
 }
 
 # Directional tournament of experiments (Competing theories page): matches / contradictions / inconclusive, for the
-# Bertrand and the Cournot reference market, two seeds each (1,000 periods, 20 replications, H = 20).
+# Bertrand and the Cournot reference market, two seeds each (1,000 periods, 20 replications, H = 20). Seeds: 1 and 3
+# (Bertrand), 1 and 42 (Cournot). Rerun on 6 October 2026 with the observable Adaptive rule; only the Cournot seed-1
+# records changed (see the revision notes under FINDING_FINGERPRINTS).
 DIRECTIONAL: Dict[str, Dict[str, Tuple[str, str]]] = {
-    "heiner": {"Bertrand": ("6/1/2", "5/1/3"), "Cournot": ("5/1/3", "6/1/2")},
-    "neo": {"Bertrand": ("2/4/1", "1/4/2"), "Cournot": ("3/1/3", "3/2/2")},
-    "options": {"Bertrand": ("2/4/1", "2/3/2"), "Cournot": ("1/3/3", "2/3/2")},
+    "heiner": {"Bertrand": ("6/1/2", "5/1/3"), "Cournot": ("6/1/2", "6/1/2")},
+    "neo": {"Bertrand": ("2/4/1", "1/4/2"), "Cournot": ("3/2/2", "3/2/2")},
+    "options": {"Bertrand": ("2/4/1", "2/3/2"), "Cournot": ("2/3/2", "2/3/2")},
     "cobweb": {"Bertrand": ("1/5/1", "2/4/1"), "Cournot": ("4/3/0", "4/3/0")},
     "biasvar": {"Bertrand": ("4/2/0", "3/2/1"), "Cournot": ("3/2/1", "3/2/1")},
-    "satisficing": {"Bertrand": ("0/1/0", "0/1/0"), "Cournot": ("0/0/1", "0/1/0")},
+    "satisficing": {"Bertrand": ("0/1/0", "0/1/0"), "Cournot": ("0/1/0", "0/1/0")},
     "ecology": {"Bertrand": ("2/0/0", "2/0/0"), "Cournot": ("1/1/0", "1/1/0")},
 }
 
@@ -218,3 +220,108 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
         'relative profit improves by -138 [-488, +230] from the first to the last third in a stationary market, and '
         'by -190 [-487, +112] with unannounced shifts'),
  'satisficing': ('not supported', 'change rate changes by -0.0002 per unit of volatility (p = 0.386)')}
+
+
+# ================================================================================================ unhashed findings
+# The findings above that come from a frozen plan are protected by its hash. The findings below are reported in the
+# README and the app but were produced without a frozen plan, so they are tied instead to a fingerprint of the source
+# files that produce them (FINDING_FINGERPRINTS). tests/test_registered.py fails when one of those files changes and
+# the finding is neither re-fingerprinted (allowed only after a rerun reproduces or replaces the reported numbers) nor
+# listed in REPLICATION_REQUIRED. A listed finding is shown in the app and the README as requiring replication; its
+# numbers are left as reported, never silently updated.
+#
+# Provenance of the baseline fingerprints: they were taken from the code at commit 469619d (6 October 2026), when this
+# mechanism was introduced. The findings were reported for that code; they were not rerun when the fingerprints were
+# recorded.
+#
+# Revision notes
+# * 6 October 2026, observable feedback for the Adaptive rule (engine.py, agents.py, params.py changed).
+#   - presets: re-fingerprinted. Without Adaptive agents the change does not touch any code path, and the old
+#     (469619d) and new engines gave bit-identical prices, outputs and measured gains for Bertrand and Cournot
+#     scenarios, with and without demand shifts, at H = 1 and H = 6. The Adaptive preset is a separate finding.
+#   - special, patterns: re-fingerprinted after a rerun. They use the arena agents, not the Adaptive rule; rerun
+#     with the new code (signature tests at the Full scale, field patterns at the registered settings), every
+#     signature-test line in SPECIAL_RESULTS and every field-pattern number in the README was reproduced exactly.
+#   - directional, horse_race, preset_adaptive: involve Adaptive agents; listed in REPLICATION_REQUIRED at first.
+# * 6 October 2026, rerun of directional, horse_race and preset_adaptive under the observable Adaptive rule. The
+#   protocol was first run on the old code (469619d), which reproduced every previously reported number: the
+#   directional records with seeds 1 and 3 (Bertrand) and 1 and 42 (Cournot), the forecasting AUCs and encompassing
+#   gain, and the baseline preset (price 48.6, cost 43.7, slope +23; seeds 1-6). Then rerun on the new code:
+#   - directional: only E7 (Adaptive agents) changed; every other experiment was bit-identical. The Cournot seed-1
+#     records changed (Heiner 5/1/3 -> 6/1/2, neoclassical 3/1/3 -> 3/2/2, real options 1/3/3 -> 2/3/2, satisficing
+#     0/0/1 -> 0/1/0); DIRECTIONAL updated. Over eight seeds per market Heiner keeps the best net record in every run.
+#   - horse_race: 100 environments x 2 replications, sampling seed 12345, H = 20. Dynamic RC 0.612 -> 0.602,
+#     track record 0.859 -> 0.851, encompassing gain -0.001 -> +0.000, one-shot RC 0.546 -> 0.537; ranking and
+#     conclusions unchanged. README and the Competing theories page updated.
+#   - preset_adaptive: price 48.56 -> 48.16, share of recommended changes adopted 0.75 -> 0.74, slope +67 -> +58;
+#     typical result in ui/common.PRESET_INFO updated.
+# * 6 October 2026, information-timing correction (agents.py, engine.py, params.py changed). Adaptive feedback now passes
+#   through an explicit pending queue and is released only at maturity (agents.DECISION_SCHEDULE). The immediate
+#   "lookahead" option, which with H > 1 let agents learn from periods that had not yet occurred, was replaced by the
+#   "oracle" treatment, released at t + H - 1. No reported finding used it: every finding listed here uses observable
+#   feedback or no Adaptive agents. All six were rerun with the corrected code (tools/rerun_adaptive_findings.py for
+#   directional seeds B1, B3, C1, C42, horse_race and the presets; signature tests at the Full scale; field patterns at
+#   the registered settings) and reproduced the previously recorded results exactly. Re-fingerprinted.
+
+FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
+    "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
+                    ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py", "theories.py")),
+    "horse_race": ("Competing theories: out-of-sample forecasts of which firms beat their rigid twin (AUC)",
+                   ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "presets": ("Typical results of the preset scenarios without Adaptive agents (sidebar preset descriptions)",
+                ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "preset_adaptive": ("Typical result of the reliability-learning (Adaptive) preset",
+                        ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "special": ("Signature tests by theory",
+                ("arena.py", "rulechoice.py", "special.py", "analysis.py", "agents.py", "params.py", "#tuned")),
+    "patterns": ("Field patterns (pattern-oriented validation)",
+                 ("arena.py", "rulechoice.py", "patterns.py", "agents.py", "params.py", "#tuned")),
+    "calibration": ("Calibration to experiments: recovery of generating rules on synthetic subjects",
+                    ("calibration.py",)),
+}
+
+FINDING_FINGERPRINTS: Dict[str, str] = {
+    "directional": "f31ab19bd2cfda91",
+    "horse_race": "95aabe1ec99f0ac6",
+    "presets": "95aabe1ec99f0ac6",
+    "preset_adaptive": "95aabe1ec99f0ac6",
+    "special": "4ada44342edf8f67",
+    "patterns": "f0fa87069a9a1781",
+    "calibration": "854400653fe42159",
+}
+
+# finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
+# has been rerun and its numbers (and fingerprint) updated with a revision note.
+REPLICATION_REQUIRED: Dict[str, str] = {}
+
+
+def source_fingerprint(sources: Tuple[str, ...]) -> str:
+    """SHA-256 (16 hex digits) of the listed heiner_abm source files, line endings normalized. '#tuned' stands for the
+    registered tuned designs and parameters (kept in this file, which cannot fingerprint itself)."""
+    import hashlib
+    import json
+    import os
+    here = os.path.dirname(os.path.abspath(__file__))
+    h = hashlib.sha256()
+    for name in sources:
+        if name == "#tuned":
+            h.update(json.dumps([TUNED_DESIGN, TUNED_PARAMS], sort_keys=True).encode())
+            continue
+        with open(os.path.join(here, name), "rb") as fh:
+            h.update(name.encode() + b"\0" + fh.read().replace(b"\r\n", b"\n") + b"\0")
+    return h.hexdigest()[:16]
+
+
+def finding_is_current(key: str) -> bool:
+    """True if the code that produced the finding is unchanged since the finding was reported."""
+    return source_fingerprint(FINDING_SOURCES[key][1]) == FINDING_FINGERPRINTS.get(key)
+
+
+def replication_note(key: str) -> Optional[str]:
+    """Why a reported finding requires replication, or None if it is current. A finding whose code changed without an
+    entry in REPLICATION_REQUIRED is also reported (the test suite fails in that case)."""
+    if key in REPLICATION_REQUIRED:
+        return REPLICATION_REQUIRED[key]
+    if not finding_is_current(key):
+        return "The code that produced this finding has changed since it was reported; it has not been rerun."
+    return None

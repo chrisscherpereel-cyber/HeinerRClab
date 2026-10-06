@@ -223,8 +223,6 @@ improve with experience over 1,500 periods. Each of these is a statement about t
 
 ## Competing theories: reference results
 
-> **Requires replication (6 October 2026).** The Adaptive rule gained selection gates (`heiner_abm/gates.py`; `agents.py`, `engine.py` and `params.py` changed). The default gate is meant to reproduce the earlier rule exactly, but until the rerun confirms it, the directional tournament, the out-of-sample forecasts, the preset results, the signature tests and the field patterns reported in this README require replication. <!-- requires-replication:directional --><!-- requires-replication:horse_race --><!-- requires-replication:presets --><!-- requires-replication:preset_adaptive --><!-- requires-replication:special --><!-- requires-replication:patterns -->
-
 > **Revision note (6 October 2026).** This section was rerun after the Adaptive selection rule was changed to learn
 > only from information available to the agent (it previously learned from the researcher's look-ahead
 > counterfactual). The protocol was first checked on the old code, which reproduced every number reported here

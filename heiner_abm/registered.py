@@ -281,6 +281,12 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   specification every finding was rerun (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42, presets,
 #   horse_race; signature tests at the Full scale; field patterns at the registered settings) and every output was
 #   identical. Re-fingerprinted.
+# * 6 October 2026, selection gates for the Adaptive rule (gates.py added; agents.py, engine.py, params.py changed;
+#   gates.py added to the sources of the four market findings). The default gate ("gain", no adjustment cost) is meant
+#   to reproduce the earlier rule; the six findings were listed in REPLICATION_REQUIRED until rerun. Rerun on the
+#   committed code against the code of commit 2bcff32 (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42,
+#   horse_race, presets; signature tests at the Full scale; field patterns at the page defaults): every output was
+#   byte-identical. Re-fingerprinted and removed from REPLICATION_REQUIRED.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -300,22 +306,18 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "8d87542d3ea8894e",
-    "horse_race": "8fd7c314f65f314e",
-    "presets": "8fd7c314f65f314e",
-    "preset_adaptive": "8fd7c314f65f314e",
-    "special": "e91aba824acd51bd",
-    "patterns": "1e174e87d47d968e",
+    "directional": "d1fcafd995bede5e",
+    "horse_race": "e91372ab9a9f3bea",
+    "presets": "e91372ab9a9f3bea",
+    "preset_adaptive": "e91372ab9a9f3bea",
+    "special": "218cde67a924fa9f",
+    "patterns": "944eee0d9c9fd5b2",
     "calibration": "854400653fe42159",
 }
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-_GATES_NOTE = ("Requires replication: the Adaptive rule gained selection gates (heiner_abm.gates; agents.py, engine.py, "
-               "params.py changed, 6 October 2026). The default gate is meant to reproduce the earlier rule exactly; "
-               "this finding has not yet been rerun to confirm it.")
-REPLICATION_REQUIRED: Dict[str, str] = {k: _GATES_NOTE for k in ("directional", "horse_race", "presets",
-                                                                 "preset_adaptive", "special", "patterns")}
+REPLICATION_REQUIRED: Dict[str, str] = {}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

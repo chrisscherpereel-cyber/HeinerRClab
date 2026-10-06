@@ -176,6 +176,25 @@ ENGINES: Dict[str, EngineSupport] = {
          "obs_delay": "native only (no delay)", "demand_knowledge": "n/a", "regime_announced": "n/a",
          "rivals_visible": "n/a: single decision maker", "unmet_demand_observed": "n/a"},
         InfoSpec(feedback="chosen"), fixed=True),
+    "bench_inventory": EngineSupport(
+        "bench_inventory", "Decision benchmarks: inventory (Bayesian change detection, robust optimization)",
+        ("full", "oracle"),
+        {"feedback": "demand is observed whatever is ordered (unmet demand is not censored), so every agent observes "
+                     "the outcome that determines the payoff of any order.",
+         "obs_noise": "native only (observation error is an environment parameter)",
+         "obs_delay": "native only (no delay)", "demand_knowledge": "native only (no demand model in this task)",
+         "regime_announced": "native only (shifts not announced)", "rivals_visible": "n/a: single decision maker",
+         "unmet_demand_observed": "native only (observed)"},
+        InfoSpec(feedback="full", demand_knowledge="none", rivals_visible=False), fixed=True),
+    "bench_bandit": EngineSupport(
+        "bench_bandit", "Decision benchmarks: nonstationary bandit (chosen-action version of the learning task)",
+        ("chosen", "oracle"),
+        {"feedback": "only the payoff of the chosen option is observed; the full-feedback version is the "
+                     "generalization task.",
+         "obs_noise": "native only (observation error is an environment parameter)",
+         "obs_delay": "native only (no delay)", "demand_knowledge": "n/a", "regime_announced": "native only "
+         "(swaps not announced)", "rivals_visible": "n/a: single decision maker", "unmet_demand_observed": "n/a"},
+        InfoSpec(feedback="chosen", demand_knowledge="none", rivals_visible=False), fixed=True),
 }
 
 
@@ -286,6 +305,34 @@ AGENTS: List[Needs] = [
     _a("rc_oracle", "Task: RC, oracle", "tasks", feedback=("oracle",), oracle=True,
        uses="true mean gain per bin from independent runs"),
     _a("task_ruleb", "Task: rule B (default)", "tasks", uses="observed outcomes"),
+    _a("task_full_ref", "Learning task: full-feedback learner (reference for the bandit benchmark)", "tasks",
+       feedback=("full",), uses="observed payoffs of both options every period"),
+    # decision benchmarks: inventory
+    _a("inv_rule_b", "Inventory: default rule (slow forecast)", "bench_inventory", feedback=("full",),
+       uses="observed demands"),
+    _a("inv_ewma", "Inventory: flexible rule (tuned fast forecast)", "bench_inventory", feedback=("full",),
+       uses="observed demands"),
+    _a("inv_saa", "Inventory: empirical optimization (SAA)", "bench_inventory", feedback=("full",),
+       uses="the last N observed demands"),
+    _a("inv_dro", "Inventory: distributionally robust (modified χ² ball)", "bench_inventory", feedback=("full",),
+       uses="the last N observed demands; ambiguity size calibrated on training environments"),
+    _a("inv_bocpd", "Inventory: Bayesian change detection (misspecified)", "bench_inventory", feedback=("full",),
+       uses="observed demands; its own (misspecified) change-point model"),
+    _a("inv_bayes_true", "Inventory: Bayes, correctly specified (benchmark)", "bench_inventory", feedback=("oracle",),
+       oracle=True, uses="observed demands and the TRUE generating model and parameters"),
+    _a("inv_oracle", "Inventory: ORACLE (knows the mean demand)", "bench_inventory", feedback=("oracle",), oracle=True,
+       uses="the true mean demand"),
+    # decision benchmarks: nonstationary bandit
+    _a("bandit_ucb", "Bandit: UCB (stationary baseline)", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices"),
+    _a("bandit_sw_ucb", "Bandit: sliding-window UCB", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices in the last τ periods"),
+    _a("bandit_d_ucb", "Bandit: discounted UCB", "bench_bandit", feedback=("chosen",),
+       uses="discounted payoffs of its own choices"),
+    _a("bandit_eps_greedy", "Bandit: ε-greedy with constant step size", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices"),
+    _a("bandit_oracle", "Bandit: ORACLE (knows the better option)", "bench_bandit", feedback=("oracle",), oracle=True,
+       uses="the true regime"),
     # tracking benchmark
     _a("tracking", "Tracking rules (filter and restricted variants)", "tracking", uses="current noisy observation"),
 ]

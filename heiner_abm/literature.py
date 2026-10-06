@@ -21,7 +21,7 @@ class Ref:
     authors: str                 # APA author list, e.g. "Heiner, R. A."
     year: int
     title: str
-    kind: str                    # "article", "book" or "chapter"
+    kind: str                    # "article", "book", "chapter" or "preprint" (journal holds the repository id)
     journal: str = ""
     volume: str = ""
     issue: str = ""
@@ -52,6 +52,8 @@ class Ref:
             iss = f"({self.issue})" if self.issue else ""
             pg = f", {self.pages}" if self.pages else ""
             return f"{authors} ({self.year}). {self.title}. *{self.journal}*{vol}{iss}{pg}."
+        if self.kind == "preprint":
+            return f"{authors} ({self.year}). {self.title}. *{self.journal}*."
         if self.kind == "chapter":
             multi = "&" in self.editors or "," in self.editors
             ed = f"In {self.editors} ({'Eds.' if multi else 'Ed.'}), " if self.editors else "In "
@@ -66,6 +68,9 @@ class Ref:
         if self.kind == "article":
             f.update(journal=self.journal, volume=self.volume, number=self.issue, pages=self.pages.replace("–", "--"))
             typ = "article"
+        elif self.kind == "preprint":
+            f.update(howpublished=self.journal)
+            typ = "misc"
         elif self.kind == "chapter":
             f.update(booktitle=self.booktitle, editor=self.editors.replace(" & ", " and ").replace(", ", " and "), publisher=self.publisher,
                      pages=self.pages.replace("–", "--"))
@@ -281,6 +286,20 @@ _REFS = [
     _a("erev1998", "Erev, I.; Roth, A. E.", 1998,
        "Predicting how people play games: Reinforcement learning in experimental games with unique, mixed strategy "
        "equilibria", "American Economic Review", "88", "4", "848–881"),
+    # --- decision benchmarks (heiner_abm.bench_inventory, heiner_abm.bench_bandit)
+    Ref("adams2007", "Adams, R. P.; MacKay, D. J. C.", 2007, "Bayesian online changepoint detection", "preprint",
+        journal="arXiv:0710.3742"),
+    _a("fearnhead2007", "Fearnhead, P.; Liu, Z.", 2007, "On-line inference for multiple changepoint problems",
+       "Journal of the Royal Statistical Society: Series B (Statistical Methodology)", "69", "4", "589–605"),
+    _a("bental2013", "Ben-Tal, A.; den Hertog, D.; De Waegenaere, A.; Melenberg, B.; Rennen, G.", 2013,
+       "Robust solutions of optimization problems affected by uncertain probabilities", "Management Science", "59",
+       "2", "341–357"),
+    _c("garivier2011", "Garivier, A.; Moulines, E.", 2011,
+       "On upper-confidence bound policies for switching bandit problems",
+       "Algorithmic Learning Theory: 22nd International Conference, ALT 2011 (Lecture Notes in Computer Science, "
+       "Vol. 6925)", "J. Kivinen, C. Szepesvári, E. Ukkonen, & T. Zeugmann", "174–188", "Springer"),
+    _a("auer2002", "Auer, P.; Cesa-Bianchi, N.; Fischer, P.", 2002,
+       "Finite-time analysis of the multiarmed bandit problem", "Machine Learning", "47", "", "235–256"),
     _b("sutton2018", "Sutton, R. S.; Barto, A. G.", 2018, "Reinforcement learning: An introduction (2nd ed.)",
        "MIT Press"),
     _a("kirkpatrick1983", "Kirkpatrick, S.; Gelatt, C. D.; Vecchi, M. P.", 1983, "Optimization by simulated annealing",
@@ -944,7 +963,7 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
 
 METHOD_REFS = ["creed2021", "holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
                "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
-               "diebold1995", "chong1986"]
+               "diebold1995", "chong1986", "adams2007", "fearnhead2007", "bental2013", "garivier2011", "auer2002"]
 
 
 def cited_keys() -> List[str]:

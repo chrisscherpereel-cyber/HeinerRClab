@@ -13,7 +13,8 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/empirical.py", "app_pages/play_market.py",
          "app_pages/experiment_analysis.py", "app_pages/generalisation.py", "app_pages/tracking.py",
          "app_pages/literature.py", "app_pages/model_docs.py", "app_pages/special_tests.py",
-         "app_pages/agents_reference.py", "app_pages/information.py", "app_pages/reliability_gates.py"]
+         "app_pages/agents_reference.py", "app_pages/information.py", "app_pages/reliability_gates.py",
+         "app_pages/benchmarks.py"]
 
 
 def _fast(at):

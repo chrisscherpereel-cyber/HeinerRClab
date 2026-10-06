@@ -4,7 +4,7 @@ import streamlit as st
 from heiner_abm.literature import REFERENCES
 from heiner_abm.patterns import PATTERNS, run_patterns
 from heiner_abm.registered import TOURNAMENT_PLAN, registered_tuned
-from ui.common import download, hypothesis_card, verdict
+from ui.common import download, hypothesis_card, replication_notice, verdict
 
 st.title("Field patterns: does the market look like real markets?")
 st.caption("Pattern-oriented validation (Grimm et al. 2005). The market is stylized and not calibrated to any "
@@ -17,6 +17,7 @@ hypothesis_card(
     "naive price expectations for cobweb cycles), using the parameters tuned in the registered agent tournament "
     f"(plan `{TOURNAMENT_PLAN}`). A model that reproduces several independent patterns at once is much harder to "
     "dismiss as an artifact of its assumptions than one fitted to a single pattern.")
+replication_notice("patterns")
 
 st.header("1 · Patterns and criteria", divider="gray")
 st.dataframe(pd.DataFrame([dict(Pattern=p.name, Evidence=p.evidence, Criterion=p.criterion, Population=p.population,

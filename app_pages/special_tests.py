@@ -7,7 +7,7 @@ from heiner_abm import registered
 from heiner_abm.literature import REFERENCES
 from heiner_abm.special import HEINER_TESTS, SCALES, SPECIAL_BY_KEY, SPECIAL_TESTS, run_special
 from heiner_abm.theory_content import THEORIES
-from ui.common import CAT, download, style, verdict
+from ui.common import CAT, download, replication_notice, style, verdict
 
 st.title("Signature tests by theory")
 st.caption("The hypothesis tests and tournaments compare the theories on common questions. Here each theory is tested "
@@ -21,6 +21,7 @@ st.dataframe(pd.DataFrame(
           **{"Reference result": registered.SPECIAL_RESULTS.get(t.key, ("not run", ""))[0]})
      for t in SPECIAL_TESTS]), hide_index=True, width="stretch")
 st.caption("Reference results from the Full scale. Rerun any test below; at the Full scale it reproduces them.")
+replication_notice("special")
 
 tabs = st.tabs(["Heiner"] + [next(x.title for x in THEORIES if x.key == t.key).split(":")[0] for t in SPECIAL_TESTS])
 with tabs[0]:

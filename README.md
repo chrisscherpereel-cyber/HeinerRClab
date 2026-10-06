@@ -103,6 +103,15 @@ into a short hash. This prevents choosing tests or settings after seeing the res
 theories fair, and lets anyone verify that a reported result came from exactly that plan and code. Any change produces
 a new hash and the run is labeled exploratory. Every page with a plan explains this in an expandable note.
 
+**Findings without a frozen plan.** Some reported results were produced without a frozen plan: the directional
+tournament and the out-of-sample forecasts on the *Competing theories* page, the typical results of the presets, the
+signature tests, the field patterns and the calibration recovery rates. Each is tied to a fingerprint of the source
+files that produce it (`FINDING_SOURCES` and `FINDING_FINGERPRINTS` in `heiner_abm/registered.py`). When one of those
+files changes, the test suite fails until the finding is either rerun (and re-fingerprinted with a revision note) or
+listed in `REPLICATION_REQUIRED`. A listed finding keeps its originally reported numbers and is flagged *requires
+replication* here, on every page that reports it, and in a status table on the *Model & methods* page. The baseline
+fingerprints were taken from the code of 6 October 2026 (commit `469619d`); the findings were not rerun at that time.
+
 ## Signature tests by theory
 
 Each rival theory's distinctive prediction, tested with its own agents in the shared market (Full scale; deterministic

@@ -11,7 +11,8 @@ from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from heiner_abm.focal import tournament_key
 from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
-                       fmt_p, measure_opts, measurement, reps, research_panel, show_errors, style, to_json, verdict)
+                       fmt_p, measure_opts, measurement, replication_notice, reps, research_panel, show_errors, style,
+                       to_json, verdict)
 
 FOCAL = focal_theory()
 FKEY = tournament_key(FOCAL)                      # the focal theory's key in the directional tournament, if any
@@ -251,6 +252,7 @@ else:
     lines.append(f"* **Added value of the reliability condition:** combining all rival forecasts and then adding the "
                  f"RC changes the cross-validated AUC by {race[2].get('gain', np.nan):+.3f}.")
     st.markdown("\n".join(lines))
+replication_notice("directional", "horse_race")
 st.markdown("**Reference results for the reliability condition.** The notes below summarize how Heiner's theory "
             "fared in the reference runs; the rows above follow the theory chosen in the sidebar.")
 st.markdown(

@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from heiner_abm.literature import bibliography
-from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT
+from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT, replication_notice
 
 MODEL_REFS = ["heiner1983", "heiner1986", "heiner1988", "heiner1988b", "heiner1989", "ezekiel1938", "nerlove1958",
               "theocharis1960", "carlson1967", "carlson1968", "knight1921", "green1966", "scarf1960", "lindblom1959",
@@ -169,6 +169,19 @@ for name, over in PRESETS.items():
                  "Why run it": info.get("why", ""), "Used for": info.get("hypotheses", ""),
                  "Typical result": info.get("typical", "")})
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+replication_notice("presets")
+
+st.header("Status of reported findings without a frozen plan", divider="gray")
+st.markdown("Findings from a frozen plan are tied to its hash. The findings below were produced without one, so each is "
+            "tied to a fingerprint of the source files that produce it. When those files change, the finding is "
+            "marked *requires replication* here, on the pages that report it and in the README; its numbers are left "
+            "as originally reported until the study is rerun.")
+from heiner_abm import registered as _reg  # noqa: E402
+st.dataframe(pd.DataFrame([{
+    "Finding": title, "Source files": ", ".join(f.replace("#tuned", "registered tuned parameters") for f in files),
+    "Status": "requires replication" if _reg.replication_note(k) else "current (code unchanged since reported)",
+    "Note": _reg.replication_note(k) or ""} for k, (title, files) in _reg.FINDING_SOURCES.items()]),
+    hide_index=True, width="stretch")
 
 st.header("Pre-registered plans", divider="gray")
 st.markdown(PREREG_TEXT)

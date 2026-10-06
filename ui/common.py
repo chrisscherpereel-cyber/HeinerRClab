@@ -277,6 +277,7 @@ def render_sidebar(sections=None, current=None):
         with sb.popover("About this preset", width="stretch"):
             st.markdown(f"**Setup.** {info['setup']}\n\n**Why run it.** {info['why']}\n\n"
                         f"**Used for.** {info['hypotheses']}\n\n**Typical result.** {info['typical']}")
+            replication_notice("presets")
     c1, c2 = sb.columns(2)
     c1.button("Apply preset", on_click=apply_preset, width="stretch")
     c2.button("Reset", on_click=reset_defaults, width="stretch")
@@ -677,6 +678,18 @@ def prereg_explainer():
     """An expander explaining pre-registered plans, for every page that runs a frozen plan."""
     with st.expander("ℹ️ What is a pre-registered plan, and why use one?"):
         st.markdown(PREREG_TEXT)
+
+
+def replication_notice(*keys: str, where=None):
+    """Flag reported findings whose code changed after they were reported (heiner_abm.registered). The reported
+    numbers stay as they were; the notice says they require replication until rerun."""
+    from heiner_abm import registered
+    where = where or st
+    for key in keys:
+        note = registered.replication_note(key)
+        if note:
+            where.warning(f"**Requires replication: {registered.FINDING_SOURCES[key][0]}.** {note} The numbers shown "
+                          "are those originally reported; rerun the study before relying on them.", icon="⚠️")
 
 
 def verdict(kind: str, text: str):

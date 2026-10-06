@@ -76,6 +76,10 @@ st.markdown(
     "condition does not predict individual choices better than the flexible rules it restricts, and people change "
     "their decisions less often than any fitted rule implies (Empirical validation).")
 
+from ui.common import replication_notice  # noqa: E402
+
+replication_notice("patterns")
+
 
 def _lit():
     import heiner_abm.literature as lit

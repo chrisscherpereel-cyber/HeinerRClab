@@ -218,3 +218,76 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
         'relative profit improves by -138 [-488, +230] from the first to the last third in a stationary market, and '
         'by -190 [-487, +112] with unannounced shifts'),
  'satisficing': ('not supported', 'change rate changes by -0.0002 per unit of volatility (p = 0.386)')}
+
+
+# ================================================================================================ unhashed findings
+# The findings above that come from a frozen plan are protected by its hash. The findings below are reported in the
+# README and the app but were produced without a frozen plan, so they are tied instead to a fingerprint of the source
+# files that produce them (FINDING_FINGERPRINTS). tests/test_registered.py fails when one of those files changes and
+# the finding is neither re-fingerprinted (allowed only after a rerun reproduces or replaces the reported numbers) nor
+# listed in REPLICATION_REQUIRED. A listed finding is shown in the app and the README as requiring replication; its
+# numbers are left as reported, never silently updated.
+#
+# Provenance of the baseline fingerprints: they were taken from the code at commit 469619d (6 October 2026), when this
+# mechanism was introduced. The findings were reported for that code; they were not rerun when the fingerprints were
+# recorded.
+
+FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
+    "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
+                    ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py", "theories.py")),
+    "horse_race": ("Competing theories: out-of-sample forecasts of which firms beat their rigid twin (AUC)",
+                   ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "presets": ("Typical results of the preset scenarios (sidebar preset descriptions)",
+                ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "special": ("Signature tests by theory",
+                ("arena.py", "rulechoice.py", "special.py", "analysis.py", "agents.py", "params.py", "#tuned")),
+    "patterns": ("Field patterns (pattern-oriented validation)",
+                 ("arena.py", "rulechoice.py", "patterns.py", "agents.py", "params.py", "#tuned")),
+    "calibration": ("Calibration to experiments: recovery of generating rules on synthetic subjects",
+                    ("calibration.py",)),
+}
+
+FINDING_FINGERPRINTS: Dict[str, str] = {
+    "directional": "5aaa956c3408bbcd",
+    "horse_race": "6905268aa24b0379",
+    "presets": "6905268aa24b0379",
+    "special": "dccf021407995582",
+    "patterns": "4f96239c716bc003",
+    "calibration": "854400653fe42159",
+}
+
+# finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
+# has been rerun and its numbers (and fingerprint) updated with a revision note.
+REPLICATION_REQUIRED: Dict[str, str] = {}
+
+
+def source_fingerprint(sources: Tuple[str, ...]) -> str:
+    """SHA-256 (16 hex digits) of the listed heiner_abm source files, line endings normalized. '#tuned' stands for the
+    registered tuned designs and parameters (kept in this file, which cannot fingerprint itself)."""
+    import hashlib
+    import json
+    import os
+    here = os.path.dirname(os.path.abspath(__file__))
+    h = hashlib.sha256()
+    for name in sources:
+        if name == "#tuned":
+            h.update(json.dumps([TUNED_DESIGN, TUNED_PARAMS], sort_keys=True).encode())
+            continue
+        with open(os.path.join(here, name), "rb") as fh:
+            h.update(name.encode() + b"\0" + fh.read().replace(b"\r\n", b"\n") + b"\0")
+    return h.hexdigest()[:16]
+
+
+def finding_is_current(key: str) -> bool:
+    """True if the code that produced the finding is unchanged since the finding was reported."""
+    return source_fingerprint(FINDING_SOURCES[key][1]) == FINDING_FINGERPRINTS.get(key)
+
+
+def replication_note(key: str) -> Optional[str]:
+    """Why a reported finding requires replication, or None if it is current. A finding whose code changed without an
+    entry in REPLICATION_REQUIRED is also reported (the test suite fails in that case)."""
+    if key in REPLICATION_REQUIRED:
+        return REPLICATION_REQUIRED[key]
+    if not finding_is_current(key):
+        return "The code that produced this finding has changed since it was reported; it has not been rerun."
+    return None

@@ -5,7 +5,7 @@ import streamlit as st
 
 from heiner_abm.calibration import (FORECAST_RULES, QUANTITY_RULES, fit_subjects, prepare_forecasts,
                                     prepare_quantities, summarise, synthetic_cournot_data, synthetic_forecast_data)
-from ui.common import CAT, download, hypothesis_card, style
+from ui.common import CAT, download, hypothesis_card, replication_notice, style
 
 st.title("Calibration: which theory predicts people best?")
 st.caption("Each theory's decision rule is fitted to laboratory data and judged by how well it predicts choices it "
@@ -18,6 +18,7 @@ hypothesis_card(
     "periods (grid search, squared error) and the rule then predicts the **second half**. Rules are ranked by "
     "out-of-sample error, and each subject is classified by the rule that predicts them best. Rules with more "
     "parameters fit the first half better, but gain nothing out of sample unless they capture real behavior.")
+replication_notice("calibration")
 
 st.page_link("app_pages/empirical.py", label="Five public datasets, with a validation protocol fixed in advance, are on "
              "the Empirical validation page", icon="🗄️")

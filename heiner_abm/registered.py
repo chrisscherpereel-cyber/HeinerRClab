@@ -287,6 +287,8 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   committed code against the code of commit 2bcff32 (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42,
 #   horse_race, presets; signature tests at the Full scale; field patterns at the page defaults): every output was
 #   byte-identical. Re-fingerprinted and removed from REPLICATION_REQUIRED.
+# * 6 October 2026, params.py: the validation rule rejecting an adjustment cost together with evolution was removed
+#   (no computation changed). Rerun on commit 1f96ca1 as above: every output byte-identical. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -306,21 +308,18 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "d1fcafd995bede5e",
-    "horse_race": "e91372ab9a9f3bea",
-    "presets": "e91372ab9a9f3bea",
-    "preset_adaptive": "e91372ab9a9f3bea",
-    "special": "218cde67a924fa9f",
-    "patterns": "944eee0d9c9fd5b2",
+    "directional": "3aaf67e36bfd8ad4",
+    "horse_race": "94b4811784863c0a",
+    "presets": "94b4811784863c0a",
+    "preset_adaptive": "94b4811784863c0a",
+    "special": "fe941bd62d094bfe",
+    "patterns": "c0170ac4448cec4c",
     "calibration": "854400653fe42159",
 }
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-_VALIDATION_NOTE = ("Requires replication: params.py changed (a validation rule on the adjustment cost was removed, "
-                    "6 October 2026; no computation changed). Rerun pending.")
-REPLICATION_REQUIRED: Dict[str, str] = {k: _VALIDATION_NOTE for k in ("directional", "horse_race", "presets",
-                                                                      "preset_adaptive", "special", "patterns")}
+REPLICATION_REQUIRED: Dict[str, str] = {}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

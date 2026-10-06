@@ -21,7 +21,11 @@ Three *measures* of the gain from following the rule instead of B (the dynamic R
                 where the firm also keeps applying its own rules (continuation "rules")
     strategic feedback = full - persist,  persistence effect = persist - static.
 Three *windows*: "all" recorded periods, "est" (first part) and "eval" (second part), so that
-the RC can be estimated in one window and used to predict performance in the other.
+the RC can be estimated in one window and used to predict performance in the other. For the measures that look H
+periods ahead ("persist" and "full"), the estimation window ends H - 1 periods before the evaluation window starts:
+a decision's measured gain covers periods t .. t + H - 1, so only decisions whose horizon ends before the split are
+used to estimate. Estimates therefore use nothing from the evaluation window. The "static" measure (one period) uses
+the whole first part.
 """
 from __future__ import annotations
 
@@ -383,9 +387,12 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     # ---- accumulate every measure in every window
     t_idx = np.arange(T)
     split_t = burn + int(round((T - burn) * float(oos_split)))
-    masks = {"all": t_idx >= burn, "est": (t_idx >= burn) & (t_idx < split_t), "eval": t_idx >= split_t}
+    est_end = {m: split_t - (0 if m == "static" else H - 1) for m in MEASURES}     # gap of H - 1 periods
+    masks = {(m, "all"): t_idx >= burn for m in MEASURES}
+    masks.update({(m, "est"): (t_idx >= burn) & (t_idx < est_end[m]) for m in MEASURES})
+    masks.update({(m, "eval"): t_idx >= split_t for m in MEASURES})
     gains = {"static": st["g_static"], "persist": g_persist, "full": st["g_full"]}
-    accs = {(m, w): _accumulate(st, gains[m], masks[w]) for m in MEASURES for w in WINDOWS}
+    accs = {(m, w): _accumulate(st, gains[m], masks[(m, w)]) for m in MEASURES for w in WINDOWS}
 
     hist = None
     if record_firm_history:
@@ -400,7 +407,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
 
     return BatchResult(scenarios=scns, price=price, cost=cost, quantity=quantity, acc=accs[("full", "all")],
                        flex_final=flex.copy(), flex_path=flex_path, firm_hist=hist, burn_in=burn, horizon=H,
-                       meta=dict(continuation=continuation, discount=gam, split_t=split_t),
+                       meta=dict(continuation=continuation, discount=gam, split_t=split_t, est_end=est_end),
                        accs=accs, p_max_path=PM, slope_path=SL, shifts=SHIFT, steps=steps)
 
 

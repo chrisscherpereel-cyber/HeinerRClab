@@ -153,11 +153,12 @@ IDENTITY_NOTE = (
     "validation needs estimates fixed before the outcomes they predict: the RC validation page estimates the "
     "condition in the first part of each run and predicts the advantage of flexibility in the second part.")
 
-OOS_OVERLAP_NOTE = (
-    "Limitation: the estimation window's counterfactual gains are computed over H periods, so for the last H − 1 "
-    "decisions of that window they use costs from the start of the evaluation window. These are researcher "
-    "measurements, not agent decisions, but the estimation and evaluation windows therefore overlap by H − 1 periods "
-    "(19 of about 490 estimation-window decisions at H = 20 and 1,000 periods).")
+OOS_GAP_NOTE = (
+    "The H-period measures (persistence and full) value each decision over periods t … t + H − 1, so their estimation "
+    "window ends H − 1 periods before the evaluation window starts: only decisions whose horizon is complete before "
+    "the split are used to estimate. The estimates therefore use nothing from the evaluation window. The one-period "
+    "measure, realized profits, K and the CD-gap need no gap. (Until 6 October 2026 the windows overlapped by H − 1 "
+    "periods: 19 of about 490 estimation decisions at H = 20 and 1,000 periods.)")
 
 # ------------------------------------------------------------------------------------------------ frozen plans
 FROZEN_PLAN_NOTE = (

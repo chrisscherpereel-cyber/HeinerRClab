@@ -262,7 +262,8 @@ def rc_validation(envs: Sequence[Scenario], reps: int,
 
     Each row carries, for every RC measure m in (static, persist, full):
         rc_all_m / margin_all_m : RC computed over all recorded periods (in-sample)
-        rc_est_m / margin_est_m : RC computed in the estimation window only
+        rc_est_m / margin_est_m : RC computed in the estimation window only (for persist and full, decisions
+                                  whose H-period horizon ends before the evaluation window starts)
     and the outcomes dyn_adv_all (all periods) and dyn_adv_eval (evaluation window only), so the RC can
     be tested out of sample: estimated on the first part of the run, predicting the second part."""
     out = []
@@ -287,7 +288,8 @@ def rc_validation(envs: Sequence[Scenario], reps: int,
             base_t = reliability_table(res, "full", "all")
             tabs = {(m, w): reliability_table(res, m, w) for m in MEASURES for w in ("all", "est")}
             mt = market_table(res)
-            pa, pe, ps = res.accs[("full", "all")], res.accs[("full", "eval")], res.accs[("full", "est")]
+            # realized profits need no look-ahead gap: the one-period ("static") estimation window is the whole first part
+            pa, pe, ps = res.accs[("full", "all")], res.accs[("full", "eval")], res.accs[("static", "est")]
             prof_all = pa["sum_profit"] / pa["n_rec"]
             prof_eval = pe["sum_profit"] / np.maximum(pe["n_rec"], 1)
             prof_est = ps["sum_profit"] / np.maximum(ps["n_rec"], 1)
@@ -307,8 +309,8 @@ def rc_validation(envs: Sequence[Scenario], reps: int,
                         row[f"inst_adv_{w}_{m}"] = tr["realized_adv_per_period"]
                         row[f"ratio_{w}_{m}"] = tr["reliability_ratio"]
                         row[f"tol_{w}_{m}"] = tr["tolerance_limit"]
-                    row["K_est"] = tabs[("full", "est")].iloc[k * n + fi]["K"]
-                    row["cd_gap_est"] = tabs[("full", "est")].iloc[k * n + fi]["cd_gap"]
+                    row["K_est"] = tabs[("static", "est")].iloc[k * n + fi]["K"]          # no look-ahead in K
+                    row["cd_gap_est"] = tabs[("static", "est")].iloc[k * n + fi]["cd_gap"]
                     row.update(env=e, rep=r, delta=envs[e].market.delta, c_max=envs[e].market.c_max,
                                instability=instability_index(envs[e]), n_firms=n,
                                hazard=envs[e].structural.hazard if envs[e].structural.enabled else 0.0,

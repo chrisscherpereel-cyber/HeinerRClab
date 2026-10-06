@@ -9,7 +9,7 @@ import streamlit as st
 from heiner_abm.analysis import confusion, ols
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges, prediction_table
 from heiner_abm.params import SELECTION_RULES
-from heiner_abm.terminology import IDENTITY_NOTE, OOS_OVERLAP_NOTE, rule_option
+from heiner_abm.terminology import IDENTITY_NOTE, OOS_GAP_NOTE, rule_option
 from ui.common import (CAT, base_scenario, cached_rc_validation, download, hypothesis_card, measure_opts,
                        measurement, show_errors, style, to_json, verdict)
 from ui.common import evidence_note
@@ -27,7 +27,7 @@ hypothesis_card(
     "1 = perfect. AUC is insensitive to how often flexibility pays in a given sample, and it is the "
     "signal-detection statistic Heiner (1986) used for r (hit rate) and w (false-alarm rate).")
 
-st.caption(IDENTITY_NOTE + " " + OOS_OVERLAP_NOTE)
+st.caption(IDENTITY_NOTE + " " + OOS_GAP_NOTE)
 
 base = base_scenario()
 if not show_errors(base):

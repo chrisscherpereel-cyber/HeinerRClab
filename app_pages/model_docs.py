@@ -4,7 +4,7 @@ import streamlit as st
 from heiner_abm.literature import bibliography
 from heiner_abm.model_spec import table as spec_table
 from heiner_abm.terminology import (COURNOT_NOTE, EVIDENCE_BY_RESULT, EVIDENCE_LABELS, EVIDENCE_TYPES, FROZEN_PLAN_NOTE,
-                                    IDENTITY_NOTE, INACTION_BAND_NOTE, KNIGHT_NOTE, MARGIN_FEEDBACK_NOTE, OOS_OVERLAP_NOTE,
+                                    IDENTITY_NOTE, INACTION_BAND_NOTE, KNIGHT_NOTE, MARGIN_FEEDBACK_NOTE, OOS_GAP_NOTE,
                                     SCOPE_NOTE, UNCERTAINTY_TYPES)
 from ui.common import DEFAULTS, PRESET_INFO, PRESETS, PREREG_TEXT, replication_notice
 
@@ -106,7 +106,7 @@ The **measured CD-gap** is $\sqrt{E[(\hat c_{i,t} - c_t)^2]}$, the RMSE of the f
 $\sum$ wrong-deviation losses. The RC is exactly the condition that this sum is positive, and the test suite
 verifies the identity.
 """)
-st.info(IDENTITY_NOTE + " " + OOS_OVERLAP_NOTE, icon="ℹ️")
+st.info(IDENTITY_NOTE + " " + OOS_GAP_NOTE, icon="ℹ️")
 
 st.header("Dynamic, out-of-sample and structural extensions", divider="gray")
 st.markdown(
@@ -125,7 +125,8 @@ run from recorded paths; the *full* measure forks the market 2N times per period
 
 **Out-of-sample windows.** Recorded periods are split at a chosen share (default 50%) into an *estimation* and an
 *evaluation* window. π, r, w, G, D are computed separately in each window, so the RC estimated in the first
-window can be tested against flexible-vs-rigid profits in the second. Predictions are scored by AUC (the
+window can be tested against flexible-vs-rigid profits in the second. For the H-period measures the estimation
+window ends $H-1$ periods before the split, so that no estimate uses an outcome from the evaluation window. Predictions are scored by AUC (the
 Mann–Whitney probability that a random winner scores higher than a random loser), with 95% CIs from a bootstrap
 that resamples whole environments.
 
@@ -249,8 +250,9 @@ The model exists twice: a readable object-oriented agent implementation (`heiner
 `Industry`) and a vectorized batch engine (`heiner_abm/engine.py`) for Monte Carlo work. The test suite
 (`pytest tests`) checks that they produce **identical** trajectories and counterfactuals for margin-feedback, Cournot and
 mixed markets, with and without forks, evolution, discounting and demand-regime shifts. The persistence
-measure is checked against a brute-force loop, and the estimation and evaluation windows are checked to partition
-the recorded periods. It also checks a reflecting-boundary example
+measure is checked against a brute-force loop, the estimation and evaluation windows are checked to partition the
+recorded periods (with the $H-1$ gap for H-period measures), and perturbing costs in the evaluation window is checked
+to leave every estimate unchanged. It also checks a reflecting-boundary example
 (75 + 15 with bound 80 → 70), the cost bounds, the rigid 'Never' rule, and the RC accounting identity.
 """)
 

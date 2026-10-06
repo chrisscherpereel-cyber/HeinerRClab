@@ -136,6 +136,14 @@ learner does not improve with experience over 1,500 periods.
 
 ## Competing theories: reference results
 
+<!-- requires-replication:directional --><!-- requires-replication:horse_race -->
+> **Requires replication (6 October 2026).** The records and forecasts in this section were computed when the
+> Adaptive selection rule learned from the researcher's look-ahead counterfactual (future periods, the true demand
+> curve, rivals' simulated reactions). It now learns only from information available to the agent. Experiment E7
+> and about a quarter of the firms in the forecasting environments use that rule, so these numbers are left as
+> originally reported but must be rerun before they are relied on. The earlier rule remains available as the
+> researcher-only *look-ahead* feedback and reproduces the earlier trajectories exactly.
+
 From the *Competing theories* page with 1,000 periods, 20 replications per condition and H = 20, for the default
 Bertrand market and a Cournot market (φ = 0.1–0.4), each with two seeds:
 
@@ -469,7 +477,17 @@ app_pages/*.py             the Streamlit pages
   Because production changes persist and rivals react, that measure says "deviate" almost always and does not
   predict flexible-vs-rigid performance. The model therefore forks the market at each decision and compares the
   two branches over H periods. By default the firm returns to rule B afterwards, which is Heiner's "deviate at this
-  instance, otherwise follow B". H = 1 gives the one-shot measure. The default is H = 20.
+  instance, otherwise follow B". H = 1 gives the one-shot measure. The default is H = 20. H is a researcher's
+  measurement: the forks use future periods, the true demand curve and rivals' true rules, so agents never see them.
+* **What agents learn from.** Agents decide and learn only from information available to them at the time. The
+  Adaptive selection rule judges each past deviation once the W periods it covers (default 20, sidebar *judgement
+  window*) have passed: holding the recommended output against holding the old output, with rivals' actual output,
+  realized costs and prices on the firm's own believed demand curve (the same judgement as the tournament's
+  reliability-condition agents). Until 6 October 2026 it learned instead from the researcher's look-ahead
+  counterfactual over H. That rule is kept as the explicitly researcher-only *look-ahead* feedback, which reproduces
+  the earlier trajectories exactly (`tests/test_information.py`); results computed with it are flagged as requiring
+  replication. <!-- requires-replication:preset_adaptive --> This includes the typical result of the
+  reliability-learning (Adaptive) preset.
 
 ## Research basis
 

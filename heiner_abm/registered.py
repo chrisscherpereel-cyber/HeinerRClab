@@ -231,14 +231,26 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 # Provenance of the baseline fingerprints: they were taken from the code at commit 469619d (6 October 2026), when this
 # mechanism was introduced. The findings were reported for that code; they were not rerun when the fingerprints were
 # recorded.
+#
+# Revision notes
+# * 6 October 2026, observable feedback for the Adaptive rule (engine.py, agents.py, params.py changed).
+#   - presets: re-fingerprinted. Without Adaptive agents the change does not touch any code path, and the old
+#     (469619d) and new engines gave bit-identical prices, outputs and measured gains for Bertrand and Cournot
+#     scenarios, with and without demand shifts, at H = 1 and H = 6. The Adaptive preset is a separate finding.
+#   - special, patterns: re-fingerprinted after a rerun. They use the arena agents, not the Adaptive rule; rerun
+#     with the new code (signature tests at the Full scale, field patterns at the registered settings), every
+#     signature-test line in SPECIAL_RESULTS and every field-pattern number in the README was reproduced exactly.
+#   - directional, horse_race, preset_adaptive: involve Adaptive agents; listed in REPLICATION_REQUIRED, not rerun.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
                     ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py", "theories.py")),
     "horse_race": ("Competing theories: out-of-sample forecasts of which firms beat their rigid twin (AUC)",
                    ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
-    "presets": ("Typical results of the preset scenarios (sidebar preset descriptions)",
+    "presets": ("Typical results of the preset scenarios without Adaptive agents (sidebar preset descriptions)",
                 ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+    "preset_adaptive": ("Typical result of the reliability-learning (Adaptive) preset",
+                        ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
     "special": ("Signature tests by theory",
                 ("arena.py", "rulechoice.py", "special.py", "analysis.py", "agents.py", "params.py", "#tuned")),
     "patterns": ("Field patterns (pattern-oriented validation)",
@@ -250,15 +262,28 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 FINDING_FINGERPRINTS: Dict[str, str] = {
     "directional": "5aaa956c3408bbcd",
     "horse_race": "6905268aa24b0379",
-    "presets": "6905268aa24b0379",
-    "special": "dccf021407995582",
-    "patterns": "4f96239c716bc003",
+    "presets": "6df5048a8852d0b3",
+    "preset_adaptive": "6905268aa24b0379",
+    "special": "13b82f4e79f953ff",
+    "patterns": "a7415a32ea71e964",
     "calibration": "854400653fe42159",
 }
 
 # finding key -> why it requires replication (the model change and its date). Remove an entry only after the finding
 # has been rerun and its numbers (and fingerprint) updated with a revision note.
-REPLICATION_REQUIRED: Dict[str, str] = {}
+_OBSERVABLE_FEEDBACK = (
+    "On 6 October 2026 the Adaptive selection rule was changed to learn only from information available to the agent "
+    "(feedback 'observable'). It previously learned from the researcher's look-ahead counterfactual, which uses future "
+    "periods, the true demand curve and rivals' simulated reactions. This finding involves Adaptive agents and was "
+    "computed with the old rule; it has not been rerun under the new one. The old rule remains available as the "
+    "researcher-only 'look-ahead' feedback and reproduces the earlier trajectories exactly.")
+REPLICATION_REQUIRED: Dict[str, str] = {
+    "directional": _OBSERVABLE_FEEDBACK + " Affected: experiment E7 (Adaptive agents' deviation rate), and through it "
+                   "the match / contradiction counts of every theory with a prediction on E7.",
+    "horse_race": _OBSERVABLE_FEEDBACK + " Affected: about a quarter of the firms in the random environments use the "
+                  "Adaptive rule, so the forecast AUCs and the encompassing test change.",
+    "preset_adaptive": _OBSERVABLE_FEEDBACK,
+}
 
 
 def source_fingerprint(sources: Tuple[str, ...]) -> str:

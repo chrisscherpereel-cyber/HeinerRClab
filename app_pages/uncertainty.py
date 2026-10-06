@@ -5,7 +5,7 @@ import streamlit as st
 
 from heiner_abm.experiments import RISK, STRUCT, slope_summary
 from heiner_abm.params import FirmSpec, linear_flex_firms
-from ui.common import (CAT, base_scenario, cached_event, cached_uncertainty, download, hypothesis_card,
+from ui.common import (CAT, base_scenario, behaviour_horizon, cached_event, cached_uncertainty, download, hypothesis_card,
                        measure_opts, measurement, reps, show_errors, slope_chart, style, to_json, verdict)
 
 st.title("Risk versus genuine (Knightian) uncertainty")
@@ -177,7 +177,7 @@ if run_ev:
     st.session_state["evt_key"] = ekey
 if st.session_state.get("evt_key") == ekey:
     with st.spinner("Collecting regime shifts…"):
-        es = cached_event(to_json(ev), int(ev_reps), 1 if not any(f.selection == "Adaptive" for f in ev.firms) else H,
+        es = cached_event(to_json(ev), int(ev_reps), behaviour_horizon(ev),
                           cont, 10, int(post))
     if es.empty:
         st.info("No complete shift windows; increase replications or the hazard.")

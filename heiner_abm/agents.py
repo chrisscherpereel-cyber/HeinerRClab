@@ -13,11 +13,16 @@ cost. The Industry schedules one round:
        ("keep producing q") and adopt q*;
     4. the market clears on the *true* demand curve, P[t] = max(Pmin, Pmax[t] - s[t]*Q[t]),
        and the new cost c[t] is realized (firms decided before seeing it: the CD-gap);
-    5. every firm books profit (P[t]-c[t])*q - F and evaluates the counterfactual:
+    5. every firm books profit (P[t]-c[t])*q - F, and the *researcher* evaluates the counterfactual:
        what it would have earned over the next H periods (discount gamma) had it made the
        other choice. The market is forked and every agent keeps following its rules.
        With H = 1 this is Heiner's one-shot comparison with rivals held fixed.
-       This is how Heiner's quantities pi, r, w, G and D are measured.
+       This is how Heiner's quantities pi, r, w, G and D are measured;
+    6. Adaptive firms learn. By default (feedback "observable") a firm judges its decision of
+       `window` - 1 periods ago from what it has observed by now: rivals' actual output, realized
+       costs and prices on its believed demand curve. The researcher's counterfactual of step 5 uses
+       future periods, the true demand curve and rivals' true rules, so it is never fed to the agent
+       unless feedback "lookahead" is chosen explicitly (kept to reproduce earlier results).
 
 `heiner_abm.engine` is a vectorized twin of this module used for Monte-Carlo
 experiments; tests/test_equivalence.py checks that the two agree exactly.
@@ -184,13 +189,16 @@ class Firm:
         self.last = Decision(rec, self.q, dev, rec if dev else self.q, c_hat, best)
         return self.last
 
-    # --- learning from counterfactual payoffs ---------------------------------
+    # --- learning ---------------------------------------------------------------
     def learn(self, gain_from_rule: float):
+        """Feedback "lookahead" (researcher-only information): learn from the counterfactual of the decision just made."""
         d = self.last
         change = abs(d.recommended - d.current)
         if change > 0:
-            b = self._bin(change)
-            self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
+            self.learn_bin(self._bin(change), gain_from_rule)
+
+    def learn_bin(self, b: int, gain_from_rule: float):
+        self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
 
 
 class Industry:
@@ -257,10 +265,12 @@ class Industry:
                     profit_alt = self._branch(t, chosen[:i] + [alt] + chosen[i + 1:])[i]
                 p_rule, p_def = (own, profit_alt) if d.deviate else (profit_alt, own)
                 evaluated.append((profit, p_rule, p_def))
-            # 2) learn and record
+            # 2) learn (feedback "lookahead" only: the researcher's counterfactual) and record
+            lookahead = scn.adaptive.feedback == "lookahead"
             for i, (f, d) in enumerate(zip(firms, decisions)):
                 profit, p_rule, p_def = evaluated[i]
-                f.learn(p_rule - p_def)
+                if lookahead:
+                    f.learn(p_rule - p_def)
                 h = self.h
                 h["q"][t, i], h["rec"][t, i], h["c_hat"][t, i] = d.chosen, d.recommended, d.c_hat
                 h["profit"][t, i], h["profit_rule"][t, i], h["profit_default"][t, i] = profit, p_rule, p_def
@@ -269,10 +279,30 @@ class Industry:
                 h["flex"][t, i] = f.flex
                 h["best_reply"][t, i] = d.best_reply
                 self.window_profit[i] += profit
+            if not lookahead:
+                self._learn_observable(t)
             ev = scn.evolution
             if ev.enabled and t % ev.every == 0:
                 self._evolve()
         return self
+
+    def _learn_observable(self, t: int):
+        """Feedback "observable": at the end of period t each firm judges its decision of period d = t - window + 1
+        from information it has by now (see engine._observed_gain, which this mirrors exactly)."""
+        d = t - int(self.scn.adaptive.window) + 1
+        if d < 1:
+            return
+        mk, h, lo = self.market, self.h, self.scn.market.p_min
+        for i, f in enumerate(self.firms):
+            if not h["opportunity"][d, i]:
+                continue
+            x1, x0 = float(h["rec"][d, i]), float(h["q"][d - 1, i])
+            gain = 0.0
+            for s in range(d, t + 1):
+                R = self.quantity[s] - h["q"][s, i]
+                pm, sl, c = mk.belief_p_max[s], mk.belief_slope[s], mk.costs[s]
+                gain = gain + ((max(lo, pm - sl * (R + x1)) - c) * x1 - (max(lo, pm - sl * (R + x0)) - c) * x0)
+            f.learn_bin(f._bin(abs(x1 - x0)), gain)
 
     def _branch(self, t: int, first_choices: List[float], hold_firm: Optional[int] = None) -> List[float]:
         """Fork the market at period t with the given production choices and let every agent follow

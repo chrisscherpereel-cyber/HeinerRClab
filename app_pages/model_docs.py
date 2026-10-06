@@ -26,8 +26,12 @@ $n$ firm agents. Each period $t = 1,\dots,T$ runs in this order:
 5. **Shock.** The new raw-material cost is realized:
    $c_t = \text{reflect}(c_{t-1} + \Delta\, U_t)$ with $U_t\sim\mathcal U(-1,1)$ and reflecting bounds $[P_{min}, c_{max}]$.
 6. **Book.** Profit $\pi_{i,t} = (P_t - c_t)\,q_{i,t} - F_i$ with $F_i = a\varphi_i + b$.
-7. **Evaluate & learn.** The counterfactual payoff of the other choice is computed (below). Adaptive agents update
-   their memories, and firms optionally revise $\varphi$ (evolution).
+7. **Evaluate (researcher).** The counterfactual payoff of the other choice is computed (below) to measure
+   $\pi, r, w, G, D$. This uses future periods and the true demand curve, so it is not shown to the agents.
+8. **Learn (agents).** Adaptive agents judge the decision they made $W-1$ periods ago from what they have observed by
+   now (rivals' actual output, realized costs, prices on their believed demand curve) and update their memories; firms
+   optionally revise $\varphi$ (evolution, from realized profits). The researcher-only *look-ahead* feedback, which
+   instead feeds the counterfactual of step 7 to the agents, can be chosen explicitly to reproduce earlier results.
 """)
 
 c1, c2 = st.columns(2)
@@ -56,7 +60,7 @@ st.markdown(
 | **Never** | never (rule B only, rigid) | rule-governed behavior (Heiner 1983) |
 | **Small** (SR1) | \\|q* − q\\| < θ ("change is risky") | incrementalism (Lindblom 1959) |
 | **Large** (SR2) | \\|q* − q\\| > θ ("big imbalances send clear signals") | signal detection, (S, s) inaction bands (Green & Swets 1966; Scarf 1960) |
-| **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins) | reinforcement learning (Erev & Roth 1998) |
+| **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins, judged from observed outcomes over W periods) | reinforcement learning (Erev & Roth 1998) |
 """)
 
 st.header("Measuring Heiner's quantities", divider="gray")
@@ -169,7 +173,7 @@ for name, over in PRESETS.items():
                  "Why run it": info.get("why", ""), "Used for": info.get("hypotheses", ""),
                  "Typical result": info.get("typical", "")})
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
-replication_notice("presets")
+replication_notice("presets", "preset_adaptive")
 
 st.header("Status of reported findings without a frozen plan", divider="gray")
 st.markdown("Findings from a frozen plan are tied to its hash. The findings below were produced without one, so each is "

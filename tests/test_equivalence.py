@@ -34,11 +34,16 @@ CASES = [
 ]
 
 
+@pytest.mark.parametrize("feedback", ["observable", "lookahead"])
 @pytest.mark.parametrize("cont", ["default", "rules"])
 @pytest.mark.parametrize("horizon", [1, 4])
 @pytest.mark.parametrize("scn", CASES)
-def test_agent_engine_equivalence(scn, horizon, cont):
+def test_agent_engine_equivalence(scn, horizon, cont, feedback):
+    if feedback == "lookahead" and not any(f.selection == "Adaptive" for f in scn.firms):
+        pytest.skip("feedback only matters with Adaptive firms")
     scn = scn.copy(periods=min(scn.periods, 120))
+    scn.adaptive.feedback = feedback
+    scn.adaptive.window = 6
     ind = Industry(scn, horizon=horizon, continuation=cont).run()
     res = run_batch([scn], record_firm_history=True, horizon=horizon, continuation=cont)
     np.testing.assert_allclose(res.price[0], ind.price)

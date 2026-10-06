@@ -511,6 +511,16 @@ def horse_race(df: pd.DataFrame, measure: str = "full", n_boot: int = 300) -> pd
 RIVALS = ("K", "accuracy", "options", "cobweb", "past")
 
 
+def _train_ranks(train: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Map x onto the training sample's empirical distribution (mid-rank / n, in [0, 1]). It depends only on the
+    ordering of the values, so any monotone rescaling of a forecast gives the same result, and it removes the heavy
+    tails and the mass at clipping bounds that otherwise dominate a linear logit. Only the training fold defines the
+    mapping."""
+    srt = np.sort(np.asarray(train, float))
+    x = np.asarray(x, float)
+    return (np.searchsorted(srt, x, "left") + np.searchsorted(srt, x, "right")) / (2.0 * len(srt))
+
+
 def encompassing_test(df: pd.DataFrame, measure: str = "full", folds: int = 5, n_boot: int = 300,
                       seed: int = 0) -> Tuple[pd.DataFrame, Dict]:
     """Does the RC add out-of-sample information once every rival predictor is known?
@@ -519,6 +529,11 @@ def encompassing_test(df: pd.DataFrame, measure: str = "full", folds: int = 5, n
     features and scored by environment-grouped K-fold cross-validation (no environment is in both the
     training and the test fold). Compares (a) all rival predictors, (b) rivals + the RC's extra ingredient,
     the tolerance limit, which turns ln(r/w) into the RC margin, and (c) the RC margin alone.
+
+    Each feature is first mapped onto its training fold's empirical distribution (ranks), so that heavy tails and
+    values piled at the clipping bounds cannot flatten a slope toward zero, and any monotone rescaling of a forecast
+    gives the same result. A single-feature model is scored by the raw forecast in the direction its training-fold
+    fit gives, so it scores exactly like the forecast itself.
     Returns (table of cross-validated AUCs, dict with the AUC gain of (b) over (a) and its bootstrap CI)."""
     pr = theory_predictors(df, measure)
     X_all = {k: v[1] for k, v in pr.items()}
@@ -543,9 +558,13 @@ def encompassing_test(df: pd.DataFrame, measure: str = "full", folds: int = 5, n
             tr, te = fid != f, fid == f
             if y[tr].all() or not y[tr].any():
                 continue
-            mu, sd = M[tr].mean(0), M[tr].std(0) + 1e-9
-            beta = logistic_fit((M[tr] - mu) / sd, y[tr])
-            oof[name][te] = logistic_predict((M[te] - mu) / sd, beta)
+            R = np.column_stack([_train_ranks(M[tr, j], M[:, j]) for j in range(M.shape[1])])
+            mu, sd = R[tr].mean(0), R[tr].std(0) + 1e-9
+            beta = logistic_fit((R[tr] - mu) / sd, y[tr])
+            if M.shape[1] == 1:      # one forecast: score it directly, in the direction learned on the training folds
+                oof[name][te] = np.sign(beta[1]) * M[te, 0]
+            else:
+                oof[name][te] = logistic_predict((R[te] - mu) / sd, beta)
     def cv_auc(pred, idx):
         # AUC within each test fold, averaged (weighted by fold size). Pooling folds would mix in each
         # fold's intercept, which tracks the training base rate and so is biased against the test fold.

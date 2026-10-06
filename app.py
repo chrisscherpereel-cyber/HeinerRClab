@@ -28,7 +28,7 @@ SECTIONS = {
     "Simulate": [
         st.Page("app_pages/market_lab.py", title="Market lab (single run)", icon="🏭"),
         st.Page("app_pages/hypotheses.py", title="Hypothesis tests", icon="🧪"),
-        st.Page("app_pages/uncertainty.py", title="Risk vs Knightian uncertainty", icon="🌪️"),
+        st.Page("app_pages/uncertainty.py", title="Risk vs structural change", icon="🌪️"),
         st.Page("app_pages/evolution.py", title="Endogenous flexibility", icon="🧬"),
         st.Page("app_pages/theories.py", title="Competing theories", icon="🏆"),
         st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),

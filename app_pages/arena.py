@@ -9,8 +9,10 @@ from heiner_abm.arena import (DESIGNS, FEATURES, KEYS, PREREG, QUICK, THEORY_DES
                               pairwise, replicate, run_protocol)
 from heiner_abm.literature import cite
 from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict, prereg_explainer
+from ui.common import evidence_note
 
 st.title("Agent tournament: rival theories as competing agents")
+evidence_note("simulation")
 st.caption("Each theory of flexibility under uncertainty is implemented as decision rules. The rules compete in the "
            "same cobweb market, with the same information and the same random shocks, under a fairness protocol "
            "fixed in advance. This replaces predictions written by the modeler with behavior that can win or lose.")
@@ -20,7 +22,8 @@ hypothesis_card(
     "Every theory is represented by **two designs**, and enters the tournament with whichever design did better on "
     "the training environments. Most designs combine a **target** (a model-based best reply, or a price-based "
     "adaptive expectation that needs no demand model) with a **selection rule** that decides when to move: always "
-    "(optimization, cobweb theory), outside an inaction band (real options), when the learned reliability condition "
+    "(optimization, cobweb theory), outside an inaction band (an inaction-band heuristic inspired by real options, "
+    "not a dynamic real-options model), when the learned reliability condition "
     "holds (Heiner), or when profit falls below aspiration (satisficing). Because the targets are shared, the "
     "selection-rule experiment isolates the role of the selection rule: which way of deciding *when* to move works "
     "best toward the same target?",
@@ -195,7 +198,7 @@ for crit, title in (("profit", "Profit difference vs always"), ("cvar5", "Downsi
         .pivot(index="select", columns="target", values="t").reindex(z.index)
     lim = float(np.nanmax(np.abs(z.to_numpy()))) or 1.0
     fz = go.Figure(go.Heatmap(z=z.to_numpy(), x=["Model-based target", "Price-based target"],
-                              y=["Reliability condition (Heiner)", "Inaction band (real options)",
+                              y=["Reliability condition (Heiner)", "Inaction-band heuristic (real-options inspired)",
                                  "Aspiration (satisficing)"], zmin=-lim, zmax=lim, colorscale=DIVERGING,
                               text=txt.to_numpy(), texttemplate="%{text}", hoverinfo="skip"))
     fz.update_yaxes(autorange="reversed")

@@ -5,19 +5,24 @@ import streamlit as st
 
 from heiner_abm.experiments import RISK, STRUCT, slope_summary
 from heiner_abm.params import FirmSpec, linear_flex_firms
+from heiner_abm.terminology import rule_option
 from ui.common import (CAT, base_scenario, behaviour_horizon, cached_event, cached_uncertainty, download, hypothesis_card,
                        measure_opts, measurement, reps, show_errors, slope_chart, style, to_json, verdict)
+from ui.common import evidence_note
 
-st.title("Risk versus genuine (Knightian) uncertainty")
+st.title("Risk versus unannounced structural change")
+evidence_note("simulation")
 hypothesis_card(
     "KNIGHT",
     "Knight separated **risk** (known probabilities) from **uncertainty** (the structure itself is unknown). This "
-    "page compares two families of environments with rising unpredictability:\n\n"
+    "page compares two families of environments with rising unpredictability. Both are fully specified by the "
+    "simulator; what differs is what the firms know. The shifts are unknown to the firms, not unknowable, so this is "
+    "not Knightian uncertainty in the unrestricted sense (see *Model & methods*, kinds of uncertainty):\n\n"
     "* **Risk:** raw-material cost volatility Δ rises. Its distribution is stationary and bounded; firms' models "
     "are correct, only the draws are unknown.\n"
     "* **Structural uncertainty:** unannounced **demand-regime shifts** (intercept and slope jump at random). "
     "*Model-based* firms (Cournot best replies) keep using an outdated demand curve until they update it, "
-    "L periods later. *Model-free* firms (Bertrand margin feedback) react only to observed prices.\n\n"
+    "L periods later. *Model-free* firms (the margin-feedback quantity rule) react only to observed prices.\n\n"
     "The two families are compared at **matched unpredictability** (the RMS period-to-period price change, or the "
     "Cournot target error ξ).",
     notes={"heiner": "The reliability condition applies whatever the source of the CD-gap, so both families should "
@@ -34,10 +39,10 @@ disc, _ = measure_opts()
 st.subheader("① Payoff to flexibility under risk vs structural uncertainty")
 with st.form("unc"):
     c = st.columns(4)
-    kinds = c[0].multiselect("Firm types", ["Cournot (model-based)", "Bertrand (model-free)"],
-                             default=["Cournot (model-based)", "Bertrand (model-free)"],
+    kinds = c[0].multiselect("Firm types", ["Cournot (model-based)", "Margin feedback (model-free)"],
+                             default=["Cournot (model-based)", "Margin feedback (model-free)"],
                              help="Industries to compare. Cournot firms use a demand model that can become outdated; "
-                                  "Bertrand firms react only to observed prices.")
+                                  "Margin-feedback firms react only to observed prices.")
     deltas = [float(x) for x in c[1].text_input("Risk family: Δ levels", "2, 5, 10, 15, 20, 30",
                                                 help="Comma-separated cost volatilities for the risk family (no regime shifts).").split(",") if x.strip()]
     hazards = [float(x) for x in c[2].text_input("Structural family: hazard λ levels", "0, 0.01, 0.02, 0.04, 0.07, 0.1",
@@ -58,8 +63,8 @@ with st.form("unc"):
     c = st.columns(2)
     cphi = c[0].slider("Cournot φ range (φᵢ spread evenly)", 0.05, 1.0, (0.1, 0.4), 0.05,
                        help="Keep Cournot φ below the Heiner / Theocharis stability limit (see Dynamic RC page).")
-    bphi = c[1].slider("Bertrand φ range", 0.05, 3.0, (0.25, 1.0), 0.05,
-                       help="Lowest and highest Bertrand flexibility; firms' φᵢ are spread evenly across it.")
+    bphi = c[1].slider("Margin-feedback φ range", 0.05, 3.0, (0.25, 1.0), 0.05,
+                       help="Lowest and highest margin-feedback flexibility; firms' φᵢ are spread evenly across it.")
     st.caption(f"Measurement horizon H = {H}, γ = {disc:g} (sidebar). Firms use the sidebar selection rule "
                f"(**{base.firms[0].selection}**) and number of firms ({base.n_firms}).")
     run = st.form_submit_button("Run comparison", type="primary")
@@ -147,7 +152,7 @@ st.markdown(
     "normal level (1.0 = normal).")
 with st.form("evt"):
     c = st.columns(5)
-    ev_rule = c[0].radio("Firms", ["Cournot", "Bertrand"], horizontal=True,
+    ev_rule = c[0].radio("Firms", ["Cournot", "Bertrand"], horizontal=True, format_func=rule_option,
                          help="Production rule of the firms in the event study.")
     mixed = c[1].toggle("One firm per selection rule", True,
                         help="On: four firms (Always, Small, Large, Adaptive) side by side. Off: the sidebar's firms, "

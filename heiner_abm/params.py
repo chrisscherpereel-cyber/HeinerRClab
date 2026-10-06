@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace, asdict
 from typing import List, Optional
 
+# Production rules. "Bertrand" is the configuration value of the margin-feedback quantity rule (kept for compatibility
+# with saved scenarios and registered results); it is not price-setting Bertrand competition. See heiner_abm.terminology.
 RULE_TYPES = ("Bertrand", "Cournot")
 SELECTION_RULES = ("Always", "Never", "Small", "Large", "Adaptive")
 # Feedback the Adaptive selection rule learns from. Either way, feedback about a decision is released only once every
@@ -26,7 +28,7 @@ SELECTION_RULES = ("Always", "Never", "Small", "Large", "Adaptive")
 ADAPTIVE_FEEDBACK = ("observable", "oracle")
 
 SELECTION_HELP = {
-    "Always": "Always adopt the Cournot/Bertrand recommendation (maximally flexible).",
+    "Always": "Always adopt the production rule's recommendation (maximally flexible).",
     "Never": "Never deviate from the default rule B: keep last period's production (fully rigid).",
     "Small": "SR1 - deviate only when the recommended change |q* - q| < threshold (change is risky).",
     "Large": "SR2 - deviate only when |q* - q| > threshold (large signals are clear signals).",
@@ -66,11 +68,11 @@ class MarketParams:
 
 @dataclass
 class FirmSpec:
-    rule: str = "Bertrand"        # production rule that generates the recommendation q*
-    flex: float = 0.25            # phi: Cournot weight (0..1) or Bertrand margin sensitivity
+    rule: str = "Bertrand"        # production rule for q*: "Bertrand" = margin-feedback quantity rule, or "Cournot"
+    flex: float = 0.25            # phi: Cournot weight (0..1) or margin-feedback sensitivity
     selection: str = "Always"     # selection rule for accepting q* vs default rule B (hold q)
     threshold: float = 25.0       # threshold for Small/Large selection rules
-    desired_margin: float = 5.0   # m*: Bertrand desired profit margin (competition intensity)
+    desired_margin: float = 5.0   # m*: desired margin of the margin-feedback rule (competition intensity)
     foresight: float = 0.0        # kappa: competence - fraction of next cost change anticipated
     noise: float = 0.0            # sigma: perception noise on the cost estimate
     label: Optional[str] = None
@@ -82,7 +84,7 @@ class GlobalFirmParams:
     q_min: float = 15.0           # minimum production
     flex_cost_slope: float = 0.0  # a: per-period flexibility cost = a*phi + b
     fixed_cost: float = 0.0       # b: per-period fixed cost
-    margin_includes_fixed: bool = False  # Bertrand margin uses P - c - F/q (on) vs P - c (off)
+    margin_includes_fixed: bool = False  # margin-feedback rule uses P - c - F/q (on) vs P - c (off)
 
 
 @dataclass
@@ -111,7 +113,7 @@ class EvolutionParams:
 
 @dataclass
 class StructuralParams:
-    """Knightian (structural) uncertainty: unannounced regime shifts in the demand curve.
+    """Unannounced structural change: regime shifts in the demand curve that firms are not told about.
 
     With probability `hazard` per period a new demand regime is drawn around the baseline:
         p_max = base p_max + intercept_sd * z1        (clipped to >= p_min + 10)
@@ -119,7 +121,8 @@ class StructuralParams:
     Regimes persist until the next shift. Model-based (Cournot) firms compute best replies with
     *believed* demand parameters: the regime of `belief_lag` periods before their information set
     (belief_lag = 0: they learn a regime one period after it starts; belief_lag < 0: they never
-    update and keep the baseline model). Model-free (Bertrand) firms only use observed prices.
+    update and keep the baseline model). Model-free (margin-feedback) firms only use observed prices. The shift
+    process is specified here, so it is unknown to the firms but not unknowable (see terminology.KNIGHT_NOTE).
     """
     enabled: bool = False
     hazard: float = 0.02

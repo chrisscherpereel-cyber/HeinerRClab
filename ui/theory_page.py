@@ -9,6 +9,7 @@ from heiner_abm.registered import DIRECTIONAL, MECHANISMS, STUDY_PLAN, TOURNAMEN
 from heiner_abm.theories import EXPERIMENTS
 from heiner_abm.theory_content import THEORY_BY_KEY
 from ui.illustrations import ILLUSTRATIONS
+from heiner_abm.terminology import SCOPE_NOTE
 from ui.common import replication_notice
 
 SYM = {"+": "↑ rises", "-": "↓ falls", "0": "no effect", ">=0": "≥ 0 (never harmful)", None: "—"}
@@ -85,7 +86,8 @@ def render(key: str):
         replication_notice("directional")
     if key in MECHANISMS:
         st.markdown(f"**Mechanism study** (registered plan `{STUDY_PLAN}`): {MECHANISMS[key]}")
-    st.caption("Rerun any of these on the *Competing theories*, *Agent tournament* and *Mechanisms* pages.")
+    st.caption("Rerun any of these on the *Competing theories*, *Agent tournament* and *Mechanisms* pages. "
+               + SCOPE_NOTE)
 
     st.header("7 · Strengths and limits", divider="gray")
     c1, c2 = st.columns(2)

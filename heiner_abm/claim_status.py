@@ -60,18 +60,21 @@ COMPONENTS: List[Component] = [
               "patterns.", ("grimm2005",), "Every simulation page"),
     Component("reduced_form", "Production rules",
               "A model-based rule (partial adjustment toward the Cournot best reply on the believed demand curve) and a "
-              "model-free rule (output adjusts to the observed margin relative to a desired margin).", (),
+              "model-free margin-feedback quantity rule (output adjusts to the observed margin relative to a "
+              "desired margin; configured as 'Bertrand' but not price-setting Bertrand competition).", (),
               "Market lab, hypothesis tests"),
     Component("reduced_form", "Difficulty and competence",
               "Difficulty is cost volatility Δ, the number of rivals and unannounced demand shifts; competence is cost "
               "foresight κ and perception noise σ. Heiner's CD-gap is measured as the error of each firm's cost "
               "perception.", ("heiner1983",), "Hypothesis tests, CD-gap explorer"),
-    Component("reduced_form", "Knightian uncertainty",
-              "Unannounced demand-regime shifts that model-based firms learn about only after a lag.", ("knight1921",),
-              "Risk vs Knightian uncertainty"),
+    Component("reduced_form", "Unannounced structural change",
+              "Unannounced demand-regime shifts that model-based firms learn about only after a lag. The simulator "
+              "specifies the shift process, so the shifts are unknown to the agents but not unknowable; this is a "
+              "restricted, agent-relative stand-in for Knightian uncertainty.", ("knight1921",),
+              "Risk vs structural change"),
     Component("reduced_form", "Rival theories as agents",
-              "Each rival theory enters as one or two agent designs: real options as an inaction band, satisficing as "
-              "aspiration search, reinforcement learning as softmax or Erev–Roth learners, simple heuristics as a "
+              "Each rival theory enters as one or two agent designs: real options as an inaction-band heuristic (no "
+              "option valuation or adjustment cost), satisficing as aspiration search, reinforcement learning as softmax or Erev–Roth learners, simple heuristics as a "
               "target margin or win-stay/lose-shift, optimization as a filtered best reply or rational expectations. "
               "The theories' directional predictions are stylized.",
               ("dixit1989", "simon1955", "erev1998", "gigerenzer2009"), "Agent tournament, Competing theories"),

@@ -5,8 +5,10 @@ from heiner_abm.literature import REFERENCES
 from heiner_abm.patterns import PATTERNS, run_patterns
 from heiner_abm.registered import TOURNAMENT_PLAN, registered_tuned
 from ui.common import download, hypothesis_card, replication_notice, verdict
+from ui.common import evidence_note
 
 st.title("Field patterns: does the market look like real markets?")
+evidence_note("simulation")
 st.caption("Pattern-oriented validation (Grimm et al. 2005). The market is stylized and not calibrated to any "
            "commodity, so it is judged qualitatively, by whether it reproduces several documented empirical "
            "patterns at once. Each criterion was fixed before the run.")

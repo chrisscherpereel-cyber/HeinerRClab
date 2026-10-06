@@ -8,8 +8,10 @@ from heiner_abm.experiments import PARAMS, slope_summary, switch_point
 from heiner_abm.params import FirmSpec
 from ui.common import (CAT, base_scenario, behaviour_horizon, download, firm_profit_bars, fmt_p, hypothesis_card, measurement, reps,
                        run_sweep_ui, show_errors, slope_chart, style, verdict)
+from ui.common import evidence_note
 
 st.title("Hypothesis tests")
+evidence_note("simulation")
 st.caption("Each experiment runs many replicated markets from the sidebar's base scenario. Every condition uses the "
            "same raw-material cost shocks (common random numbers). The key statistic is the **within-market slope "
            "of average profit on flexibility φ**: positive means flexible firms earn more, negative means rigid "
@@ -40,7 +42,7 @@ def lever_choices(rule):
     return ["desired_margin", "c_max", "delta"] if rule == "Bertrand" else ["c_max", "delta", "q_range"]
 
 
-LEVER_HELP = ("Parameter that moves industry profitability. Bertrand: desired margin m*, max raw-material cost or "
+LEVER_HELP = ("Parameter that moves industry profitability. Margin-feedback rule: desired margin m*, max raw-material cost or "
               "volatility Δ. Cournot: max raw-material cost, volatility Δ or demand quantity range.")
 STEPS_HELP = "Number of evenly spaced values tested within the range. More steps = finer curve, longer run."
 
@@ -140,12 +142,14 @@ with tabs[0]:
         neg = summ[summ["hi"] < 0]
         pos = summ[summ["lo"] > 0]
         if len(neg):
-            verdict("support", "**Traditional hypothesis rejected.** With free flexibility, rigid firms earned significantly "
-                    f"more at {PARAMS[lever].label} = {', '.join(f'{x:g}' for x in neg[lever])} "
-                    f"(slope CI entirely below 0). This matches Heiner's prediction.")
+            verdict("support", "**Contrary to the traditional prediction, in these simulated markets.** With free "
+                    f"flexibility, rigid firms earned significantly more at {PARAMS[lever].label} = "
+                    f"{', '.join(f'{x:g}' for x in neg[lever])} (slope CI entirely below 0). This matches Heiner's "
+                    "prediction for these firm rules and settings; it does not refute optimization theory in general.")
         else:
-            verdict("neutral", "No condition shows a significantly negative slope, so these levels do not reject the traditional "
-                    "hypothesis. Try a less profitable market (lower m*, higher max cost) or more volatility.")
+            verdict("neutral", "No condition shows a significantly negative slope, so at these levels the simulated firms "
+                    "behave as the traditional hypothesis predicts. Try a less profitable market (lower m*, higher max "
+                    "cost) or more volatility.")
         if len(pos) and len(neg):
             st.caption("Both signs appear: the profit ranking reverses with profitability.")
         download(firms, "H1_firms.csv")
@@ -234,8 +238,8 @@ with tabs[2]:
         st.markdown(f"**Regression of market-level slope on Δ** ({len(per)} markets): coefficient = {coef:.2f}, "
                     f"p = {fmt_p(pv)}, R² = {r2:.3f}")
         if coef < 0 and pv < 0.05:
-            verdict("support", "Flexibility's payoff **falls significantly** as volatility rises. This supports the RC "
-                    "and contradicts the traditional prediction.")
+            verdict("support", "Flexibility's payoff **falls significantly** as volatility rises, as the RC predicts and "
+                    "contrary to the traditional prediction, for these simulated firms.")
         elif coef > 0 and pv < 0.05:
             verdict("reject", "Flexibility's payoff **rises significantly** with volatility, as the traditional view predicts.")
         else:
@@ -261,7 +265,7 @@ with tabs[3]:
     fcs = parse(c1.text_input("Fixed-cost levels b", "0, 500, 1500", key="h4_fc",
                                 help="Comma-separated fixed costs per period, identical for every firm. One line "
                                      "(and one switch point) per level."), [0, 500, 1500])
-    incl = c2.toggle("Bertrand margin includes F/q", value=True, key="h4_incl",
+    incl = c2.toggle("Margin-feedback rule: margin includes F/q", value=True, key="h4_incl",
                      help="On = margin P − c − F/q, so fixed costs change decisions. Off = baseline "
                           "margin P − c: the control, where fixed costs cannot change behavior.")
     vals = list(np.round(np.linspace(*lo_hi, steps), 3))
@@ -299,7 +303,8 @@ with tabs[4]:
         "firms happen at a *lower* level of industry profit? A profitability lever is swept at several competition "
         "intensities.")
     if rule != "Bertrand":
-        st.warning("Desired margin m* only affects Bertrand firms. Switch the base scenario to Bertrand.")
+        st.warning("Desired margin m* only affects margin-feedback firms. Switch the base scenario's production rule "
+                   "to the margin-feedback quantity rule.")
     else:
         c1, c2, c3 = st.columns(3)
         lever = c1.selectbox("Profitability lever", ["c_max", "delta", "q_range"], format_func=lambda k: PARAMS[k].label,
@@ -309,7 +314,7 @@ with tabs[4]:
         lo_hi = c2.slider("Lever range", float(p.lo), float(p.hi), rng_default, key=f"h5_rng_{lever}", help=range_help(p))
         steps = c3.slider("Steps", 3, 15, 8, key="h5_steps", help=STEPS_HELP)
         ms = parse(st.text_input("Desired margins m* (competition intensities)", "1, 4, 8", key="h5_ms",
-                                     help="Comma-separated Bertrand desired margins. Small m* = fierce competition, "
+                                     help="Comma-separated desired margins of the margin-feedback rule. Small m* = fierce competition, "
                                           "large m* = gentlemanly. One line per value."), [1, 4, 8])
         vals = list(np.round(np.linspace(*lo_hi, steps), 3))
         if run_state("h5", (lever, tuple(vals), tuple(ms), R, H, cont, str(base))):

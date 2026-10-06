@@ -8,6 +8,7 @@ from heiner_abm.calibration import FORECAST_RULES, QUANTITY_RULES
 from heiner_abm.empirical import NEWSVENDOR_RULES
 from heiner_abm.experiment import RIVALS, SHADOWS
 from heiner_abm.literature import REFERENCES
+from heiner_abm.model_spec import table as spec_table
 from heiner_abm.params import SELECTION_HELP
 from heiner_abm.rulechoice import RESTRICTED, RULE_LABELS, RULES
 
@@ -19,9 +20,9 @@ st.caption("Every decision-making agent in the laboratory, exactly as the code i
 # ------------------------------------------------------------------------------------------------ overview
 st.header("1 · Where the agents appear", divider="gray")
 st.dataframe(pd.DataFrame([
-    ("Market-lab firms", "Market lab, Hypothesis tests, Risk vs Knightian uncertainty, Endogenous flexibility, "
+    ("Market-lab firms", "Market lab, Hypothesis tests, Risk vs structural change, Endogenous flexibility, "
                          "Competing theories, Experiment designer, Heiner special tests",
-     "Firms that differ in flexibility φ and share a production rule (Bertrand or Cournot) and a selection rule."),
+     "Firms that differ in flexibility φ and share a production rule (margin feedback or Cournot best reply) and a selection rule."),
     ("Tournament designs", "Agent tournament, Mechanisms, Rule choice, Field patterns, Signature tests, Play the market",
      "Seventeen designs, two per theory plus rule B, each implementing one theory's decision rule."),
     ("Mechanism variants", "Heiner: mechanisms", "The reliability-condition agent judging with the true model, and "
@@ -37,7 +38,17 @@ st.dataframe(pd.DataFrame([
 ], columns=["Agents", "Pages", "What they are"]), hide_index=True, width="stretch")
 
 # ------------------------------------------------------------------------------------------------ common cycle
-st.header("2 · The shared market and decision cycle", divider="gray")
+st.header("2 · Model specification", divider="gray")
+st.markdown("For every agent: what it is built to pursue (*objective*; none solves an intertemporal optimization "
+            "problem), what it observes when it decides, what it can do, what feedback it learns from and when it "
+            "receives it, and the assumptions and limits of the implementation. Researcher variants and oracle "
+            "treatments are labeled as such.")
+_spec = spec_table()
+_groups = st.multiselect("Groups", list(dict.fromkeys(_spec["Group"])), default=[], key="spec_groups",
+                         help="Leave empty to show every agent.")
+st.dataframe(_spec[_spec["Group"].isin(_groups)] if _groups else _spec, hide_index=True, width="stretch", height=480)
+
+st.header("3 · The shared market and decision cycle", divider="gray")
 st.markdown(
     "All firm agents act in the same cobweb oligopoly: a homogeneous product, linear demand with a price floor, "
     "and a raw-material cost that follows a bounded random walk. Each period:\n\n"
@@ -60,19 +71,20 @@ st.markdown(
     "same seed reproduces the same market for every agent (common random numbers).")
 
 # ------------------------------------------------------------------------------------------------ market-lab firms
-st.header("3 · Market-lab firms", divider="gray")
+st.header("4 · Market-lab firms", divider="gray")
 st.markdown(
     "The firms on the Market lab, Hypothesis tests and related pages share one production rule and one selection "
     "rule, chosen in the sidebar, and differ in flexibility φᵢ = intercept + slope·i (firm 1 is the most rigid).\n\n"
     "**Production rule: the recommended output q\\*.**")
 c1, c2 = st.columns(2)
 with c1.container(border=True):
-    st.markdown("**Cournot (model-based)**: move a share φ of the way toward the best reply on the believed demand "
+    st.markdown("**Cournot best-reply quantity rule (model-based)**: move a share φ of the way toward the best reply on the believed demand "
                 "curve, given rivals' last output R = Q − q:")
     st.latex(r"q^* = \varphi\,\frac{\hat P^{\max} - \hat s\,R - \hat c}{2\hat s} + (1-\varphi)\,q")
 with c2.container(border=True):
-    st.markdown("**Bertrand (model-free)**: adjust output to the observed margin relative to a desired margin m\\* "
-                "(minus F/q if fixed costs are included in the margin):")
+    st.markdown("**Margin-feedback quantity rule (model-free; configuration value 'Bertrand')**: adjust output to "
+                "the observed margin relative to a desired margin m\\* (minus F/q if fixed costs are included in the "
+                "margin). Firms choose quantities, not prices; it is not price-setting Bertrand competition:")
     st.latex(r"q^* = q + \varphi\,\big(P - \hat c - m^*\big)")
 st.markdown("**Selection rule: deviate from rule B (keep q) and adopt q\\*?**")
 st.dataframe(pd.DataFrame([(k, t) for k, t in SELECTION_HELP.items()], columns=["Rule", "Behavior"]),
@@ -98,7 +110,7 @@ st.markdown(
     "small mutation (s.d. 0.03), within [0, 1].")
 
 # ------------------------------------------------------------------------------------------------ tournament designs
-st.header("4 · Tournament designs: one theory, two decision rules", divider="gray")
+st.header("5 · Tournament designs: one theory, two decision rules", divider="gray")
 st.markdown(
     "Each theory is implemented as two agent designs; each design is tuned with the same budget on training "
     "environments, and the better of the two enters the tournament. Many designs combine a **target** (where a "
@@ -189,7 +201,7 @@ with st.expander("Mechanism variants of the reliability-condition agent"):
         st.markdown(f"* **{ALL_DESIGNS[k].name}** (`{k}`)")
 
 # ------------------------------------------------------------------------------------------------ other populations
-st.header("5 · Other agent populations", divider="gray")
+st.header("6 · Other agent populations", divider="gray")
 with st.expander("Rule-choosing firms (Rule choice page)"):
     st.markdown(
         "Every firm carries six of the tournament designs at once: " +

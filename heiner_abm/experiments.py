@@ -45,7 +45,7 @@ PARAMS: Dict[str, Param] = {p.key: p for p in [
           "Raw-material cost in period 0; the random walk starts here."),
     Param("q_range", "Demand quantity range (1/slope)", "market", "q_range", 300, 5000, 50,
           "Larger = flatter demand. Steep demand destabilizes cobweb markets."),
-    Param("desired_margin", "Desired margin m* (Bertrand)", "firms", "desired_margin", -5, 25, 0.5,
+    Param("desired_margin", "Desired margin m* (margin-feedback rule)", "firms", "desired_margin", -5, 25, 0.5,
           "Intensity of competition: small m* = fierce, large m* = gentlemanly."),
     Param("foresight", "Competence κ (cost foresight)", "firms", "foresight", 0, 1, 0.05,
           "Share of the next cost change a firm anticipates. κ = 1 closes the cost CD-gap."),
@@ -64,7 +64,7 @@ PARAMS: Dict[str, Param] = {p.key: p for p in [
     Param("common_flex", "Common flexibility φ (all firms)", "special", "common_flex", 0.02, 1.5, 0.02,
           "Symmetric industry: every firm uses the same φ (Heiner 1989 partial-adjustment test)."),
     Param("hazard", "Regime-shift hazard λ (per period)", "structural", "hazard", 0.0, 0.2, 0.005,
-          "Knightian uncertainty: probability of an unannounced demand-regime shift."),
+          "Unannounced structural change: probability of a demand-regime shift firms are not told about."),
     Param("intercept_sd", "Regime shift size: demand intercept s.d.", "structural", "intercept_sd", 0, 40, 1,
           "Standard deviation of the jump in max price (demand intercept) at each regime shift."),
     Param("slope_sd", "Regime shift size: log demand-slope s.d.", "structural", "slope_sd", 0, 1.0, 0.05,
@@ -383,7 +383,7 @@ def adjustment_bound_experiment(base: Scenario, phis: Sequence[float], difficult
 
 
 # ---------------------------------------------------------------------------------------------
-# Risk versus structural (Knightian) uncertainty
+# Risk versus unannounced structural change
 # ---------------------------------------------------------------------------------------------
 
 RISK, STRUCT = "Risk (cost volatility)", "Structural (regime shifts)"

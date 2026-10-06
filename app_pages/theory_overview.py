@@ -52,29 +52,34 @@ for key, r in sorted(TOURNAMENT.items(), key=lambda kv: kv[1]["profit"][0]):
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch",
              column_config={"Profit rank, main": st.column_config.NumberColumn(format="%.2f")})
 st.markdown(
-    "* **Model-free rules lead.** Adaptive price expectations, a target-margin heuristic and an inaction band on a "
+    "* **Model-free rules lead (in these environments).** Adaptive price expectations, a target-margin heuristic and an "
+    "inaction-band heuristic (inspired by real options) on a "
     "price-based target are the top three in every run: with unannounced demand shifts, a misspecified model is the "
     "main source of decision error.\n"
-    "* **Restriction pays where the flexible rule is unreliable.** Holding back from an error-prone, model-based "
-    "target pays when its reliability is known, and breaks even near an error-to-signal ratio of about 1.\n"
+    "* **Restriction pays where the flexible rule is unreliable (simulation).** Holding back from an error-prone, model-based "
+    "target pays when its reliability is known (an oracle, researcher-only), and breaks even near an error-to-signal ratio of about 1.\n"
     "* **Knowing when to hold back is the hard part.** Agents that must learn their own reliability lose that gain; "
     "fixed rules recover part of it.\n"
     "* **Criteria matter.** Rankings by profit, downside risk and survival differ; most theories are Pareto-efficient.\n"
     "* **When firms choose their own rules,** populations change output less often and abandon the flexible optimizer "
     "as uncertainty rises, but selection favors a simple target-margin heuristic as much as an explicit restriction "
     "(Rule choice).\n"
-    "* **The boundary generalizes.** In an inventory task, a learning task with shifting payoffs and an irreversible "
+    "* **The boundary appears in three other tasks (simulation).** In an inventory task, a learning task with shifting payoffs and an irreversible "
     "investment task, restriction pays only where the flexible rule is unreliable, with a break-even error-to-signal "
     "ratio near or below 1 (Generalization).\n"
-    "* **What is uniquely Heiner's.** In a single-firm benchmark the simulation reproduces the exact Muth–Kalman "
-    "optimum; with lopsided stakes, restricting the filter's costly moves cuts the loss by up to a third although the "
-    "information is unchanged, as the reliability condition predicts and certainty equivalence does not. A filter "
+    "* **A prediction that separates Heiner from optimal filtering.** In a single-firm benchmark the simulation "
+    "reproduces the exact Muth–Kalman optimum (analytical verification); with lopsided stakes, restricting the filter's costly moves cuts the loss by up to a third although the "
+    "information is unchanged, as the reliability condition predicts and certainty equivalence does not (simulation). A filter "
     "that builds the stakes into its estimate does better still (Solvable benchmark).\n"
-    "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment). In five "
-    "public experimental datasets, behavior is heterogeneous, simulated Cournot markets reach the human level of "
-    "competition and time pressure shifts people toward simple or restricted rules; but the learned reliability "
+    "* **Validation.** The market reproduces five of six documented field patterns (not lumpy adjustment; simulation "
+    "comparison). In five public experimental datasets (out-of-sample behavioral prediction, not causal evidence), "
+    "behavior is heterogeneous, simulated Cournot markets reach the human level of competition and, under time "
+    "pressure, more people are best described by simple or restricted rules; but the learned reliability "
     "condition does not predict individual choices better than the flexible rules it restricts, and people change "
     "their decisions less often than any fitted rule implies (Empirical validation).")
+from heiner_abm.terminology import SCOPE_NOTE  # noqa: E402
+
+st.caption(SCOPE_NOTE)
 
 from ui.common import replication_notice  # noqa: E402
 

@@ -26,7 +26,7 @@ EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the mar
 TOURNAMENT: Dict[str, Dict] = {
     "cobweb": dict(design="Adaptive price expectations", profit=(1.89, 2.91, 2.74, 2.64), aggregate=(3.50, 2.67, 2.33, 2.83)),
     "heuristic": dict(design="Target-margin rule", profit=(2.79, 3.30, 1.91, 1.65), aggregate=(4.00, 4.17, 4.00, 3.83)),
-    "options": dict(design="Inaction band · price-based target", profit=(3.41, 2.99, 3.24, 4.21),
+    "options": dict(design="Inaction-band heuristic · price-based target", profit=(3.41, 2.99, 3.24, 4.21),
                     aggregate=(3.33, 3.00, 3.83, 3.67)),
     "heiner": dict(design="Reliability condition · price-based target", profit=(3.98, 4.89, 6.00, 5.42),
                    aggregate=(4.17, 5.00, 3.33, 6.00)),
@@ -262,6 +262,10 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   feedback or no Adaptive agents. All six were rerun with the corrected code (tools/rerun_adaptive_findings.py for
 #   directional seeds B1, B3, C1, C42, horse_race and the presets; signature tests at the Full scale; field patterns at
 #   the registered settings) and reproduced the previously recorded results exactly. Re-fingerprinted.
+# * 6 October 2026, terminology audit (wording in arena.py display names and docstring, params.py, experiments.py,
+#   theories.py, agents.py, analysis.py; no computation changed; plan hashes unchanged). Every finding above was rerun
+#   with tools/rerun_adaptive_findings.py, the signature tests (Full scale) and the field patterns (registered
+#   settings), and every output was identical to the previous rerun. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -281,12 +285,12 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "f31ab19bd2cfda91",
-    "horse_race": "95aabe1ec99f0ac6",
-    "presets": "95aabe1ec99f0ac6",
-    "preset_adaptive": "95aabe1ec99f0ac6",
-    "special": "4ada44342edf8f67",
-    "patterns": "f0fa87069a9a1781",
+    "directional": "f875f51f261b364a",
+    "horse_race": "757233be0735ef21",
+    "presets": "757233be0735ef21",
+    "preset_adaptive": "757233be0735ef21",
+    "special": "14f1278441074259",
+    "patterns": "8412d0b7d735b8aa",
     "calibration": "854400653fe42159",
 }
 

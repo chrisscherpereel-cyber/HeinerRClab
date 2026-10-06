@@ -6,8 +6,10 @@ import streamlit as st
 from heiner_abm.analysis import ols
 from ui.common import (CAT, base_scenario, behaviour_horizon, cached_evolution, download, fmt_p, hypothesis_card, measurement, reps,
                        show_errors, style, to_json, verdict)
+from ui.common import evidence_note
 
 st.title("Endogenous flexibility: what do firms choose?")
+evidence_note("simulation")
 hypothesis_card(
     "EVO",
     "Every *K* periods each firm imitates the most profitable rival's flexibility φ with some probability and then "
@@ -104,6 +106,6 @@ if summ["delta"].nunique() > 1:
         verdict("reject", "Industries facing more volatile costs evolve toward **more** flexibility, as the traditional view predicts.")
     else:
         verdict("neutral", "Evolved flexibility does not depend significantly on volatility in this setting.")
-st.caption("Tip: the effect is sharpest in low-margin Bertrand markets (e.g. m* = 1), where mistakes are costly. "
+st.caption("Tip: the effect is sharpest in low-margin markets with the margin-feedback rule (e.g. m* = 1), where mistakes are costly. "
            "In Cournot markets rigidity tends to win at every volatility level.")
 download(summ, "evolution_runs.csv")

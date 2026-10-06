@@ -8,8 +8,10 @@ from heiner_abm.experiments import slope_summary
 from heiner_abm.params import SELECTION_RULES
 from ui.common import (CAT, DIVERGING, SEQUENTIAL, base_scenario, download, fmt_p, hypothesis_card, measurement, reps,
                        run_sweep_ui, show_errors, style, verdict)
+from ui.common import evidence_note
 
 st.title("CD-gap explorer: difficulty versus competence")
+evidence_note("simulation")
 hypothesis_card(
     "CDGAP",
     "Difficulty is raised by cost volatility Δ (or perception noise σ). Competence is raised by cost foresight κ, the "

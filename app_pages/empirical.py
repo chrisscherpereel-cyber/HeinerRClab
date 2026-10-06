@@ -11,8 +11,10 @@ from heiner_abm.empirical import (DATASETS, EMPIRICAL_PLAN, NewsvendorSpec, appl
                                   run_newsvendor, run_time_pressure, synthetic_newsvendor_data)
 from heiner_abm.literature import REFERENCES
 from ui.common import CAT, download, hypothesis_card, style, verdict, prereg_explainer
+from ui.common import evidence_note
 
 st.title("Empirical validation: public experimental datasets")
+evidence_note("behavioral")
 st.caption("Five public datasets can test whether the simulated decision rules describe human choices. This page "
            "documents each source, fixes the validation protocol in advance, and runs the analyses once the data "
            "are uploaded.")

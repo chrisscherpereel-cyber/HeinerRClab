@@ -8,8 +8,10 @@ from heiner_abm.analysis import auc, sdt_roc
 from heiner_abm.experiments import MEASURE_LABELS, PARAMS
 from ui.common import (CAT, base_scenario, cached_bound, cached_single, download, firm_colors, hypothesis_card,
                        measure_opts, measurement, reps, run_sweep_ui, show_errors, style, to_json, verdict)
+from ui.common import evidence_note
 
 st.title("The dynamic reliability condition")
+evidence_note("simulation")
 st.markdown(
     "Heiner's 1983 condition treats every decision as a separate, one-shot bet. In a market, a production change "
     "**persists** (rule B keeps the new level) and **rivals react** to it. This page extends the RC to that setting, "

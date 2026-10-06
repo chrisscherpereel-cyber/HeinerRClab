@@ -1,1 +1,1 @@
-"""Agent-based simulation of Heiner's reliability condition in Cournot/Bertrand cobweb markets."""
+"""Agent-based simulation of Heiner's reliability condition in cobweb markets with quantity-setting firms."""

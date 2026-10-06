@@ -294,9 +294,9 @@ def instability_index(scn) -> float:
     """Cobweb stability theory (Ezekiel 1938; Nerlove 1958; Theocharis 1960): spectral radius of the
     linearized production dynamics q' = J q + const, ignoring noise, rounding and bounds.
 
-    Cournot firm i: q_i' = (1 - phi_i/2) q_i - (phi_i/2) Q;  Bertrand firm i: q_i' = q_i - phi_i s Q.
+    Cournot firm i: q_i' = (1 - phi_i/2) q_i - (phi_i/2) Q;  margin-feedback firm i: q_i' = q_i - phi_i s Q.
     So J = diag(d) - u 1', and the market is stable when rho(J) < 1. Unit eigenvalues are neutral modes
-    (with only Bertrand firms, how total output is split is indeterminate) and are left out."""
+    (with only margin-feedback firms, how total output is split is indeterminate) and are left out."""
     s = scn.market.slope
     phi = np.array([f.flex for f in scn.firms], float)
     cour = np.array([f.rule == "Cournot" for f in scn.firms])

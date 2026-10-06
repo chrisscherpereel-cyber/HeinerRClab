@@ -5,8 +5,10 @@ import streamlit as st
 
 from heiner_abm.experiment import PLAN, block_market, block_order
 from ui.common import CAT, hypothesis_card, style
+from ui.common import evidence_note
 
 st.title("Play the market")
+evidence_note("causal")
 st.caption("Run one firm in the same market as the agents, over three blocks of 25 periods. The data feed the "
            "Experiment analysis page, which classifies each person by the decision rule that predicts them best "
            "and tests whether people change their output less often when the market is harder to read.")

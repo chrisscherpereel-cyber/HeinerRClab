@@ -9,10 +9,13 @@ import streamlit as st
 from heiner_abm.analysis import confusion, ols
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges, prediction_table
 from heiner_abm.params import SELECTION_RULES
+from heiner_abm.terminology import IDENTITY_NOTE, OOS_OVERLAP_NOTE, rule_option
 from ui.common import (CAT, base_scenario, cached_rc_validation, download, hypothesis_card, measure_opts,
                        measurement, show_errors, style, to_json, verdict)
+from ui.common import evidence_note
 
 st.title("Does the reliability condition predict who benefits from flexibility?")
+evidence_note("simulation")
 hypothesis_card(
     "RC",
     "We generate many random market environments with heterogeneous firms and selection rules. For **every firm** "
@@ -23,6 +26,8 @@ hypothesis_card(
     "Predictions are scored with the **AUC** (area under the ROC curve): 0.5 = no better than a coin flip, "
     "1 = perfect. AUC is insensitive to how often flexibility pays in a given sample, and it is the "
     "signal-detection statistic Heiner (1986) used for r (hit rate) and w (false-alarm rate).")
+
+st.caption(IDENTITY_NOTE + " " + OOS_OVERLAP_NOTE)
 
 base = base_scenario()
 if not show_errors(base):
@@ -40,12 +45,13 @@ with st.form("rcv"):
     env_seed = c[2].number_input("Sampling seed", 0, 10**6, 12345,
                                   help="Seed for drawing the environments' parameters; the same seed gives the same set.")
     rules = c[3].multiselect("Production rules", ["Bertrand", "Cournot"], default=[base.firms[0].rule],
+                             format_func=rule_option,
                              help="Production rules environments may use; each environment picks one at random.")
     c = st.columns(4)
     delta = c[0].slider("Volatility Δ", 0.5, 40.0, (2.0, 30.0),
                         help="Range for cost volatility Δ, the max raw-material cost change per period.")
     margin = c[1].slider("Desired margin m*", -2.0, 25.0, (0.0, 16.0),
-                         help="Range for the Bertrand desired margin (competition intensity).")
+                         help="Range for the margin-feedback rule's desired margin (competition intensity).")
     cmax = c[2].slider("Max raw-material cost", 50.0, 99.0, (60.0, 95.0),
                        help="Range for the upper cost bound; lower values make the industry more profitable.")
     flex = c[3].slider("Flexibility φ", 0.0, 3.0, (0.1, 1.0),
@@ -58,7 +64,7 @@ with st.form("rcv"):
                             "Baseline firms have κ = 0.")
     hazard = c[2].slider("Regime-shift hazard λ (structural uncertainty)", 0.0, 0.15, (0.0, 0.0), step=0.005,
                          help="> 0 adds unannounced demand-regime shifts, so the regime can change between the "
-                              "estimation and evaluation windows (a Knightian stress test for the RC).")
+                              "estimation and evaluation windows (a structural-change stress test for the RC).")
     lag = c[3].slider("Model-updating lag L", 0, 100, (20, 20),
                       help="Range for how many periods Cournot firms keep the old demand curve after a regime shift. "
                            "Only matters when the hazard λ range is above 0.")
@@ -101,7 +107,7 @@ m[3].metric("Out-of-sample AUC, one-shot RC (H = 1)", f"{static_oos.auc:.3f}",
 
 if paid < 0.5:
     verdict("support", f"Flexibility **lost** to the rigid twin for {1 - paid:.0%} of firms in the evaluation window. "
-            "The traditional claim that flexibility always pays is rejected in these environments.")
+            "So the claim that flexibility always pays does not hold for these simulated firms in these environments.")
 if full_oos.lo > 0.5:
     verdict("support", f"The dynamic RC, estimated in the first window, **predicts** the second window's outcome "
             f"out of sample (AUC {full_oos.auc:.3f}, 95% CI {full_oos.lo:.3f}–{full_oos.hi:.3f}, excludes 0.5).")
@@ -188,7 +194,7 @@ if df["hazard"].max() > 0:
     st.dataframe(pd.concat(rows), hide_index=True, width="stretch",
                  column_config={c: st.column_config.NumberColumn(format="%.3f") for c in ("auc", "lo", "hi")})
     st.caption("Compare the out-of-sample AUC between environments with and without regime shifts. A drop means the "
-               "reliability learned in one regime does not carry over to the next: a Knightian limit on the RC.")
+               "reliability learned in one regime does not carry over to the next: a structural-change limit on the RC.")
 
 st.subheader("What drives the advantage of flexibility?")
 reg = df.dropna(subset=[f"inst_adv_est_{meas}"]).copy()

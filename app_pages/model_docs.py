@@ -175,6 +175,18 @@ for name, over in PRESETS.items():
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 replication_notice("presets", "preset_adaptive")
 
+st.header("Established theory, reduced form and proposed extensions", divider="gray")
+st.markdown("Each part of the laboratory is in one of three classes. **Established theory**: a published result, used or "
+            "reproduced as stated. **Reduced-form implementation**: the laboratory's stylized stand-in for a market "
+            "feature or a theory's mechanism, a modeling choice rather than a claim of the cited work. **Proposed "
+            "extension**: a construct the laboratory adds; its results test that construct, not the original theory.")
+from heiner_abm.claim_status import COMPONENTS, STATUS_LABELS  # noqa: E402
+from heiner_abm.literature import REFERENCES as _REFS  # noqa: E402
+st.dataframe(pd.DataFrame([{
+    "Status": STATUS_LABELS[c.status], "Component": c.name, "What it is": c.what,
+    "Sources": "; ".join(_REFS[k].cite for k in c.sources) or "the laboratory's own", "Where": c.where}
+    for c in COMPONENTS]), hide_index=True, width="stretch")
+
 st.header("Status of reported findings without a frozen plan", divider="gray")
 st.markdown("Findings from a frozen plan are tied to its hash. The findings below were produced without one, so each is "
             "tied to a fingerprint of the source files that produce it. When those files change, the finding is "

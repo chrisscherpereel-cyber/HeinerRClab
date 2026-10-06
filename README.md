@@ -457,6 +457,23 @@ ui/common.py               sidebar base scenario, presets, caching, chart helper
 app_pages/*.py             the Streamlit pages
 ```
 
+## Established theory, reduced form and proposed extensions
+
+`heiner_abm/claim_status.py` classifies every part of the laboratory, and the *Model & methods* page shows the table.
+
+* **Established theory** (used or reproduced as published): the reliability condition (Heiner 1983); the
+  partial-adjustment bound β₀ (Heiner 1989); optimal filtering of a random walk (Muth 1960; Kalman 1960); cobweb
+  cycles and their damping (Ezekiel 1938; Nerlove 1958); logit rule choice (Brock & Hommes 1997); imitation of the
+  best (Vega-Redondo 1997).
+* **Reduced-form implementations** (modeling choices, not claims of the cited work): the stylized market; the
+  model-based and model-free production rules; difficulty and competence as Δ, rivals, demand shifts, κ and σ;
+  Knightian uncertainty as unannounced regime shifts; each rival theory as one or two agent designs with stylized
+  directional predictions.
+* **Proposed extensions** (the laboratory's own constructs): the H-period forked measurement of the reliability
+  condition and its decomposition; the reliability condition as a decision rule learned from experience; the oracle
+  versus learned decomposition; the error-to-signal boundary K ≈ 1; the lopsided-stakes test against certainty
+  equivalence. Results about these test the laboratory's operationalization, not Heiner's theory as published.
+
 ## Modeling notes
 
 * The core model is a cobweb oligopoly: firms commit to output before a random raw-material cost is realized, using

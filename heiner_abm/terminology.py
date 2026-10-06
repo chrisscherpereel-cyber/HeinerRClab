@@ -127,6 +127,8 @@ EVIDENCE_BY_RESULT: List[Tuple[str, str, str]] = [
     ("Competing theories: out-of-sample forecasts of which simulated firms benefit", "simulation",
      "Out of sample within the simulation, not behavioral prediction."),
     ("Agent tournament, mechanism study, rule choice, generalization", "simulation", ""),
+    ("Reliability gates under uncertainty (proposed extension)", "simulation",
+     "Compares the laboratory's own selection gates; lower-bound coverage is measured, not assumed."),
     ("Field patterns", "simulation",
      "Qualitative comparison of simulated output with documented empirical patterns; not a fit to data."),
     ("Calibration recovery on synthetic subjects", "simulation", "Checks the fitting method, not people."),

@@ -19,19 +19,25 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from . import gates
 from .information import Observation
 from .params import Scenario, FirmSpec
 
 DECISION_SCHEDULE = """
 Period t (t = 1, ..., T - 1):
 
+ 0. Change response (AdaptiveParams.on_change = "reset" only). If the firms' information at t shows that the
+    environment changed (an announced shift, or a change of the demand curve they are given), every firm discards its
+    feedback statistics and its pending feedback decided before t (heiner_abm.gates.change_signal).
  1. Decide. Each firm receives an Observation (heiner_abm.information) built from what it has observed under the
     scenario's information specification: the market outcomes of period s = t - 1 - delay (price and market output,
     with observation noise; the cost c[s]; its own output and payoff; rivals' individual outputs and payoffs if
     visible), its current output, the demand curve it may use (believed, true or none; updated at once if shifts
     are announced) and its cost estimate c_hat[t] = c[s] + kappa * (c[t] - c[s]) + sigma * eps[t]. Cost foresight
     kappa is a competence parameter: a firm with kappa > 0 anticipates that share of the coming cost change (kappa = 0
-    in the baseline). Its selection rule uses its learned table as it stood at the end of period t - 1.
+    in the baseline). Its selection rule uses its learned table as it stood at the end of period t - 1; the Adaptive
+    rule's gate (heiner_abm.gates) turns that table into adopt / keep / uncertain per size bin, and an uncertain
+    decision of the explore gate is a randomized trial if the period's exploration draw says so.
  2. Clear. The market clears on the true demand curve, P[t] = max(Pmin, Pmax[t] - s[t] * Q[t]); the cost c[t] is
     realized and every firm books profit (P[t] - c[t]) * q - F.
  3. Researcher evaluation (never visible to agents). The market is forked at t and each firm's decision is valued
@@ -42,13 +48,17 @@ Period t (t = 1, ..., T - 1):
       estimated (default): matures at t + W - 1 (W = AdaptiveParams.window); its gain accumulates period by period,
                            up to maturity, from what the firm observes (rivals' observed output, realized cost,
                            believed demand);
-      oracle (researcher-only diagnostic): the researcher's H-period counterfactual of step 3, matures at t + H - 1.
-    Each pending estimated item that has not yet matured then adds period t's observed term.
+      oracle (researcher-only diagnostic): the researcher's H-period counterfactual of step 3, matures at t + H - 1;
+      chosen (explore gate, randomized trials only): the firm's own realized payoff over t .. t + W - 1 minus, in each
+                           period, its payoff in the period s observed at decision time with the cost updated to the
+                           realized cost (pi_s - q_s (c - c_s)); matures at t + W - 1.
+    Each pending estimated or chosen item that has not yet matured then adds period t's term.
  5. Release. Every pending item whose release period, maturity + observation delay, is t is released to its firm, in
     order of decision time, and updates the firm's learned table. Released feedback is first used in the decisions
     of period t + 1. Items that would be released after the last period T - 1 are never released (no partial
-    feedback). Chosen-action and full feedback carry no counterfactual for the Adaptive rule, which the information
-    specification therefore rejects under those treatments.
+    feedback). Chosen-action and full feedback carry no counterfactual for the estimated-gain and confidence-sensitive
+    gates, which the information specification therefore rejects under those treatments; the explore gate learns only
+    from chosen-action feedback under every treatment.
  6. Evolution (if enabled): firms revise flexibility by imitating the most profitable rival over the window just
     ended (realized profits only).
 
@@ -173,7 +183,16 @@ class Firm:
         self.q = scn.firm_globals.q0
         self.bin_edges = np.asarray(scn.adaptive.bin_edges, dtype=float)
         self.memory = scn.adaptive.memory
-        self.learned_gain = np.zeros(len(self.bin_edges) + 1)
+        nb = len(self.bin_edges) + 1
+        self.learned_gain = np.zeros(nb)
+        self.stats = np.zeros((gates.N_STATS, nb))            # estimated / oracle feedback (heiner_abm.gates)
+        self.trials = np.zeros((2, gates.N_STATS, nb))        # explore gate: arm 0 keep, arm 1 adopt
+        ad = scn.adaptive
+        self.gate = ad.gate
+        self.gate_args = dict(lam=ad.memory, cost=ad.adjust_cost, conf=ad.confidence, nmin=ad.min_evidence,
+                              table=np.asarray(ad.oracle_table[idx], float) if ad.gate == "oracle_table" else None)
+        self.explore_rate = ad.explore_rate
+        self.gated: Optional[dict] = None       # the gate's table at the last decision (adv. prediction per bin)
         self.last: Decision | None = None
 
     def set_flex(self, flex: float, scn: Scenario):
@@ -204,7 +223,12 @@ class Firm:
     def _bin(self, change: float) -> int:
         return int(np.searchsorted(self.bin_edges, change, side="right"))
 
-    def select(self, rec: float) -> bool:
+    def gate_table(self) -> dict:
+        """Mode (keep / adopt / uncertain) and predicted advantage per size bin, from released feedback only."""
+        return gates.gate_table(self.gate, self.learned_gain, self.stats, self.trials, **self.gate_args)
+
+    def select(self, rec: float, draw=(1.0, 1.0)) -> bool:
+        """`draw`: this period's two exploration uniforms (explore gate only)."""
         change = abs(rec - self.q)
         rule = self.spec.selection
         if rule == "Always":
@@ -216,19 +240,34 @@ class Firm:
         if rule == "Large":
             return change > self.spec.threshold
         if rule == "Adaptive":
-            return change > 0 and self.learned_gain[self._bin(change)] >= 0.0
+            self.gated = self.gate_table()
+            mode = int(self.gated["mode"][self._bin(change)])
+            trial_adopt = mode == gates.UNCERTAIN and draw[0] < self.explore_rate and draw[1] < 0.5
+            return bool(change > 0 and (mode == gates.ADAPT or trial_adopt))
         raise ValueError(rule)
 
-    def decide(self, obs: Observation) -> Decision:
-        """Decide from an Observation only (see heiner_abm.information)."""
+    def decide(self, obs: Observation, draw=(1.0, 1.0)) -> Decision:
+        """Decide from an Observation (see heiner_abm.information) and, for the explore gate, this period's
+        exploration draws."""
         rec, best = self.recommend(obs)
-        dev = self.select(rec)
+        dev = self.select(rec, draw)
         self.last = Decision(rec, self.q, dev, rec if dev else self.q, obs.cost_estimate, best)
         return self.last
 
     # --- learning: only from released (matured) feedback, see DECISION_SCHEDULE --------------------------------
     def learn_bin(self, b: int, gain_from_rule: float):
         self.learned_gain[b] = self.memory * self.learned_gain[b] + (1 - self.memory) * gain_from_rule
+        self.stats[:, b] = gates.update(self.stats[:, b], gain_from_rule, self.memory)
+
+    def learn_trial(self, arm: int, b: int, reward: float):
+        """Explore gate: the realized (baseline-adjusted) payoff of a randomized trial."""
+        self.trials[arm, :, b] = gates.update(self.trials[arm, :, b], reward, self.memory)
+
+    def forget(self):
+        """Discard every feedback statistic (response to an observed environmental change)."""
+        self.learned_gain[:] = 0.0
+        self.stats[:] = 0.0
+        self.trials[:] = 0.0
 
 
 class _History:
@@ -256,16 +295,22 @@ class PendingFeedback:
     bin: int              # size-of-change bin of the decision
     x1: float             # recommended output (the deviation)
     x0: float             # previous output (rule B)
-    kind: str             # "estimated" or "oracle"
+    kind: str             # "estimated", "oracle" or "chosen" (explore gate's randomized trial)
     gain: float = 0.0     # estimated: accumulated period by period up to maturity; oracle: the researcher's counterfactual
     release: int = 0      # maturity + observation delay: the period at whose end it is released
+    arm: int = -1         # chosen: 1 if the trial adopted q*, 0 if it kept q
+    q_base: float = 0.0   # chosen: own output in the period observed at decision time
+    c_base: float = 0.0   # chosen: cost of that period
 
 
 class Industry:
     """Runs one market populated by heterogeneous firm agents and records everything.
 
     feedback_log lists every released item as (released_at, firm, decided, matures, bin, gain, kind);
-    learned_path[t] is every firm's learned table at the end of period t (after release)."""
+    learned_path[t] is every firm's learned table at the end of period t (after release). For every decision h also
+    records the gate's prediction (adv_pred, adv_se, adv_bound, adv_neff; NaN without evidence), whether it was a
+    randomized trial (explored), whether evidence was reset (reset), and the feedback later released about it
+    (fb_value, fb_release; NaN / -1 if none was released)."""
 
     def __init__(self, scn: Scenario, horizon: int = 1, continuation: str = "default", discount: float = 1.0):
         scn.check_runnable()
@@ -282,6 +327,11 @@ class Industry:
                   ("q", "rec", "profit", "profit_rule", "profit_default", "c_hat", "flex", "best_reply")}
         self.h["deviate"] = np.zeros(shape, dtype=bool)
         self.h["opportunity"] = np.zeros(shape, dtype=bool)
+        for k in ("adv_pred", "adv_se", "adv_bound", "adv_neff", "fb_value"):
+            self.h[k] = np.full(shape, np.nan)
+        self.h["fb_release"] = np.full(shape, -1)
+        self.h["explored"] = np.zeros(shape, dtype=bool)
+        self.h["reset"] = np.zeros(T, dtype=bool)
         self.price = np.zeros(T)
         self.quantity = np.zeros(T)
         self.window_profit = np.zeros(n)
@@ -292,6 +342,14 @@ class Industry:
         self.feedback_log: List[Tuple[int, int, int, int, int, float, str]] = []
         self.learned_path = np.zeros((T, n, len(scn.adaptive.bin_edges) + 1))
         self._learning = any(f.selection == "Adaptive" for f in scn.firms)
+        ad = scn.adaptive
+        self.gate = ad.gate
+        self.xdraw = gates.exploration_draws(scn.seed, T, n) if ad.gate == "explore" else None
+        self.change = (gates.change_signal(scn, self.market.belief_p_max, self.market.belief_slope, self.market.shift)
+                       if ad.on_change == "reset" else np.zeros(T, dtype=bool))
+
+    def draw(self, t: int, i: int):
+        return (self.xdraw[0, t, i], self.xdraw[1, t, i]) if self.xdraw is not None else (1.0, 1.0)
 
     def run(self) -> "Industry":
         scn, mk, firms = self.scn, self.market, self.firms
@@ -307,7 +365,12 @@ class Industry:
 
         actual = _History(self.price, self.quantity, self.h["q"], self.h["profit"])
         for t in range(1, scn.periods):
-            decisions = [f.decide(self.observe(i, t, actual, f)) for i, f in enumerate(firms)]
+            if self.change[t] and self._learning:          # the firms see a change: discard old evidence (step 0)
+                self.h["reset"][t] = True
+                for f in firms:
+                    f.forget()
+                self.pending = deque()
+            decisions = [f.decide(self.observe(i, t, actual, f), self.draw(t, i)) for i, f in enumerate(firms)]
             for f, d in zip(firms, decisions):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)
@@ -344,6 +407,12 @@ class Industry:
                 h["opportunity"][t, i] = d.recommended != d.current
                 h["flex"][t, i] = f.flex
                 h["best_reply"][t, i] = d.best_reply
+                if f.spec.selection == "Adaptive" and f.gated is not None:
+                    b = f._bin(abs(d.recommended - d.current))
+                    for k, key in (("adv_pred", "pred"), ("adv_se", "se"), ("adv_bound", "bound"),
+                                   ("adv_neff", "neff")):
+                        h[k][t, i] = f.gated[key][b]
+                    h["explored"][t, i] = self._is_trial(t, i, f, d)
                 self.window_profit[i] += profit
             # 3) feedback: queue this period's decisions, accumulate, release what has matured
             if self._learning:
@@ -377,7 +446,19 @@ class Industry:
                            regime_announced=bool(mk.shift[t]) if info.regime_announced else None, rivals=rivals)
 
     # --- feedback -----------------------------------------------------------------------------------------------
+    def _is_trial(self, t: int, i: int, f: Firm, d: Decision) -> bool:
+        """Whether firm i's decision at t was a randomized trial of the explore gate."""
+        if self.gate != "explore" or d.recommended == d.current or f.spec.selection != "Adaptive":
+            return False
+        mode = int(f.gated["mode"][f._bin(abs(d.recommended - d.current))])
+        return bool(mode == gates.UNCERTAIN and self.xdraw[0, t, i] < f.explore_rate)
+
     def _queue_feedback(self, t: int, decisions: List[Decision], evaluated):
+        if self.gate == "oracle_table":
+            return                                  # the benchmark does not learn
+        if self.gate == "explore":
+            self._queue_trials(t, decisions)
+            return
         kind = self.scn.info.feedback
         for i, (f, d) in enumerate(zip(self.firms, decisions)):
             if d.recommended == d.current:
@@ -392,13 +473,36 @@ class Industry:
             item.release = item.matures + self.delay
             self.pending.append(item)
 
+    def _queue_trials(self, t: int, decisions: List[Decision]):
+        """Explore gate: queue each randomized trial. Its feedback is the firm's own realized payoff over the
+        judgement window minus a baseline that does not depend on the trial's action: in each period t', the payoff it
+        had observed when deciding (period s) with the cost updated to the realized cost, pi_s - q_s (c_t' - c_s).
+        Costs are exogenous and observed, so the comparison of the two randomized arms stays unbiased while the cost
+        shocks common to both arms are removed. No demand model or counterfactual is used."""
+        W = int(self.scn.adaptive.window)
+        s = max(t - 1 - self.delay, 0)
+        for i, (f, d) in enumerate(zip(self.firms, decisions)):
+            if not self.h["explored"][t, i]:
+                continue
+            item = PendingFeedback(i, t, t + W - 1, f._bin(abs(d.recommended - d.current)), float(d.recommended),
+                                   float(d.current), "chosen", 0.0 - W * self.h["profit"][s, i],
+                                   arm=int(d.deviate), q_base=float(self.h["q"][s, i]),
+                                   c_base=float(self.market.costs[s]))
+            item.release = item.matures + self.delay
+            self.pending.append(item)
+
     def _accumulate_observable(self, t: int):
         """Add period t's observed term to every pending estimated item that has not yet matured (rivals' observed
         output, realized cost, prices on the firm's believed demand curve). Mirrored exactly by engine._observed_term."""
         mk, lo = self.market, self.scn.market.p_min
         pm, sl, c = mk.belief_p_max[t], mk.belief_slope[t], mk.costs[t]
         for item in self.pending:
-            if item.kind != "estimated" or item.matures < t:
+            if item.matures < t:
+                continue
+            if item.kind == "chosen":                   # own realized payoff and realized cost (both observed)
+                item.gain = item.gain + (self.h["profit"][t, item.firm] + item.q_base * (c - item.c_base))
+                continue
+            if item.kind != "estimated":
                 continue
             Q = self.quantity[t] + (self.obs_nz[1, t, item.firm] if self.obs_nz is not None else 0.0)
             R = Q - self.h["q"][t, item.firm]
@@ -411,7 +515,12 @@ class Industry:
         while self.pending:
             item = self.pending.popleft()
             if item.release == t:
-                self.firms[item.firm].learn_bin(item.bin, item.gain)
+                if item.kind == "chosen":
+                    self.firms[item.firm].learn_trial(item.arm, item.bin, item.gain)
+                else:
+                    self.firms[item.firm].learn_bin(item.bin, item.gain)
+                self.h["fb_value"][item.decided, item.firm] = item.gain
+                self.h["fb_release"][item.decided, item.firm] = t
                 self.feedback_log.append((t, item.firm, item.decided, item.matures, item.bin, item.gain, item.kind))
             else:
                 keep.append(item)
@@ -435,7 +544,7 @@ class Industry:
         w = 1.0
         for tt in range(t + 1, min(t + self.horizon, T)):
             w *= self.discount
-            ds = [f.decide(self.observe(i, tt, hist, f)) for i, f in enumerate(firms)]
+            ds = [f.decide(self.observe(i, tt, hist, f), self.draw(tt, i)) for i, f in enumerate(firms)]
             for f, d in zip(firms, ds):
                 f.q = d.chosen
             Q = sum(f.q for f in firms)

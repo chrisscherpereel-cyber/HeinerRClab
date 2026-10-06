@@ -96,6 +96,17 @@ class AdaptiveParams:
     bin_edges: tuple = (5.0, 15.0, 30.0, 60.0)   # |q* - q| bin boundaries
     memory: float = 0.97                          # exponential forgetting (lambda)
     window: int = 20                              # periods over which an observable judgement is made (>= 1)
+    # Selection gate (heiner_abm.gates; the gates other than "gain" are proposed extensions). Defaults reproduce the
+    # rule before the gates were added.
+    gate: str = "gain"            # "gain" (existing), "lcb", "explore" or "oracle_table" (ORACLE benchmark)
+    adjust_cost: float = 0.0      # c: cost of one adaptation, compared with the advantage; kept apart from uncertainty.
+    #                               An accounting cost: it does not change prices or market profit (which evolution
+    #                               imitates); the gate study subtracts it in its net payoff.
+    confidence: float = 0.9       # one-sided level of the lower bound (lcb, explore); 0.5 = point estimate
+    min_evidence: float = 5.0     # effective feedback items per bin (lcb) or per arm (explore) before deciding (>= 2)
+    explore_rate: float = 0.2     # explore: probability that an uncertain decision is a randomized trial
+    on_change: str = "forget"     # "forget": exponential memory only; "reset": discard evidence when a change is seen
+    oracle_table: tuple = ()      # oracle_table gate only: per firm, true mean advantage per bin (independent runs)
 
 
 @dataclass
@@ -165,8 +176,38 @@ class Scenario:
         errs += self.info_errors()             # information spec: engine support and every agent's needs
         if int(self.adaptive.window) < 1:
             errs.append("The Adaptive judgement window must be at least one period.")
+        errs += self.gate_errors()
         if self.burn_in >= self.periods - 2:
             errs.append("Burn-in must end before the simulation does.")
+        return errs
+
+    def gate_errors(self) -> List[str]:
+        """Settings of the Adaptive rule's selection gate (heiner_abm.gates)."""
+        from .gates import GATES, ON_CHANGE
+        ad, errs = self.adaptive, []
+        if ad.gate not in GATES:
+            errs.append(f"Unknown Adaptive gate {ad.gate!r} (choose one of {', '.join(GATES)}).")
+        if not 0.0 < ad.memory <= 1.0:
+            errs.append("The Adaptive memory λ must be in (0, 1].")
+        if ad.adjust_cost < 0:
+            errs.append("The adjustment cost cannot be negative.")
+        if not 0.5 <= ad.confidence < 1.0:
+            errs.append("The confidence level must be at least 0.5 and below 1.")
+        if ad.min_evidence < 2:
+            errs.append("The minimum evidence must be at least 2 effective feedback items (a variance needs two).")
+        if not 0.0 <= ad.explore_rate <= 1.0:
+            errs.append("The exploration rate must be between 0 and 1.")
+        if ad.on_change not in ON_CHANGE:
+            errs.append(f"Unknown response to environmental change {ad.on_change!r} (choose one of "
+                        f"{', '.join(ON_CHANGE)}).")
+        if ad.gate == "oracle_table":
+            nb = len(ad.bin_edges) + 1
+            if len(ad.oracle_table) != self.n_firms or any(len(r) != nb for r in ad.oracle_table):
+                errs.append(f"The ORACLE benchmark gate needs a table of {self.n_firms} firms x {nb} bins "
+                            "(heiner_abm.gate_study.oracle_table).")
+        elif len(ad.oracle_table):
+            errs.append("An ORACLE table may be used only by the oracle_table benchmark gate; ordinary gates must not "
+                        "receive oracle information.")
         return errs
 
     def info_errors(self) -> List[str]:

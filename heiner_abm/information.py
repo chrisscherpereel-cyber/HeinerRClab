@@ -226,9 +226,17 @@ AGENTS: List[Needs] = [
     _a("Never", "Selection: Never (rule B)", "market", uses="nothing"),
     _a("Small", "Selection: Small (SR1)", "market", uses="size of the recommended change"),
     _a("Large", "Selection: Large (SR2)", "market", uses="size of the recommended change"),
-    _a("Adaptive", "Selection: Adaptive (learned reliability)", "market", feedback=("estimated", "oracle"),
-       estimate_needs_demand=True,
+    _a("Adaptive", "Selection: Adaptive (learned reliability) · estimated-gain gate", "market",
+       feedback=("estimated", "oracle"), estimate_needs_demand=True,
        uses="learned gains per size bin; feedback about past deviations"),
+    _a("Adaptive:lcb", "Selection: Adaptive · confidence-sensitive gate (proposed extension)", "market",
+       feedback=("estimated", "oracle"), estimate_needs_demand=True,
+       uses="mean, standard error and effective number of feedback items per size bin; adjustment cost"),
+    _a("Adaptive:explore", "Selection: Adaptive · exploration-enabled gate (proposed extension)", "market",
+       feedback=("chosen",),
+       uses="its own realized payoffs after randomized trials (adopt or keep) per size bin; adjustment cost"),
+    _a("Adaptive:oracle_table", "Selection: Adaptive · ORACLE benchmark gate", "market", feedback=("oracle",),
+       oracle=True, uses="true mean advantage per size bin, estimated by the researcher from independent runs"),
     _a("evolution", "Evolution of flexibility (imitation)", "market", rivals_visible=True,
        uses="every firm's realized profit and flexibility"),
     # tournament engine
@@ -322,11 +330,16 @@ def compatibility(agent: Needs, spec: InfoSpec, engine: Optional[str] = None) ->
     return Compatibility("unsupported" if reasons else "supported", tuple(reasons), alt)
 
 
+def adaptive_key(gate: str) -> str:
+    """Registry key of the Adaptive rule with a given selection gate (heiner_abm.gates)."""
+    return "Adaptive" if gate == "gain" else f"Adaptive:{gate}"
+
+
 def market_agents(scn) -> List[Needs]:
     """The market-lab agents a scenario uses: production rules, selection rules and evolution."""
     keys = []
     for f in scn.firms:
-        keys += [f.rule, f.selection]
+        keys += [f.rule, adaptive_key(scn.adaptive.gate) if f.selection == "Adaptive" else f.selection]
     if scn.evolution.enabled:
         keys.append("evolution")
     return [AGENT_BY_KEY[("market", k)] for k in dict.fromkeys(keys)]

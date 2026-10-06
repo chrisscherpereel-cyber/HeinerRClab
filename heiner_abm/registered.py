@@ -281,16 +281,24 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   specification every finding was rerun (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42, presets,
 #   horse_race; signature tests at the Full scale; field patterns at the registered settings) and every output was
 #   identical. Re-fingerprinted.
+# * 6 October 2026, selection gates for the Adaptive rule (gates.py added; agents.py, engine.py, params.py changed;
+#   gates.py added to the sources of the four market findings). The default gate ("gain", no adjustment cost) is meant
+#   to reproduce the earlier rule; the six findings were listed in REPLICATION_REQUIRED until rerun. Rerun on the
+#   committed code against the code of commit 2bcff32 (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42,
+#   horse_race, presets; signature tests at the Full scale; field patterns at the page defaults): every output was
+#   byte-identical. Re-fingerprinted and removed from REPLICATION_REQUIRED.
+# * 6 October 2026, params.py: the validation rule rejecting an adjustment cost together with evolution was removed
+#   (no computation changed). Rerun on commit 1f96ca1 as above: every output byte-identical. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
-                    ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py", "theories.py")),
+                    ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py", "theories.py")),
     "horse_race": ("Competing theories: out-of-sample forecasts of which firms beat their rigid twin (AUC)",
-                   ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                   ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "presets": ("Typical results of the preset scenarios without Adaptive agents (sidebar preset descriptions)",
-                ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "preset_adaptive": ("Typical result of the reliability-learning (Adaptive) preset",
-                        ("agents.py", "engine.py", "params.py", "analysis.py", "experiments.py")),
+                        ("agents.py", "engine.py", "params.py", "gates.py", "analysis.py", "experiments.py")),
     "special": ("Signature tests by theory",
                 ("arena.py", "rulechoice.py", "special.py", "analysis.py", "agents.py", "params.py", "#tuned")),
     "patterns": ("Field patterns (pattern-oriented validation)",
@@ -300,12 +308,12 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "8d87542d3ea8894e",
-    "horse_race": "8fd7c314f65f314e",
-    "presets": "8fd7c314f65f314e",
-    "preset_adaptive": "8fd7c314f65f314e",
-    "special": "e91aba824acd51bd",
-    "patterns": "1e174e87d47d968e",
+    "directional": "3aaf67e36bfd8ad4",
+    "horse_race": "94b4811784863c0a",
+    "presets": "94b4811784863c0a",
+    "preset_adaptive": "94b4811784863c0a",
+    "special": "fe941bd62d094bfe",
+    "patterns": "c0170ac4448cec4c",
     "calibration": "854400653fe42159",
 }
 

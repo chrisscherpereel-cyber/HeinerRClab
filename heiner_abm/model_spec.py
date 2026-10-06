@@ -70,13 +70,36 @@ MARKET_LAB: List[Spec] = [
     Spec("Market lab · selection rule", "Adaptive (learned reliability)", "Adaptive",
          "Deviate from rule B only for sizes of change where deviating has paid",
          "Its learned table of gains per size bin (5 bins)",
-         "Adopt q* if the learned gain for that size is ≥ 0",
+         "Adopt q* if the learned gain for that size is ≥ the adjustment cost c (0 by default; estimated-gain gate)",
          "Estimated counterfactual (default): released W periods after each decision (plus any observation delay); "
          "the gain of holding q* vs q, with rivals' observed output, realized costs and its believed demand curve. "
          "Oracle treatment (researcher-only): the forked counterfactual, released after H periods. Not run under "
          "chosen-action feedback (it needs a counterfactual)",
          "Exponential memory λ; judgement window W",
          "Judges with a possibly misspecified demand model; learning is noisy when the environment shifts"),
+    Spec("Market lab · selection gate (proposed extension)", "Adaptive · confidence-sensitive gate", "Adaptive:lcb",
+         "Adopt q* only where the advantage over rule B reliably exceeds the adjustment cost c",
+         "Weighted mean, standard error and effective number of feedback items per size bin",
+         "Adopt q* if n_eff ≥ minimum evidence and mean − t·s.e. > c; otherwise keep q",
+         "As the Adaptive rule: estimated counterfactual released W periods after each decision (oracle treatment "
+         "only if chosen); not run under chosen-action feedback",
+         "Student-t bound with Kish effective sample size; nominal only for independent feedback with a common mean",
+         "Overlapping judgement windows, drift and shifts make the bound optimistic; coverage is measured, not assumed"),
+    Spec("Market lab · selection gate (proposed extension)", "Adaptive · exploration-enabled gate", "Adaptive:explore",
+         "Learn whether adopting pays from its own payoffs, without counterfactual feedback",
+         "Its own payoffs after randomized trials per size bin (arm adopt / arm keep)",
+         "Adopt if the lower bound > c, keep if the upper bound ≤ c; otherwise a randomized trial with probability "
+         "explore_rate (adopt or keep, 1/2 each), else keep q",
+         "Chosen-action: own realized payoff over W periods minus its pre-decision payoff at the realized cost, "
+         "released W periods later (plus any delay); only randomized trials are evidence",
+         "Randomized trials (separate random stream); Welch–Satterthwaite interval for the difference of arms",
+         "Trials cost payoff; stops randomizing once confident (optional stopping); with W > 1 its target includes its "
+         "own later decisions"),
+    Spec("Market lab · selection gate (benchmark)", "Adaptive · ORACLE benchmark gate", "Adaptive:oracle_table",
+         "Adopt q* where the true bin advantage exceeds c", "ORACLE: true mean advantage per firm and size bin, "
+         "estimated by the researcher's counterfactuals in independent runs", "Adopt q* if the table value > c",
+         "None (does not learn)", "ORACLE table accepted by no other gate",
+         "Decides per bin, so it is a benchmark, not an upper bound"),
     Spec("Market lab · evolution", "Imitation of flexibility", "evolution",
          "Copy the flexibility φ of the most profitable firm", "Every firm's realized profit over the last window",
          "Set φ (with probability p) plus mutation", "Realized window profits",

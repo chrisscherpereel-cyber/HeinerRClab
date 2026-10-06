@@ -80,7 +80,12 @@ st.markdown(
 | **Never** | never (rule B only, rigid) | rule-governed behavior (Heiner 1983) |
 | **Small** (SR1) | \\|q* − q\\| < θ ("change is risky") | incrementalism (Lindblom 1959) |
 | **Large** (SR2) | \\|q* − q\\| > θ ("big imbalances send clear signals") | signal detection, (S, s) inaction bands (Green & Swets 1966; Scarf 1960) |
-| **Adaptive** | its learned average gain for this size of change ≥ 0 (exponential memory λ, 5 size bins, judged from observed outcomes over W periods) | reinforcement learning (Erev & Roth 1998) |
+| **Adaptive** | its learned average gain for this size of change ≥ the adjustment cost c (0 by default; exponential memory λ, 5 size bins, judged from observed outcomes over W periods) | reinforcement learning (Erev & Roth 1998) |
+
+*Proposed extension:* the Adaptive rule's decision can instead be made by a **confidence-sensitive gate** (adopt only
+with a minimum of effective evidence and a lower confidence bound on the advantage above c) or an
+**exploration-enabled gate** (randomized trials, learning only from its own payoffs), compared with an ORACLE
+benchmark on the *Reliability gates under uncertainty* page. Recommendations are the same in every gate.
 """)
 
 st.header("Measuring Heiner's quantities", divider="gray")

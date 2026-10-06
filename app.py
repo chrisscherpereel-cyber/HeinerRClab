@@ -41,6 +41,7 @@ SECTIONS = {
         st.Page("app_pages/dynamic_rc.py", title="Heiner: dynamic RC (1989)", icon="⏱️"),
         st.Page("app_pages/cd_gap.py", title="Heiner: CD-gap explorer", icon="🧭"),
         st.Page("app_pages/mechanisms.py", title="Heiner: mechanisms (oracle vs learned)", icon="🔬"),
+        st.Page("app_pages/reliability_gates.py", title="Reliability gates under uncertainty (extension)", icon="🚦"),
         st.Page("app_pages/tracking.py", title="Heiner vs optimal filtering (Muth–Kalman)", icon="📐"),
     ],
     "Validate & generalize": [

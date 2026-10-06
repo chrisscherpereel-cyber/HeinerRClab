@@ -167,11 +167,17 @@ def test_measures_coincide_at_horizon_one():
 
 
 def test_windows_partition_recorded_periods():
-    r = run_batch([_mixed()], horizon=3)
-    for m in MEASURES:
-        for k in ("n_opp", "n_pe", "n_dev_pe", "sum_profit", "sum_gain_pe"):
-            np.testing.assert_allclose(r.accs[(m, "est")][k] + r.accs[(m, "eval")][k], r.accs[(m, "all")][k],
-                                       err_msg=f"{m} {k}")
+    """One-period measure: estimation + evaluation = all recorded periods. H-period measures leave a gap of H - 1
+    periods before the evaluation window (tests/test_oos_gap.py), so estimation + gap + evaluation = all."""
+    H = 3
+    r = run_batch([_mixed()], horizon=H)
+    for k in ("n_opp", "n_pe", "n_dev_pe", "sum_profit", "sum_gain_pe"):
+        np.testing.assert_allclose(r.accs[("static", "est")][k] + r.accs[("static", "eval")][k],
+                                   r.accs[("static", "all")][k], err_msg=k)
+    for m in ("persist", "full"):
+        np.testing.assert_allclose(r.accs[(m, "eval")]["n_rec"], r.accs[("static", "eval")]["n_rec"])
+        np.testing.assert_allclose(r.accs[(m, "est")]["n_rec"] + (H - 1) + r.accs[(m, "eval")]["n_rec"],
+                                   r.accs[(m, "all")]["n_rec"])
 
 
 def test_persistence_gain_brute_force():

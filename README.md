@@ -52,9 +52,10 @@ interpretations have been narrowed to what they test.
 **Verification versus validation.** The test suite checks the RC accounting identity (realized deviation gains equal
 correct-deviation gains minus wrong-deviation losses). That verifies internal consistency and is true by
 construction. Predictive validation needs estimates fixed before the outcomes they predict; the RC validation page
-estimates the condition in the first part of each run and predicts the second. Its estimation-window gains are
-measured over H periods, so the last H − 1 estimation decisions use costs from the start of the evaluation window
-(19 of about 490 decisions at H = 20); the two windows therefore overlap slightly.
+estimates the condition in the first part of each run and predicts the second. Because the H-period gains of a
+decision cover periods t … t + H − 1, the estimation window for those measures ends H − 1 periods before the
+evaluation window starts, so no estimate uses an outcome it is meant to predict (`tests/test_oos_gap.py`). Until
+6 October 2026 the windows overlapped by H − 1 periods (19 of about 490 estimation decisions at H = 20).
 
 **Frozen plans versus preregistration.** A *frozen hashed specification* fixes a plan in the code; its hash
 identifies the plan and code that produced a result. *Externally timestamped prospective preregistration* deposits
@@ -261,8 +262,14 @@ production rules; simulation comparison, not behavioral prediction): the dynamic
 RC was the best theory-based forecast of which firms beat their rigid twin (AUC 0.60, 95% CI 0.55–0.65), ahead of
 cobweb stability (0.55), stakes only (0.55), Heiner's K (0.55), accuracy only (0.54) and real options (0.47). A firm's
 own track record in the first half of the run was far better (AUC 0.85), and adding the RC to all rival forecasts
-combined changed cross-validated AUC by +0.000 (95% CI −0.004 to +0.005). Heiner's one-shot (one-period) RC scored
+combined changed cross-validated AUC by +0.000 (95% CI −0.0045 to +0.0045). Heiner's one-shot (one-period) RC scored
 only 0.54. (Sampling seed 12345, base-scenario seed 1, H = 20, full measure.)
+
+*Revision note (6 October 2026, estimation gap).* The estimation window of the H-period measures now ends H − 1
+periods before the evaluation window, so that no estimate uses an outcome it predicts. Rerun: dynamic RC 0.602 →
+0.601 [0.554, 0.651], stakes only 0.550 → 0.548, accuracy only 0.536 → 0.539; every other forecast, the track record
+and the one-shot RC are unchanged (they need no gap), and the encompassing gain stays +0.000 (CI −0.0044/+0.0048 →
+−0.0045/+0.0045). The directional tournament does not use the windows and was unchanged.
 
 ## Agent tournament: results under the frozen plan
 

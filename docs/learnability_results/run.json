@@ -1,0 +1,19 @@
+{
+ "plan_hash": "ec9b781e125e289d",
+ "hyperparameters": {
+  "gain": 0.1,
+  "band": {
+   "b": 0.5
+  },
+  "bocpd": {
+   "hazard": 0.005,
+   "prior_sd": 30.0,
+   "obs_sd": 25.0
+  },
+  "dro": {
+   "window": 20,
+   "rho": 0.01
+  }
+ },
+ "market_theta": 50.0
+}

@@ -22,12 +22,17 @@ def test_cobweb_boundary_matches_theory():
     assert abs(d.loc[4, "simulated_boundary"] - 0.8) <= 0.1
 
 
-def test_sidebar_puts_theory_selector_under_theories_and_collapses_groups():
+def test_sidebar_has_five_destinations_mode_and_theory_selector():
     at = AppTest.from_file(APP, default_timeout=120)
     at.run()
+    labels = [m.proto.label for m in at.sidebar.get("page_link")]
+    assert labels[:5] == ["Start", "Experiment", "Results", "Validation", "Reference"]
+    assert any(r.label == "Mode" for r in at.sidebar.radio)
+    assert any(s.key == "focal_theory" for s in at.sidebar.selectbox)              # theory under test still offered
+    exp = {e.proto.label: e.proto.expanded for e in at.sidebar.expander}
+    assert exp["More in Start"] and not exp["All pages"]                          # current section open, rest folded
     md = [m.value for m in at.sidebar.markdown]
-    assert md.index("### Theories") < md.index("### Theory under test") < md.index("### Base scenario")
-    assert all(not e.proto.expanded for e in at.sidebar.expander)       # overview page: every group collapsed
+    assert "### Base market scenario" in md
 
 
 def test_hypothesis_titles_are_neutral_questions():

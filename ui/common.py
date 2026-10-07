@@ -237,37 +237,44 @@ def v(key):
 
 
 SECTION_NOTES = {
-    "Simulate": "Experiments in the shared market that test every theory on equal terms.",
-    "Special tests": "Tests of one theory's signature prediction, for Heiner and for each rival.",
-    "Validate & generalize": "Checks against field patterns, laboratory data and other decision tasks.",
-    "Reference": "How the agents work, the research behind the hypotheses, and the model's equations.",
+    "Start": "Choose a question: guided questions, example studies and saved experiments.",
+    "Experiment": "Configure and run a comparison in one workspace; registered study pages follow.",
+    "Results": "Interpret a completed experiment; specialized mechanism analyses follow.",
+    "Validation": "Analytical benchmarks, empirical data and human experiments: what the findings can support.",
+    "Reference": "Theory, equations, agent specifications and bibliography.",
 }
 
 
 def render_navigation(sections, current) -> None:
-    """Sidebar navigation: the theories first, then the theory under test, then the other sections as collapsed
-    groups (the group holding the current page opens)."""
+    """Sidebar navigation: the interface mode, the five destinations, then the pages within the current section and
+    every other page in collapsed groups."""
     sb = st.sidebar
     sb.markdown("## ⚖️ Decision under uncertainty lab")
-    sb.markdown("### Theories")
-    sb.caption("Nine theories of decision making under uncertainty, each implemented as agents and tested on equal "
-               "terms in the same simulated market.")
-    for page in sections["Theories"]:
-        sb.page_link(page, label=page.title, icon=page.icon)
-    sb.markdown("### Theory under test")
-    sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
-                 help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "
-                      "research tables and in the tournament reviews. The others are shown as competitors. Heiner's "
-                      "reliability condition is one choice among nine.")
+    sb.radio("Mode", ["explore", "research"], key="wb_mode", horizontal=True,
+             format_func={"explore": "Explore", "research": "Research"}.get,
+             help="Explore: teaching and first investigation (simplified uncertainty presets, quick previews). "
+                  "Research: controlled experiments (every setting, validity checks, background runs). Both use the "
+                  "same simulation engines.")
+    here = next((n for n, pages in sections.items() if any(p.url_path == current.url_path for p in pages)), None)
     for name, pages in sections.items():
-        if name == "Theories":
-            continue
-        here = any(p.url_path == current.url_path for p in pages)
-        with sb.expander(name, expanded=here):
-            if name in SECTION_NOTES:
-                st.caption(SECTION_NOTES[name])
-            for page in pages:
+        sb.page_link(pages[0], label=name, icon=pages[0].icon)
+    if here and len(sections[here]) > 1:
+        with sb.expander(f"More in {here}", expanded=True):
+            st.caption(SECTION_NOTES.get(here, ""))
+            for page in sections[here][1:]:
                 st.page_link(page, label=page.title, icon=page.icon)
+    with sb.expander("All pages", expanded=False):
+        for name, pages in sections.items():
+            if name == here:
+                continue
+            st.markdown(f"**{name}**")
+            for page in pages[1:]:
+                st.page_link(page, label=page.title, icon=page.icon)
+    with sb.expander("Theory under test", expanded=False):
+        st.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
+                     help="The theory whose predictions are highlighted on every hypothesis card, in the overview "
+                          "and research tables and in the tournament reviews. The others are shown as competitors. "
+                          "Heiner's reliability condition is one choice among nine.")
 
 
 def render_sidebar(sections=None, current=None):
@@ -279,8 +286,9 @@ def render_sidebar(sections=None, current=None):
         sb.markdown("### Theory under test")
         sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                      help="The theory whose predictions are highlighted on every hypothesis card.")
-    sb.markdown("### Base scenario")
-    sb.caption("Every page starts from this market. Experiments override only the parameters they sweep.")
+    sb.markdown("### Base market scenario")
+    sb.caption("Used by the specialized market pages (not by the Experiment workspace, which keeps its own "
+               "specification). Experiments override only the parameters they sweep.")
     sb.selectbox("Preset", list(PRESETS), key="preset_choice",
                  help="Ready-made scenarios. Pick one, then press **Apply preset** to load its values into every sidebar "
                       "control; **Reset** restores the baseline calibration. Every preset is described on the "

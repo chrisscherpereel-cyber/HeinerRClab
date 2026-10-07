@@ -113,68 +113,66 @@ many replications. For heavy research runs, use a local installation.
 
 ## Pages
 
-The left panel lists the eight **theories** first. Directly beneath them is the **theory under test**: a selector that
-chooses which theory is highlighted. Every hypothesis card then shows that theory's prediction first (from the
-registry, the directional tournament, a statement derived from the theory's core claim, or, where it makes none, its
-general stance, labeled as such), with the competing predictions beside it and any theory-specific reasoning under its
-own prediction. The research panels, the overview and research tables, the competing-theories verdicts and the agent
-tournament's head-to-head follow the same choice. Heiner's reliability condition is the default, not a privileged
-position. The other sections (Simulate, Special tests, Validate & generalize, Reference) and the base-scenario
-settings are collapsed by default; the section holding the current page opens.
+The app guides a study through **choose a question → configure the experiment → check validity → run → interpret → export**. The left panel has five destinations (Start, Experiment, Results, Validation, Reference), an interface **mode** (Explore for teaching and a first investigation, with simplified uncertainty presets that show the settings they change and quick previews; Research for controlled experiments, with every setting, validity checks and background runs; both use the same engines), the pages within the current section, every other page under *All pages*, the **theory under test** (the theory highlighted on hypothesis cards and theory pages; Heiner's reliability condition is the default, not a privileged position) and the base market scenario used by the specialized market pages. Every earlier page remains available within these sections.
 
-**Theories**
+**Start** (choose a question)
 
 | Page | What it does |
 |---|---|
-| Overview | The nine theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
-| One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation, organizational ecology. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
-
-**Simulate** (experiments that test every theory on equal terms; hypotheses are stated as neutral questions)
-
-| Page | What it does |
-|---|---|
-| Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
+| Start | Guided questions (each loads a documented, editable preset with its primary outcome and comparison), your own question from any environment, example (registered) studies, and saved experiments (open, duplicate, delete) |
 | Hypothesis tests | H1 free flexibility · H2 profitability switch · H3 volatility · H4 fixed costs · H5 competition intensity · H6 regimes and equilibrium · H7 competence · H8 perception noise · H9 selection rules · H10 predictable behavior · H11 number of rivals · H12 model-updating lag. Each shows the RC prediction next to the alternative, the research behind both, the contribution, and a verdict |
 | Risk vs structural change | Cost-volatility risk versus unannounced demand-regime shifts at matched unpredictability, for model-based (Cournot best reply) and model-free (margin-feedback) firms. The shifts are specified by the simulator and unknown to the firms; this is not Knightian uncertainty in the unrestricted sense. Event study of punctuated slow–quick–slow adjustment |
-| Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
-| Competing theories | Heiner's RC against neoclassical optimization, real options (as operationalized here), cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
+
+**Experiment** (configure and run a comparison; the specialized and registered study pages follow)
+
+| Page | What it does |
+|---|---|
+| Experiment | The central workspace: six revisitable steps (question, environment, agents, information, design, run) editing one experiment specification. Environment, candidate generation, selection policy and information are kept separate; complete policies show their assumptions; one uncertainty panel (outcome variation, observation quality, environmental change, model knowledge, decision complexity) with advanced settings disclosed on demand; an agent table, an access matrix, a design table with validity checks, a workload estimate, preview runs in the page and research runs in a background process with progress and cancellation |
+| Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
+| Experiment designer | Your own *what if* question: sweep one or two settings of the base market and plot any outcome, with common random numbers across conditions. The page explains its purpose, the steps, a worked example and what each outcome means; CSV export |
 | Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six hypotheses fixed in advance, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
 | Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
-| Experiment designer | Your own *what if* question: sweep one or two settings of the base market and plot any outcome, with common random numbers across conditions. The page explains its purpose, the steps, a worked example and what each outcome means; CSV export |
-
-**Special tests** (each theory's signature prediction)
-
-| Page | What it does |
-|---|---|
-| Signature tests by theory | One test per rival theory of the prediction that characterizes it, with a criterion fixed in advance (results below); Heiner's tab links to his five special-test pages |
-| Heiner: does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
-| Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
-| Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
-| Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
-| Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes |
-| Heiner vs optimal filtering (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
-
-**Validate & generalize**
-
-| Page | What it does |
-|---|---|
-| Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
-| Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
-| Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
+| Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
+| Competing theories | Heiner's RC against neoclassical optimization, real options (as operationalized here), cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
+| Generalization | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
 | When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
 | NK landscapes (complexity) | Search on NK landscapes with K_NK interacting components: hill climbing, stochastic search, satisficing, imitation with stated observability and (extension) reliability-gated search, under separately controlled observation noise and landscape change. Exact benchmarks by enumeration for small N, best-known otherwise; performance against interdependence, noise and change with landscape-clustered intervals |
+
+**Results** (interpret a completed experiment; specialized mechanism analyses follow)
+
+| Page | What it does |
+|---|---|
+| Results | Opens with the question, the comparison, the primary outcome and the kind of evidence, then the paired effect with its 95% interval and a plain interpretation against the smallest effect of interest; tabs for performance, behavior, mechanisms, robustness (split replications, per-replication spread), a decision inspector (what the agent observed, believed and proposed, why it acted, when feedback arrived; researcher-only values marked) and details & export (configuration, provenance, trial data, a reproducible bundle) |
+| Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
+| Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes |
+| Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
+| Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
+
+**Validation** (establish what the findings can support)
+
+| Page | What it does |
+|---|---|
+| Validation | What the findings can support: analytical benchmarks, empirical data, human experiments, signature tests and predictive checks, each linked |
+| Heiner vs optimal filtering (Muth–Kalman) | A single firm tracks a random-walk target observed with noise, where the best adjustment speed is the Kalman gain. The simulation reproduces the exact loss curve and optimum; then lopsided stakes test the prediction that is uniquely Heiner's against optimal filtering's certainty equivalence. Frozen plan with four pre-registered hypotheses |
+| Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
+| Signature tests by theory | One test per rival theory of the prediction that characterizes it, with a criterion fixed in advance (results below); Heiner's tab links to his five special-test pages |
+| Heiner: does the RC predict performance? | Random environments; each firm is compared with its own rigid twin (same shocks). The RC is estimated in the first part of each run and predicts the second part (**out-of-sample**), scored by AUC with environment-clustered bootstrap CIs |
+| Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
+| Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
-| Generalization | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
 
-**Reference**
+**Reference** (supporting detail without interrupting the workflow)
 
 | Page | What it does |
 |---|---|
+| Reference | Theory, equations and methods, agent specifications, information access and the bibliography |
+| Overview | The nine theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
+| One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation, organizational ecology. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
 | Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the seventeen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
-| Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, a full description of every preset scenario (setup, why to run it, the hypotheses it serves and a typical result), what a frozen plan is (and how it differs from external preregistration), the model specification table, the kinds of uncertainty and evidence, and verification |
+| Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 
 **Frozen plans (called "pre-registered" in the app).** Before a confirmatory study is run, its plan (hypotheses, tests and decision rules,
 environments, sample sizes, tuning budgets and seeds) is fixed and, together with the agent and analysis code, turned
@@ -648,10 +646,12 @@ heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from
 heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
 heiner_abm/nk.py           NK-landscape environment: landscapes, searchers, gates, exact or best-known benchmarks
+heiner_abm/workbench/      experiment specification, environment adapters, execution, analysis, run store, CLI
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
-ui/common.py               sidebar base scenario, presets, caching, chart helpers
+ui/common.py               navigation, sidebar base scenario, presets, caching, chart helpers
+ui/workbench_ui.py         workspace widgets bound to the experiment specification, result charts
 app_pages/*.py             the Streamlit pages
 ```
 
@@ -917,6 +917,35 @@ can therefore be varied one at a time.
   verification released after the decision; imitators unaffected by a leader's unobservable components).
 * **Settings.** N = 8 and K_NK = 0, 2, 4, 7 are configurable pilot settings, not optimal design values. No results are
   reported here; they are produced on the page with their settings.
+
+## Experiment workbench: one specification and one execution system
+
+The Start, Experiment and Results pages are thin: they edit and display one **experiment specification** and call
+services in `heiner_abm/workbench/`. The specialized pages keep their own implementations and remain available.
+
+| Component | Module | Responsibility |
+|---|---|---|
+| Experiment specification | `spec.py` | Question (text, primary outcome, comparison, smallest effect of interest), environment and its settings, candidate generation, policies, information, design (treatment, replications, periods, seed, tuning, outcomes); JSON round trip; a digest of everything that determines results |
+| Guided questions | `presets.py` | Five documented, editable presets, including one human-experiment question that is routed to Validation; Explore-mode uncertainty levels that list the settings they change |
+| Validity checks | `validate.py` | Per-step errors (block a run) and warnings: a stated comparison of two non-benchmark policies, defined outcomes, enough replications, treatment levels within range, environment-specific checks, information compatibility of every market agent |
+| Environment interface | `environments.py` | Adapters over the existing engines (market, inventory, learning, investment, NK): controls grouped by the uncertainty panel, candidate generators, selection and complete policies with their assumptions, researcher benchmarks, outcomes, tuning and decision traces |
+| Execution service | `execution.py` | Disjoint training and test seed blocks, common random numbers across policies, scheduling in blocks with progress and cancellation, workload estimates, provenance, and background runs in a separate process |
+| Analysis service | `analysis.py` | Paired effects with bootstrap intervals by replication, a plain interpretation against the smallest effect of interest, summaries, split-replication robustness |
+| Run store | `store.py` | Saved and duplicated experiments, completed runs keyed by configuration, kind (preview or research) and code version (so cached results are reused only for identical configuration and code), progress files, and exports built from stored outputs |
+
+The command line runs the same code as the interface:
+
+```bash
+python -m heiner_abm.workbench preset learnability > spec.json   # a guided question as a specification
+python -m heiner_abm.workbench estimate spec.json                 # workload before running
+python -m heiner_abm.workbench run spec.json --kind research --out results/
+```
+
+Runs are stored under `$HEINER_LAB_DIR` (default `~/.heiner_lab`). A preview reduces the design (at most three
+replications and 300 periods) and is labeled as a preview wherever it is shown. Changing the specification after a run
+marks the displayed results as outdated and names the changed settings. `tests/test_workbench.py` checks the
+specification round trip, the validity rules, reproducible and paired execution, identical results from the command
+line and the interface, the run store and its cache, cancellation, background runs and every workspace step.
 
 ## Research basis
 

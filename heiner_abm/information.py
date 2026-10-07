@@ -318,7 +318,8 @@ AGENTS: List[Needs] = [
        demand_model=True, uses="own smoothed profit against a survival threshold; adaptive price expectation, believed slope"),
     _a("ruleb", "Rule B (rigid)", "arena", uses="nothing"),
     _a("human", "Human participant (Play the market)", "arena", feedback=("chosen",),
-       uses="the screen: last price, market output, own output and payoff, cost estimate; no demand model and no "
+       uses="the screen: last price, market output, own output and payoff, cost estimate, optional history panels "
+            "(opened panels recorded) and, in the aid arm only, the aid's recommendation; no demand model and no "
             "individual rivals"),
     # generalization tasks
     _a("always", "Task: always deviate", "tasks", uses="observed outcomes"),

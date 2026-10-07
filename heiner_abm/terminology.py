@@ -143,7 +143,8 @@ EVIDENCE_BY_RESULT: List[Tuple[str, str, str]] = [
     ("Empirical validation V7 (time pressure)", "behavioral",
      "Compares fitted-rule shares across a condition manipulated within subjects in the original experiment. The "
      "manipulation was the original authors'; the shares are model-based classifications."),
-    ("Human experiment X1, X2 (Play the market)", "causal", "Protocol only; no data collected."),
+    ("Human experiment E1–E5 (protocol 2.0)", "causal", "Randomized treatments; protocol only, no human data "
+     "collected. A1 (adjustment frequency and profit) is associational."),
 ]
 
 # ------------------------------------------------------------------------------------------------ scope of conclusions

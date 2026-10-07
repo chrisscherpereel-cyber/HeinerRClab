@@ -824,12 +824,15 @@ HYPOTHESES.append(Hypothesis(
     contribution="Fits every theory's decision rule to the same subjects and compares them out of sample (first half "
                  "fitted, second half predicted), rather than in sample."))
 HYPOTHESES.append(Hypothesis(
-    "EXPER", "Do people deviate from their default less under uncertainty, and does it help them?",
-    "Play the market · Experiment analysis",
-    "Participants change their output less often under high than under low uncertainty, and under high uncertainty "
-    "those who change less often earn more relative to their rivals.",
-    "People adjust more when conditions change more, and responsiveness pays; or deviations reflect noise and "
-    "anchoring biases unrelated to uncertainty.",
+    "EXPER", "Which sources of uncertainty change how people adjust, and does a reliability aid change the outcome?",
+    "Play the market · Human experiments: analysis",
+    "Separating the sources of uncertainty, Heiner's account predicts less frequent adjustment where the information "
+    "behind a change is less reliable (noisier cost estimates, unannounced demand shifts) and that a reliability-based "
+    "aid improves relative profit; the effect of adjustment frequency on profit itself is not identified by the design "
+    "and is reported as an association.",
+    "People adjust more when conditions change more (volatility and shifts raise adjustment), responsiveness pays, "
+    "and an aid adds nothing beyond attention; or adjustment reflects noise, inertia and anchoring unrelated to "
+    "reliability.",
     "Reinforcement learning / behavioral bias",
     support=[("heiner1983", "Greater uncertainty narrows the repertoire of actions, making behavior more "
                             "predictable."),
@@ -842,8 +845,10 @@ HYPOTHESES.append(Hypothesis(
                  ("schweitzer2000", "Newsvendor decisions are pulled toward mean demand and chase recent demand: "
                                     "a bias, not a reliability-based restriction."),
                  ("kahneman1979", "Choices under risk reflect reference dependence rather than reliability.")],
-    contribution="Puts human participants in the same market as the agents, classifies each person by the design "
-                 "that best predicts their choices, and tests Heiner's predictability claim within subjects."))
+    contribution="Puts human participants in the same market as the agents, varies volatility, observation noise "
+                 "and regime change one at a time within subjects, randomizes a reliability-gated decision aid "
+                 "against an unaided control, and models adjustment probability and magnitude separately with "
+                 "held-out prediction and recovery checks."))
 HYPOTHESES.append(Hypothesis(
     "GEN", "Does the boundary between reliable and unreliable flexibility hold beyond the market?",
     "Generalization",

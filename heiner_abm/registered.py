@@ -25,7 +25,9 @@ STUDY_PLAN = "11a279e507f246e2"
 CHOICE_PLAN = "f15f62149d08e800"       # endogenous rule choice (Rule choice page)
 TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization page)
 TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
-EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the market / Experiment analysis)
+# Human experiment protocol 2.0 (Play the market / Human experiments: analysis). It replaced protocol 1.0
+# ("01f956595e90e5ab") on 8 October 2026, before any data were collected under either; not preregistered externally.
+EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
 # not preregistered with any external registry.
 LEARN_PLAN = "ec9b781e125e289d"

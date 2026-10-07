@@ -235,7 +235,9 @@ with st.expander("Tracking rules (Heiner vs optimal filtering page)"):
 with st.expander("Rivals and shadows in the human experiment (Play the market)"):
     st.markdown("Participants face three tuned rivals: " + ", ".join(ALL_DESIGNS[k].name for k in RIVALS) + ". "
                 "Alongside each choice, these designs record in shadow mode what they would have chosen in the "
-                "participant's place (used to classify participants): "
+                "participant's place (descriptive classification; the decision aid shown in the aid arm is the "
+                "'Reliability condition · model-based' design's choice, and the mechanism models use the filtered best "
+                "reply as their reference target): "
                 + ", ".join(ALL_DESIGNS[k].name for k in SHADOWS) + ".")
 with st.expander("Rules fitted to human choices (Calibration and Empirical validation)"):
     for title, rules in (("Forecasting rules", FORECAST_RULES), ("Quantity (Cournot) rules", QUANTITY_RULES),

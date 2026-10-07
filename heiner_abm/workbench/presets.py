@@ -96,7 +96,7 @@ _add(Preset(
     "without an aid; the analysis compares them with the agents' shadow decisions.",
     None, ("app_pages/play_market.py", "Play the market (human experiment)"),
     note="The workspace cannot answer this with simulation alone. Use Validation → Human experiments to collect "
-         "decisions, then Experiment analysis to compare conditions. A simulation can only pre-test the design."))
+         "decisions (the decision aid is randomized against an unaided control), then Human experiments: analysis to estimate its effect. A synthetic pilot can only pre-test the design."))
 
 
 def load(key: str, mode: str = "explore") -> ExperimentSpec:

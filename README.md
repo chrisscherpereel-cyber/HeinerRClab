@@ -160,8 +160,8 @@ The app guides a study through **choose a question → configure the experiment 
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
-| Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
-| Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
+| Play the market | Protocol 2.0: consent and allocation slot, comprehension checks, a practice block, then four blocks that each change one uncertainty mechanism (volatility, observation noise, regime change) relative to a baseline, in a Williams-square order on rotated exogenous paths; randomized decision aid (or the unaided control) and separately timed belief questions; records response times, information access, recommendations, choices and feedback. Download the decisions as CSV |
+| Experiment analysis | Allocation schedule and protocol export; data quality and exclusions; randomized condition, aid and elicitation effects on adjustment probability, magnitude and relative profit with dependence-aware intervals; hurdle mechanism models with held-out prediction; parameter and model recovery (confusion matrix); the adjustment–profit association, labeled as such; simulation-based power from pilot data; the prospective analysis plan. Synthetic pilots are labeled and never presented as human evidence |
 
 **Reference** (supporting detail without interrupting the workflow)
 
@@ -485,13 +485,41 @@ the Cournot data of Huck, Normann & Oechssler (1999) are archived in heiDATA,
 Sonnemans, Tuinstra & van de Velden (2007) are available from the authors. Results on five public datasets are in
 the next section.
 
-**Human experiment.** Protocol `01f956595e90e5ab`: three blocks of 25 periods (low, medium, high uncertainty),
-counterbalanced order (all six orders, assigned from the participant ID), the same three tuned agent rivals and the
-same random draws per block for everyone, 15 agent designs recorded in shadow mode. Hypotheses fixed in the frozen protocol: X1
-participants change output less often under high than low uncertainty (paired bootstrap); X2 under high
-uncertainty, participants who change less often earn more relative to their rivals (OLS). On simulated participants
-the classification recovers the generating design for every participant. **No human data have been collected yet**;
-ethics approval and informed consent are needed before collecting data.
+**Human experiment.** Protocol 2.0 (`e39ff2f6582cc591`, `heiner_abm/experiment.py`) replaced protocol 1.0
+(`01f956595e90e5ab`) on 8 October 2026, before any data were collected under either. Version 1.0 mixed the sources of
+uncertainty in its low/medium/high blocks and tested only the correlation between restraint and profit. Version 2.0 is
+designed to identify mechanisms:
+
+* **Separated treatments** within participants: a baseline (B) and three blocks that each change one mechanism, cost
+  volatility (V), noise in the cost estimate (N) or unannounced demand shifts (R); 30 periods each, after an 8-period
+  practice block and comprehension checks (all correct within three attempts).
+* **Counterbalancing and paths**: block order from a balanced 4 × 4 Williams square (order and position recorded);
+  four exogenous paths rotated across conditions so every path meets every condition equally often; conditions share
+  a path's random draws.
+* **Randomized between participants** in permuted blocks of 16 (allocation schedule exported from the analysis page):
+  a reliability-gated decision aid versus a clearly specified **unaided control** (same screens and information
+  options; the recommendation is recorded but never shown), and separately timed belief elicitation on or off (to
+  measure its effect on behavior).
+* **Recorded** per decision: decision time, belief time, information panels opened, the aid's recommendation and
+  whether it was shown, the chosen output, the feedback shown, beliefs, and every design's shadow choice.
+* **Analysis** (`heiner_abm/human_analysis.py`, `heiner_abm/human_models.py`): adjustment probability, adjustment
+  magnitude and relative profit per participant and block; condition contrasts with participant, path and position
+  fixed effects and participant- (or session-) clustered intervals; randomized aid and elicitation effects; hurdle
+  models of adjustment probability and magnitude with lapse, inertia, rounding, aid following and partially pooled
+  individual parameters, compared on held-out blocks by log score, Brier score and RMSE; parameter recovery and model
+  recovery with an exported confusion matrix; simulation-based power from pilot effect sizes and variance components
+  using the same allocation and estimators; an exportable prospective analysis plan. The relation between adjustment
+  frequency and profit is reported as **associational** (frequency is chosen, not assigned).
+* **Synthetic pilots** (simulated participants generated by an assumed mechanism model in the real market) are
+  labeled as such everywhere and are used only to check the design, the recovery of parameters and models, and
+  planning. Parameter recovery on synthetic pilots of 24 participants (about 120 decisions each; seeds 1 and 11)
+  recovers the adjustment intercept, magnitude noise, rounding and aid following consistently (correlations 0.67–0.91
+  between true and estimated values); sensitivity to the reference signal is not recovered (−0.23 and 0.19), and the
+  condition shifts in the model and partial adjustment vary from 0 to 0.61 between seeds. These parameters should not
+  be interpreted in human data without a design shown to recover them; the confirmatory treatment effects (E1–E5)
+  are therefore model-free. **No human data have been
+  collected**; ethics approval and informed consent are needed first, and the plan should be deposited with an
+  external registry to make it a preregistration.
 
 ## Empirical validation on public data: results under the frozen plan
 
@@ -628,7 +656,9 @@ heiner_abm/rulechoice.py   endogenous rule choice with logit switching (Brock & 
 heiner_abm/patterns.py     pattern-oriented validation against documented field patterns
 heiner_abm/calibration.py  per-subject out-of-sample fitting of every theory's rule to laboratory data
 heiner_abm/stepper.py      a market that advances one period at a time, for human participants
-heiner_abm/experiment.py   human experiment protocol, classification and frozen-plan tests
+heiner_abm/experiment.py   human experiment protocol 2.0: treatments, allocation, recording, synthetic pilots
+heiner_abm/human_analysis.py, human_models.py
+                           human experiment inference, power, analysis plan; hurdle models and recovery studies
 heiner_abm/empirical.py    validation against public experimental data: protocol, adapters, generative check
 heiner_abm/datasets.py     loaders for the five public datasets, from the files as distributed
 heiner_abm/tasks.py        generalization tasks: inventory, learning with shifting payoffs, irreversible investment

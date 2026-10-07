@@ -9,8 +9,7 @@ from heiner_abm import registered
 from heiner_abm.arena import Env, simulate
 from heiner_abm.calibration import (FORECAST_RULES, QUANTITY_RULES, fit_subjects, prepare_forecasts,
                                     prepare_quantities, summarise, synthetic_cournot_data, synthetic_forecast_data)
-from heiner_abm.experiment import (PLAN, SHADOWS, block_market, block_order, classify, evaluate_experiment,
-                                   synthetic_participants)
+from heiner_abm.experiment import SHADOWS
 from heiner_abm.patterns import PATTERNS, run_patterns
 from heiner_abm.rulechoice import (QUICK_CHOICE, RESTRICTED, RULES, default_choice_plan, level_env, run_choice_study,
                                    simulate_choice)
@@ -33,32 +32,6 @@ def test_stepper_reproduces_simulate(design):
     params = {k: {n: np.asarray(v, float) for n, v in p.items()} for k, p in registered.TUNED_PARAMS.items()}
     out = simulate([env], np.array([[design, *rivals]], dtype=object), params, T, burn_in=1)
     assert np.isclose(log["profit"].mean(), out["profit"][0, 0])
-
-
-def test_block_order_counterbalanced():
-    orders = {tuple(block_order(f"p{i}")) for i in range(200)}
-    assert len(orders) == 6
-    assert all(sorted(o) == sorted(PLAN.conditions) for o in orders)
-
-
-def test_experiment_classification_and_tests():
-    df, truth = synthetic_participants(6, noise=2.0)
-    cl = classify(df).merge(truth, on="participant")
-    assert (cl["best_design"] == cl["true_design"]).mean() >= 0.8
-    v = evaluate_experiment(df)
-    assert list(v["id"]) == ["X1", "X2"]
-    assert set(v["verdict"]) <= {"supported", "not supported", "not tested"}
-    assert set(SHADOWS) == {c[7:] for c in df.columns if c.startswith("shadow:")}
-
-
-def test_experiment_not_tested_without_data():
-    df, _ = synthetic_participants(1, noise=2.0)
-    v = evaluate_experiment(df[df["block"] == "low"])
-    assert set(v["verdict"]) == {"not tested"}
-
-
-def test_experiment_plan_registered():
-    assert PLAN.digest == registered.EXPERIMENT_PLAN
 
 
 # ------------------------------------------------------------------------------------------------ rule choice
@@ -138,31 +111,6 @@ def test_tasks_quick_study():
 
 def test_task_plan_registered():
     assert TaskPlan().digest == registered.TASK_PLAN
-
-
-def test_play_through_experiment():
-    """A participant can complete all three blocks; the download holds every decision with shadow predictions."""
-    from streamlit.testing.v1 import AppTest
-    app = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
-    at = AppTest.from_file(app, default_timeout=120)
-    at.run()
-    at.switch_page("app_pages/play_market.py").run()
-    at.text_input(key="play_pid").set_value("tester-1").run()
-    at.checkbox(key="play_consent").check().run()
-    at.button(key="play_start").click().run()
-    n = len(PLAN.conditions) * PLAN.periods_per_block
-    for i in range(n):
-        btns = {b.label.split()[0]: b for b in at.button}
-        if i % 2:
-            at.number_input[0].set_value(int(at.number_input[0].value) + 10)
-            btns["Submit"].click().run()
-        else:
-            btns["Keep"].click().run()
-        assert not at.exception, [e.value for e in at.exception]
-    frames = at.session_state["play"]["frames"]
-    assert len(frames) == len(PLAN.conditions)
-    assert sum(len(f) for f in frames) == n
-    assert any(b.label.startswith("Download your data") for b in at.get("download_button"))
 
 
 # ------------------------------------------------------------------------------------------------ focal theory

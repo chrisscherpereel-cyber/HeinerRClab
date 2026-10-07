@@ -38,8 +38,12 @@ def _fast(at):
     at.session_state["emp_nv_subjects"] = 6
     at.session_state["pat_envs"] = 4
     at.session_state["pat_periods"] = 200
-    at.session_state["exa_src"] = "Synthetic demonstration"
-    at.session_state["exa_n"] = 6
+    at.session_state["exa_src"] = "Synthetic pilot (not human data)"
+    at.session_state["exa_n"] = 16
+    at.session_state["exa_pr_n"] = 16
+    at.session_state["exa_mr_n"] = 4
+    at.session_state["exa_reps"] = 50
+    at.session_state["exa_grid"] = [16, 32]
     at.session_state["play_pid"] = "smoke-test"
     at.session_state["play_consent"] = True
     return at

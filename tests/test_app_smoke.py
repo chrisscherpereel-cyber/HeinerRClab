@@ -15,7 +15,7 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/literature.py", "app_pages/model_docs.py", "app_pages/special_tests.py",
          "app_pages/agents_reference.py", "app_pages/information.py", "app_pages/reliability_gates.py",
          "app_pages/benchmarks.py",
-         "app_pages/learnability.py"]
+         "app_pages/learnability.py", "app_pages/nk.py"]
 
 
 def _fast(at):

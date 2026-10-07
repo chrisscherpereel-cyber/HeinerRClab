@@ -309,6 +309,15 @@ _REFS = [
        "MIT Press"),
     _a("kirkpatrick1983", "Kirkpatrick, S.; Gelatt, C. D.; Vecchi, M. P.", 1983, "Optimization by simulated annealing",
        "Science", "220", "4598", "671–680"),
+    # --- NK landscapes: interaction complexity
+    _a("kauffman1987", "Kauffman, S.; Levin, S.", 1987, "Towards a general theory of adaptive walks on rugged landscapes",
+       "Journal of Theoretical Biology", "128", "1", "11–45"),
+    _b("kauffman1993", "Kauffman, S. A.", 1993, "The origins of order: Self-organization and selection in evolution",
+       "Oxford University Press"),
+    _a("levinthal1997", "Levinthal, D. A.", 1997, "Adaptation on rugged landscapes", "Management Science", "43", "7",
+       "934–950"),
+    _a("rivkin2000", "Rivkin, J. W.", 2000, "Imitation of complex strategies", "Management Science", "46", "6",
+       "824–844"),
     # --- signal detection and methods
     _b("green1966", "Green, D. M.; Swets, J. A.", 1966, "Signal detection theory and psychophysics", "Wiley"),
     _a("swets1988", "Swets, J. A.", 1988, "Measuring the accuracy of diagnostic systems", "Science", "240", "4857",
@@ -968,7 +977,8 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
 
 METHOD_REFS = ["creed2021", "holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
                "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
-               "diebold1995", "chong1986", "adams2007", "fearnhead2007", "bental2013", "garivier2011", "auer2002"]
+               "diebold1995", "chong1986", "adams2007", "fearnhead2007", "bental2013", "garivier2011", "auer2002",
+               "kauffman1987", "kauffman1993", "levinthal1997", "rivkin2000"]
 
 
 def cited_keys() -> List[str]:

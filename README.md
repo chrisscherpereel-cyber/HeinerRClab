@@ -162,6 +162,7 @@ settings are collapsed by default; the section holding the current page opens.
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
 | When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
+| NK landscapes (complexity) | Search on NK landscapes with K_NK interacting components: hill climbing, stochastic search, satisficing, imitation with stated observability and (extension) reliability-gated search, under separately controlled observation noise and landscape change. Exact benchmarks by enumeration for small N, best-known otherwise; performance against interdependence, noise and change with landscape-clustered intervals |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
@@ -646,6 +647,7 @@ heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statis
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
+heiner_abm/nk.py           NK-landscape environment: landscapes, searchers, gates, exact or best-known benchmarks
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -882,6 +884,39 @@ How to read this:
   robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 63% of periods and miss 14% and 29%
   of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 21.3 for the gates.
   Both gates share one learned estimate, so their calibration is identical (slope 0.76 [0.72, 0.79], bias −0.66).
+
+## NK landscapes: interaction complexity, reliability learning and adaptation
+
+`heiner_abm/nk.py`, page *NK landscapes (complexity)*. An NK landscape (Kauffman & Levin 1987; Kauffman 1993), as used
+in organization science (Levinthal 1997; Rivkin 2000), represents **complexity**: N binary decisions whose payoff
+contributions each depend on K_NK other decisions (0 ≤ K_NK ≤ N − 1; named K_NK to avoid confusion with the
+error-to-signal ratio K). Complexity is not uncertainty. Two **separate uncertainty mechanisms** are added, each with its
+own control and random stream: **observation noise** (every evaluation is the true payoff plus noise) and
+**environmental change** (unannounced redraws of a share of the contribution tables). Interdependence, noise and change
+can therefore be varied one at a time.
+
+* **Environment.** Task interface as in the generalization tasks: a default (keep the current configuration), a
+  flexible alternative (a proposed candidate) and a switch decision each period. Configurable interaction topology
+  (adjacent, random, block or an explicit partner list), seeded contribution tables and change paths, an explicit
+  evaluation budget, and a switching cost per changed component.
+* **Searchers.** Local hill climbing; broader stochastic search (multi-flip proposals with annealing acceptance;
+  Kirkpatrick et al. 1983); satisficing with an adaptive aspiration (Simon 1955; Cyert & March 1963); imitation of a
+  leader observed on a stated share of its components only (Rivkin 2000); and, as a **proposed extension**,
+  reliability-gated search: apparent improvements are verified once, independently, and the existing estimated-gain gate
+  or the confidence-sensitive gate (`heiner_abm/gates.py`) learns per signal-strength bin whether acting on such
+  improvements pays. The gates and an ungated reference use identical proposals, draws and evaluation budgets.
+* **Benchmarks.** For N ≤ 16 every configuration is enumerated, so the maximum and every local peak are exact. For
+  larger N the benchmark is the best-known payoff (multi-start full-information hill climbing and every configuration an
+  agent held), labelled "best-known"; optimality is not claimed.
+* **Outcomes.** Attained payoff, regret, evaluations used, false and missed improvements, escapes from local peaks and
+  recovery after change (definitions in the module docstring), over multiple independent landscapes and starting
+  configurations. Intervals are cluster bootstraps over landscapes, because runs on one landscape are dependent.
+* **Checks** (`tests/test_nk.py`): K_NK = 0 is separable, with a single peak at the per-component optimum; seeded
+  reproducibility; exact payoffs in a hand-computed small case; changes redraw only the stated share; information
+  restrictions (decisions replay exactly from the recorded observations alone, without the landscape; no lookahead;
+  verification released after the decision; imitators unaffected by a leader's unobservable components).
+* **Settings.** N = 8 and K_NK = 0, 2, 4, 7 are configurable pilot settings, not optimal design values. No results are
+  reported here; they are produced on the page with their settings.
 
 ## Research basis
 

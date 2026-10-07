@@ -64,6 +64,8 @@ def test_page_runs(page, preset):
     assert not at.exception, [e.value for e in at.exception]
     # press every run/submit button once
     for i in range(len(at.button)):
+        if i >= len(at.button):            # a button may switch to a page with fewer buttons
+            break
         b = at.button[i]
         if b.label in ("Apply preset", "Reset"):
             continue

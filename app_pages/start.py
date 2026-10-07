@@ -38,20 +38,25 @@ for j, (key, p) in enumerate(presets.PRESETS.items()):
             a, b = p.spec.question.comparison
             st.markdown(f"Primary outcome: *{env.outcome(p.spec.question.primary_outcome).label}* · Comparison: "
                         f"*{env.policy(a).label}* vs *{env.policy(b).label}* · Environment: *{env.label}*")
-            st.button("Use this question", key=f"start_use_{key}", on_click=_load, args=(key,))
+            if st.button("Use this question", key=f"start_use_{key}", type="primary"):
+                _load(key)
+                st.switch_page("app_pages/experiment.py")
         else:
             st.info(p.note, icon="👥")
+            if st.button("Go to human experiments", key=f"start_use_{key}"):
+                st.switch_page("app_pages/play_market.py")
         if p.registered_page:
             st.page_link(p.registered_page[0], label=p.registered_page[1])
 if st.session_state.get("start_loaded"):
-    st.success("Loaded into the workspace. Continue with the Experiment step by step.", icon="✅")
-    st.page_link("app_pages/experiment.py", label="Continue to the Experiment workspace", icon="🧪")
+    st.page_link("app_pages/experiment.py", label="Continue with the experiment you loaded", icon="🧪")
 
 st.header("Your own question", divider="gray")
 c1, c2 = st.columns([3, 1])
 env_key = c1.selectbox("Start from an environment", list(ENVIRONMENTS), format_func=lambda e: ENVIRONMENTS[e].label,
                        key="start_env")
-c2.button("Start blank", key="start_blank", on_click=_blank, args=(env_key,), width="stretch")
+if c2.button("Start blank", key="start_blank", width="stretch"):
+    _blank(env_key)
+    st.switch_page("app_pages/experiment.py")
 st.caption(ENVIRONMENTS[env_key].description)
 
 st.header("Example studies", divider="gray")
@@ -85,7 +90,9 @@ for e in saved:
     c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
     c1.markdown(f"**{e['name']}** · {ENVIRONMENTS[e['environment']].label if e['environment'] in ENVIRONMENTS else e['environment']}"
                 f"  \n{e['question'] or ''} · saved {time.strftime('%Y-%m-%d %H:%M', time.localtime(e['modified']))}")
-    c2.button("Open", key=f"start_open_{e['slug']}", on_click=_open, args=(e["slug"],), width="stretch")
+    if c2.button("Open", key=f"start_open_{e['slug']}", width="stretch"):
+        _open(e["slug"])
+        st.switch_page("app_pages/experiment.py")
     c3.button("Duplicate", key=f"start_dup_{e['slug']}", on_click=_duplicate, args=(e["slug"], e["name"]),
               width="stretch")
     c4.button("Delete", key=f"start_del_{e['slug']}", on_click=store.delete_experiment, args=(e["slug"],),

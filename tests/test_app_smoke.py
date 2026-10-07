@@ -1,9 +1,11 @@
 """Headless smoke test: every page renders and every experiment button runs without exceptions."""
 import os
+import tempfile
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
+os.environ.setdefault("HEINER_LAB_DIR", tempfile.mkdtemp(prefix="heiner_lab_smoke_"))
 APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
 PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_pages/theory_optimiser.py",
          "app_pages/theory_options.py", "app_pages/theory_cobweb.py", "app_pages/theory_heuristics.py",
@@ -15,7 +17,9 @@ PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_page
          "app_pages/literature.py", "app_pages/model_docs.py", "app_pages/special_tests.py",
          "app_pages/agents_reference.py", "app_pages/information.py", "app_pages/reliability_gates.py",
          "app_pages/benchmarks.py",
-         "app_pages/learnability.py", "app_pages/nk.py"]
+         "app_pages/learnability.py", "app_pages/nk.py",
+         "app_pages/start.py", "app_pages/experiment.py", "app_pages/results.py", "app_pages/validation_hub.py",
+         "app_pages/reference_hub.py"]
 
 
 def _fast(at):

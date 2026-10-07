@@ -1,0 +1,736 @@
+"""Study: when can reliability be learned before the environment changes? Inventory task (primary).
+
+PROPOSED EXTENSION. The question, the ratio construct and the policies' operationalizations are the laboratory's own.
+The specification (LearnPlan) is frozen in the repository with a hash of the plan and the code (registered.LEARN_PLAN);
+it has not been preregistered with any external registry.
+
+Task
+    A newsvendor (Arrow, Harris & Marschak 1951): each period the agent orders S before demand d is known; leftover
+    stock costs H_OVER = 1 and shortage P_SHORT = 4 per unit, so with a known demand distribution the best order is
+    its 0.8-quantile. The mean demand mu_t changes over time (process families below); d_t = max(0, mu_t + sigma e_t);
+    the agent observes y_t = d_t + tau u_t, but only with probability `avail` (otherwise the period's demand is never
+    observed). Orders use observations up to t - 1.
+
+Manipulated factors (Config)
+    sigma     outcome volatility (s.d. of demand around its mean)
+    tau       observation error
+    hazard    regime-change frequency
+    avail     feedback availability (probability that a period's demand is observed)
+    memory    the reliability gates' memory lambda (their effective window is about (1 + lambda) / (1 - lambda))
+    default   default quality: 'slow' (slow forecast, gain 0.01), 'fixed_initial' (the best order for the first
+              regime, which deteriorates after the first change), 'biased' (40 units too low), 'dominated' (orders 0)
+    cost      adaptation cost c, charged in every period whose order differs from the default's
+
+Process families (Config.family): every family starts at mu = 100 and keeps mu in [30, 170]
+    jump      with probability `hazard` the mean jumps by N(0, 30^2) (tuning and the main test)
+    switch    with probability `hazard` the mean switches between 70 and 130 (new family, test only)
+    drift     the mean follows a random walk with per-period s.d. 30 sqrt(hazard), the same variance per expected regime
+              length as `jump`, without discrete regimes (new family, test only)
+
+Policies (all see the same exogenous paths: common random numbers)
+    always      always adapt: order the fast forecast's 0.8-quantile, S_F = forecast + z * sd (gain tuned)
+    default     retain the default S_D
+    band        inaction band: S_F if |S_F - S_D| > b * sd, else S_D (b tuned)
+    gate_gain   existing estimated-gain gate (heiner_abm.gates): per size bin of |S_F - S_D| / sd, adapt if the
+                learned mean of g = payoff(S_F, y) - payoff(S_D, y) is at least c
+    gate_lcb    confidence-sensitive gate: adapt if at least 5 effective observations and the 90% lower bound > c
+                (both gates learn from every observed period, whatever they chose: the observed demand values both
+                orders; feedback is released at the end of the period)
+    bocpd       Bayesian change detection (Adams & MacKay 2007), misspecified Gaussian reset model, tuned; orders its
+                predictive 0.8-quantile; it does not use the default
+    dro         distributionally robust newsvendor on the last N observed demands (modified chi-squared ball,
+                Ben-Tal et al. 2013), N and rho tuned
+    oracle      PERFECT INFORMATION (knows mu_t): order max(0, mu_t + z sigma); a bound, not ranked
+Every policy pays c whenever its order differs from the default's.
+
+Outcomes (per path, recorded periods t >= burn_in)
+    primary     net payoff per period = -(H_OVER (S - d)+ + P_SHORT (d - S)+) - c 1[S != S_D]
+    secondary   regret (oracle's gross payoff minus net payoff); downside loss (mean of the worst 5% of periods' net
+                payoff, CVaR 5%); calibration of the gates' predicted advantage (slope and bias against the realized
+                observed gain); adaptation rate (share of periods with S != S_D); missed opportunities (share of
+                periods whose true gain of S_F over S_D exceeds c in which the policy did not order S_F; policies that
+                choose between S_D and S_F only); recovery delay (periods after a change until the policy's 20-period
+                rolling excess loss over the oracle falls to its own median outside the 50 periods after changes;
+                censored at the next change)
+
+Proposed construct: the learnability ratio R (measured on independent pilot paths, never on test paths)
+    For each regime of a pilot path in which the two candidate orders differ (for `drift`, consecutive blocks of the
+    nominal length 1 / hazard):
+        mu_r     the regime's true mean advantage of S_F over S_D (from the pilot's true demands: researcher data)
+        s        the noise of what the learner observes: s.d. of observed gains around their regime's mu_r, pooled
+        n_needed = (z_0.9 s / |mu_r|)^2   observations to determine the sign of the regime's advantage with 90%
+                                           one-sided confidence (the specified precision), clipped to [1, 1e6]
+        n_avail  = informative observations in the regime (demand observed and S_F != S_D)
+    R = median over regimes of n_needed / max(n_avail, 1). R < 1: the sign of the advantage of adapting can typically
+    be learned within a regime; R > 1: it cannot. R is a proposed construct: whether it explains performance beyond
+    volatility and observation noise is a hypothesis of the study (H2), not an assumption.
+"""
+from __future__ import annotations
+
+import hashlib
+import inspect
+import json
+import sys
+from dataclasses import asdict, dataclass, field, replace
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
+
+from . import gates
+from .bench_inventory import (BOCPD, FRACTILE, H_OVER, P_SHORT, Z_FRAC, dro_orders_window, gaussian_mixture_quantile,
+                              newsvendor_loss)
+
+MU0, MU_LO, MU_HI, JUMP_SD, SWITCH_LEVELS = 100.0, 30.0, 170.0, 30.0, (70.0, 130.0)
+SLOW_GAIN = 0.01
+EDGES = np.array([0.5, 1.0, 2.0, 4.0])                 # size bins of |S_F - S_D| / sd for the gates
+FAMILIES = ("jump", "switch", "drift")
+DEFAULTS = ("slow", "fixed_initial", "biased", "dominated")
+POLICIES = ("always", "default", "band", "gate_gain", "gate_lcb", "bocpd", "dro", "oracle")
+POLICY_LABELS = {"always": "Always adapt", "default": "Retain the default", "band": "Inaction band",
+                 "gate_gain": "Estimated-gain gate", "gate_lcb": "Confidence-sensitive gate",
+                 "bocpd": "Bayesian change detection", "dro": "Distributionally robust", "oracle": "ORACLE (perfect information)"}
+CHOOSERS = ("always", "default", "band", "gate_gain", "gate_lcb")   # choose between S_D and S_F
+Z90 = 1.2815515655446004
+
+
+@dataclass(frozen=True)
+class Config:
+    family: str = "jump"
+    sigma: float = 20.0
+    tau: float = 10.0
+    hazard: float = 0.01
+    avail: float = 1.0
+    memory: float = 0.97
+    default: str = "fixed_initial"
+    cost: float = 1.0
+    perfect: bool = False          # negative control: the flexible order is the oracle's order
+
+
+# ================================================================================================ environment
+def paths(cfg: Config, T: int, seed: int) -> Dict[str, np.ndarray]:
+    """One exogenous path: mean demand, demand, observation (NaN if unobserved) and change indicators."""
+    ss = np.random.SeedSequence(seed).spawn(4)
+    r_reg, r_dem, r_obs, r_av = (np.random.default_rng(s) for s in ss)
+    u, z = r_reg.random(T), r_reg.standard_normal(T)
+    mu, change = np.empty(T), np.zeros(T, bool)
+    m = MU0
+    lvl = 0
+    for t in range(T):
+        if cfg.family == "jump":
+            if u[t] < cfg.hazard:
+                m, change[t] = min(MU_HI, max(MU_LO, m + JUMP_SD * z[t])), True
+        elif cfg.family == "switch":
+            if t == 0:
+                m = MU0
+            if u[t] < cfg.hazard:
+                lvl = 1 - lvl if t > 0 and m != MU0 else int(z[t] > 0)
+                m, change[t] = SWITCH_LEVELS[lvl], True
+        elif cfg.family == "drift":
+            m = min(MU_HI, max(MU_LO, m + JUMP_SD * np.sqrt(cfg.hazard) * z[t]))
+        else:
+            raise ValueError(cfg.family)
+        mu[t] = m
+    d = np.maximum(0.0, mu + cfg.sigma * r_dem.standard_normal(T))
+    y = d + cfg.tau * r_obs.standard_normal(T)
+    seen = r_av.random(T) < cfg.avail
+    return dict(mu=mu, d=d, y=np.where(seen, y, np.nan), seen=seen, change=change)
+
+
+def payoff(S, d):
+    return -newsvendor_loss(S, d)
+
+
+# ================================================================================================ candidate orders
+def candidate_orders(cfg: Config, p: Dict[str, np.ndarray], gain: float) -> Dict[str, np.ndarray]:
+    """Default order S_D, flexible order S_F and the agent's demand s.d. estimate, from observations up to t - 1."""
+    y, T = p["y"], len(p["y"])
+    slow, fast, sd = np.empty(T), np.empty(T), np.empty(T)
+    ms, mf, v = MU0, MU0, cfg.sigma ** 2 + cfg.tau ** 2 + 1.0     # starting variance guess
+    for t in range(T):
+        slow[t], fast[t], sd[t] = ms, mf, np.sqrt(max(v, 1.0))
+        o = y[t]
+        if not np.isnan(o):
+            v += SLOW_GAIN * ((o - ms) ** 2 - v)
+            ms += SLOW_GAIN * (o - ms)
+            mf += gain * (o - mf)
+    if cfg.perfect:
+        S_F = np.maximum(0.0, p["mu"] + Z_FRAC * cfg.sigma)
+    else:
+        S_F = np.maximum(0.0, fast + Z_FRAC * sd)
+    S_D = {"slow": np.maximum(0.0, slow + Z_FRAC * sd),
+           "fixed_initial": np.full(T, MU0 + Z_FRAC * cfg.sigma),
+           "biased": np.full(T, MU0 - 40.0 + Z_FRAC * cfg.sigma),
+           "dominated": np.zeros(T)}[cfg.default]
+    return dict(S_F=S_F, S_D=S_D, sd=sd)
+
+
+# ================================================================================================ policies
+def gated(cfg: Config, p, c: Dict[str, np.ndarray], gate: str, conf: float = 0.9, nmin: float = 5.0):
+    """Orders of a reliability gate (heiner_abm.gates) and its prediction per period (NaN without evidence)."""
+    S_F, S_D, sd, y = c["S_F"], c["S_D"], c["sd"], p["y"]
+    T = len(y)
+    nb = len(EDGES) + 1
+    learned, S, XS = np.zeros(nb), np.zeros((gates.N_STATS, nb)), np.zeros((2, gates.N_STATS, nb))
+    lam = cfg.memory
+    adapt = np.zeros(T, bool)
+    pred = np.full(T, np.nan)
+    gain_obs = np.full(T, np.nan)
+    b_all = np.searchsorted(EDGES, np.abs(S_F - S_D) / sd, side="right")
+    for t in range(T):
+        differ = S_F[t] != S_D[t]
+        if differ:
+            tab = gates.gate_table(gate, learned, S, XS, lam=lam, cost=cfg.cost, conf=conf, nmin=nmin)
+            b = b_all[t]
+            adapt[t] = tab["mode"][b] == gates.ADAPT
+            pred[t] = tab["pred"][b]
+            if not np.isnan(y[t]):                         # released at the end of period t
+                g = payoff(S_F[t], y[t]) - payoff(S_D[t], y[t])
+                gain_obs[t] = g
+                learned[b] = lam * learned[b] + (1 - lam) * g
+                S[:, b] = gates.update(S[:, b], g, lam)
+    return np.where(adapt, S_F, S_D), pred, gain_obs
+
+
+def bocpd_orders(y: np.ndarray, hazard: float, s0: float, sm: float, rmax: int = 150) -> np.ndarray:
+    model = BOCPD(hazard, MU0, s0, sm, rmax)
+    out = np.empty(len(y))
+    for t in range(len(y)):
+        out[t] = max(0.0, gaussian_mixture_quantile(*model.predictive()))
+        if not np.isnan(y[t]):
+            model.update(float(y[t]))
+    return out
+
+
+def dro_orders(y: np.ndarray, N: int, rho: float, fallback: np.ndarray) -> np.ndarray:
+    """Robust order from the last N observed demands (fewer at the start; the default's order before two exist)."""
+    T = len(y)
+    obs_idx = np.flatnonzero(~np.isnan(y))
+    yo = y[obs_idx]
+    k = np.searchsorted(obs_idx, np.arange(T))                   # observations before period t
+    S = np.array(fallback, float)
+    for t in np.flatnonzero((k >= 2) & (k < N)):
+        S[t] = dro_orders_window(yo[None, :k[t]], rho)[0]
+    full = np.flatnonzero(k >= N)
+    if len(full):
+        from numpy.lib.stride_tricks import sliding_window_view
+        W = sliding_window_view(yo, N)[k[full] - N]
+        S[full] = dro_orders_window(W, rho)
+    return S
+
+
+def policy_orders(policy: str, cfg: Config, p, c, hp: Dict[str, Dict[str, float]]):
+    """Orders of one policy; returns (orders, gate prediction or None, observed gain or None)."""
+    if policy == "always":
+        return c["S_F"], None, None
+    if policy == "default":
+        return c["S_D"], None, None
+    if policy == "band":
+        dev = np.abs(c["S_F"] - c["S_D"]) > hp["band"]["b"] * c["sd"]
+        return np.where(dev, c["S_F"], c["S_D"]), None, None
+    if policy in ("gate_gain", "gate_lcb"):
+        return gated(cfg, p, c, policy[5:])
+    if policy == "bocpd":
+        h = hp["bocpd"]
+        return bocpd_orders(p["y"], h["hazard"], h["prior_sd"], h["obs_sd"]), None, None
+    if policy == "dro":
+        return dro_orders(p["y"], int(hp["dro"]["window"]), hp["dro"]["rho"], c["S_D"]), None, None
+    if policy == "oracle":
+        return np.maximum(0.0, p["mu"] + Z_FRAC * cfg.sigma), None, None
+    raise ValueError(policy)
+
+
+# ================================================================================================ outcomes
+def _recovery_delay(excess: np.ndarray, change: np.ndarray, burn: int, window: int = 20) -> float:
+    T = len(excess)
+    if T < window + burn:
+        return np.nan
+    roll = np.convolve(excess, np.ones(window) / window, mode="valid")          # roll[t] = mean excess[t:t+window]
+    cps = [t for t in np.flatnonzero(change) if t >= burn and t + window < T]
+    if not cps:
+        return np.nan
+    near = np.zeros(len(roll), bool)
+    for t0 in np.flatnonzero(change):
+        near[max(0, t0):t0 + 50] = True
+    base = np.median(roll[~near]) if (~near).any() else np.median(roll)
+    delays = []
+    for j, t0 in enumerate(cps):
+        nxt = next((t for t in np.flatnonzero(change) if t > t0), T)
+        seg = roll[t0:min(nxt, len(roll))]
+        hit = np.flatnonzero(seg <= base)
+        delays.append(float(hit[0]) if len(hit) else float(len(seg)))       # censored at the next change
+    return float(np.mean(delays))
+
+
+def outcomes(policy: str, cfg: Config, p, c, S, pred, gain_obs, burn: int) -> Dict[str, float]:
+    d, S_D, S_F = p["d"], c["S_D"], c["S_F"]
+    oracle = np.maximum(0.0, p["mu"] + Z_FRAC * cfg.sigma)
+    adapt = np.abs(S - S_D) > 1e-9
+    net = payoff(S, d) - cfg.cost * adapt
+    w = slice(burn, None)
+    regret = payoff(oracle, d) - net
+    worst = np.sort(net[w])[:max(1, int(0.05 * len(net[w])))]
+    true_gain = payoff(S_F, d) - payoff(S_D, d)
+    out = dict(net_payoff=float(net[w].mean()), regret=float(regret[w].mean()), cvar5=float(worst.mean()),
+               adaptation_rate=float(adapt[w].mean()))
+    if policy in CHOOSERS:
+        opp = (true_gain > cfg.cost)[w]
+        took = (np.abs(S - S_F) < 1e-9)[w]
+        out["missed"] = float((~took[opp]).mean()) if opp.any() else np.nan
+    else:
+        out["missed"] = np.nan
+    if pred is not None:
+        m = ~np.isnan(pred[w]) & ~np.isnan(gain_obs[w])
+        x, yv = pred[w][m], gain_obs[w][m]
+        out["calib_bias"] = float((x - yv).mean()) if m.sum() else np.nan
+        out["calib_slope"] = float(np.polyfit(x, yv, 1)[0]) if m.sum() > 2 and np.ptp(x) > 0 else np.nan
+    else:
+        out["calib_bias"] = out["calib_slope"] = np.nan
+    excess = (payoff(oracle, d) - net)
+    out["recovery_delay"] = _recovery_delay(excess, p["change"], burn) if cfg.family != "drift" else np.nan
+    return out
+
+
+# ================================================================================================ ratio construct
+def learnability_ratio(cfg: Config, gain: float, T: int, seeds: Sequence[int], burn: int) -> Dict[str, float]:
+    """The proposed learnability ratio R, from independent pilot paths (see the module docstring)."""
+    regimes, resid = [], []
+    for sd_ in seeds:
+        p = paths(cfg, T, sd_)
+        c = candidate_orders(cfg, p, gain)
+        differ = c["S_F"] != c["S_D"]
+        g_true = payoff(c["S_F"], p["d"]) - payoff(c["S_D"], p["d"])           # researcher's view (pilot only)
+        g_obs = payoff(c["S_F"], p["y"]) - payoff(c["S_D"], p["y"])            # what the learner sees (NaN if unseen)
+        info = differ & ~np.isnan(g_obs)
+        if cfg.family == "drift":
+            L = max(20, int(round(1 / max(cfg.hazard, 1e-6))))
+            bounds = list(range(burn, T, L)) + [T]
+        else:
+            bounds = sorted(set([burn] + [t for t in np.flatnonzero(p["change"]) if t > burn] + [T]))
+        for a, b in zip(bounds[:-1], bounds[1:]):
+            d = differ[a:b]
+            if not d.any():
+                continue                                                       # nothing to decide in this regime
+            mu_r = float(g_true[a:b][d].mean())
+            go = g_obs[a:b][info[a:b]]
+            resid.extend(go - mu_r)
+            regimes.append((mu_r, len(go)))
+    if not regimes:
+        return dict(n_needed=np.nan, n_avail=np.nan, ratio=np.nan, log10_ratio=np.nan, noise_sd=np.nan, regimes=0)
+    s = float(np.std(resid, ddof=1)) if len(resid) > 1 else np.nan
+    need = np.array([np.clip((Z90 * s / max(abs(m), 1e-9)) ** 2, 1.0, 1e6) for m, _ in regimes])
+    avail = np.array([n for _, n in regimes], float)
+    R = float(np.median(need / np.maximum(avail, 1.0)))
+    return dict(n_needed=float(np.median(need)), n_avail=float(np.median(avail)), ratio=R,
+                log10_ratio=float(np.log10(R)), noise_sd=s, regimes=len(regimes))
+
+
+# ================================================================================================ plan
+HYPOTHESES = (
+    ("H1", "Learnability: the confidence-sensitive gate's advantage over the better fixed rule (always adapt or retain "
+           "the default, whichever was better on pilot paths) falls as the learnability ratio R rises.",
+     "Across the jump-family test configurations, OLS slope of the configuration-mean advantage (net payoff per "
+     "period) on log10 R; 95% bootstrap CI over configurations. Supported if the CI lies below 0."),
+    ("H2", "Incremental validity of R: log10 R explains the gate's advantage beyond outcome volatility and observation "
+           "noise.",
+     "Leave-one-configuration-out cross-validated R² of advantage ~ log sigma + log(1 + tau) + log10 R minus that of "
+     "advantage ~ log sigma + log(1 + tau); 95% bootstrap CI over configurations. Supported if the CI lies above 0."),
+    ("H3", "Transfer to new process families: the H1 relation holds when R is measured and the gate is tested on the "
+           "switching and drifting families, which were not used for tuning.",
+     "OLS slope of the advantage on log10 R pooled over the two new families, 95% bootstrap CI over configurations. "
+     "Supported if the CI lies below 0."),
+    ("H4", "Replication in the market: the same relation holds for the market's confidence-sensitive gate "
+           "(heiner_abm.learnability_market).",
+     "As H1, in the market configurations. Supported if the 95% bootstrap CI of the slope lies below 0."),
+)
+NEGATIVE_CONTROLS = (
+    ("NC1", "Perfect information and reversible, costless adaptation",
+     "The flexible order is the oracle's order and c = 0. Expected: no policy beats always adapting. Passes if no "
+     "policy's paired net-payoff difference over always adapting has a 95% CI lower bound above 0.25 per period."),
+    ("NC2", "Dominated default",
+     "The default orders nothing. Expected: the gates learn to adapt. Passes if both gates adapt in at least 90% of "
+     "periods and lose no more than 5% of always adapting's net payoff."),
+    ("NC3", "Stable environment with abundant feedback",
+     "No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the "
+     "confidence-sensitive gate is at least as good as the better fixed rule. Passes if R < 1 and the gate's advantage "
+     "has a 95% CI upper bound above −0.25 per period."),
+)
+
+
+@dataclass(frozen=True)
+class LearnPlan:
+    version: str = "1.0"
+    periods: int = 1500
+    burn_in: int = 100
+    paths: int = 10                          # independent paths per test configuration
+    pilot_paths: int = 6                     # independent pilot paths per configuration (ratio and best fixed rule)
+    n_train_configs: int = 8                 # training configurations (jump family) for tuning
+    train_paths: int = 3
+    n_test_configs: int = 30                 # Latin-hypercube test configurations
+    seed: int = 20261007
+    baseline: Tuple[Tuple[str, object], ...] = tuple(asdict(Config()).items())
+    sweeps: Tuple[Tuple[str, Tuple], ...] = (
+        ("sigma", (5.0, 20.0, 40.0)), ("tau", (0.0, 10.0, 30.0)), ("hazard", (0.002, 0.01, 0.05)),
+        ("avail", (1.0, 0.5, 0.2)), ("memory", (0.9, 0.97, 0.995)),
+        ("default", ("slow", "fixed_initial", "biased")))
+    lhs_ranges: Tuple[Tuple[str, Tuple[float, float]], ...] = (
+        ("sigma", (5.0, 40.0)), ("tau", (0.0, 30.0)), ("hazard", (0.002, 0.05)), ("avail", (0.2, 1.0)),
+        ("memory", (0.9, 0.995)))
+    new_families: Tuple[str, ...] = ("switch", "drift")
+    n_new_family_configs: int = 15
+    tuning_grid: Tuple[Tuple[str, Tuple], ...] = (
+        ("gain", (0.05, 0.1, 0.2, 0.4)), ("band_b", (0.25, 0.5, 1.0, 2.0)),
+        ("bocpd", ((0.005, 30.0, 25.0), (0.01, 40.0, 25.0), (0.02, 40.0, 20.0), (0.005, 60.0, 35.0))),
+        ("dro", ((20, 0.01), (40, 0.01), (40, 0.1), (80, 0.05))))
+    gate_confidence: float = 0.9
+    gate_min_evidence: float = 5.0
+    n_boot: int = 2000
+    hypotheses: Tuple = HYPOTHESES
+    negative_controls: Tuple = NEGATIVE_CONTROLS
+
+    def to_json(self) -> str:
+        return json.dumps({**asdict(self), "code": code_digest()}, sort_keys=True, indent=1, default=str)
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(self.to_json().encode()).hexdigest()[:16]
+
+
+def code_digest() -> str:
+    """Hash of this study's code and of the gate and benchmark code it uses; changing any of it changes the plan hash."""
+    from . import bench_inventory, engine, learnability_market, params
+    mods = [sys.modules[__name__], gates, learnability_market, engine, params]
+    src = "".join(inspect.getsource(m) for m in mods)
+    src += "".join(inspect.getsource(f) for f in (bench_inventory.BOCPD, bench_inventory.gaussian_mixture_quantile,
+                                                   bench_inventory.chi2_worst_case, bench_inventory.dro_objective,
+                                                   bench_inventory.dro_orders_window, bench_inventory.newsvendor_loss))
+    return hashlib.sha256(src.encode().replace(b"\r\n", b"\n")).hexdigest()
+
+
+QUICK_LEARN = dict(periods=500, burn_in=50, paths=3, pilot_paths=2, n_train_configs=3, train_paths=2,
+                   n_test_configs=6, n_new_family_configs=3, n_boot=300)
+
+
+# ================================================================================================ running
+def _lhs_configs(plan: LearnPlan, n: int, seed: int, family: str = "jump") -> List[Config]:
+    rng = np.random.default_rng(seed)
+    base = Config(**dict(plan.baseline))
+    cols = {}
+    for k, (lo, hi) in plan.lhs_ranges:
+        u = (rng.permutation(n) + rng.random(n)) / n
+        cols[k] = np.exp(np.log(lo) + u * (np.log(hi) - np.log(lo))) if k == "hazard" else lo + u * (hi - lo)
+    return [replace(base, family=family, **{k: float(v[j]) for k, v in cols.items()}) for j in range(n)]
+
+
+def _seeds(plan: LearnPlan, tag: int, j: int, n: int) -> List[int]:
+    """Disjoint seed blocks: tag 1 training, 2 pilot, 3 test, 4 negative controls."""
+    return [plan.seed * 1000 + tag * 100_000_000 + j * 1000 + r for r in range(n)]
+
+
+def run_config(cfg: Config, hp, seeds: Sequence[int], T: int, burn: int,
+               policies: Sequence[str] = POLICIES) -> pd.DataFrame:
+    rows = []
+    for sd_ in seeds:
+        p = paths(cfg, T, sd_)
+        c = candidate_orders(cfg, p, hp["gain"])
+        for pol in policies:
+            S, pred, gobs = policy_orders(pol, cfg, p, c, hp)
+            rows.append(dict(seed=sd_, policy=pol, **outcomes(pol, cfg, p, c, S, pred, gobs, burn)))
+    return pd.DataFrame(rows)
+
+
+def tune(plan: LearnPlan, progress=None) -> Tuple[Dict, pd.DataFrame]:
+    """Hyperparameters chosen on training configurations only (jump family, seeds disjoint from pilot and test)."""
+    cfgs = _lhs_configs(plan, plan.n_train_configs, plan.seed + 1)
+    grid = dict(plan.tuning_grid)
+    T, burn = plan.periods, plan.burn_in
+    log = []
+
+    def score(policy, hp):
+        tot = []
+        for j, cfg in enumerate(cfgs):
+            df = run_config(cfg, hp, _seeds(plan, 1, j, plan.train_paths), T, burn, (policy,))
+            tot.append(df["net_payoff"].mean())
+        return float(np.mean(tot))
+
+    hp = {"gain": grid["gain"][0], "band": {"b": grid["band_b"][0]},
+          "bocpd": dict(zip(("hazard", "prior_sd", "obs_sd"), grid["bocpd"][0])),
+          "dro": dict(zip(("window", "rho"), grid["dro"][0]))}
+    best = max(grid["gain"], key=lambda g: score("always", {**hp, "gain": g}))
+    log += [dict(policy="always", value=best)]
+    hp["gain"] = best
+    if progress:
+        progress(0.25, "Tuned the flexible forecast")
+    hp["band"] = {"b": max(grid["band_b"], key=lambda b: score("band", {**hp, "band": {"b": b}}))}
+    hp["bocpd"] = dict(zip(("hazard", "prior_sd", "obs_sd"),
+                           max(grid["bocpd"], key=lambda v: score("bocpd", {**hp, "bocpd": dict(
+                               zip(("hazard", "prior_sd", "obs_sd"), v))}))))
+    if progress:
+        progress(0.6, "Tuned change detection")
+    hp["dro"] = dict(zip(("window", "rho"), max(grid["dro"], key=lambda v: score("dro", {**hp, "dro": dict(
+        zip(("window", "rho"), v))}))))
+    return hp, pd.DataFrame(log)
+
+
+def _boot_ci(x: np.ndarray, n_boot: int, seed: int = 0) -> Tuple[float, float, float]:
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)]
+    if len(x) < 2:
+        return (float(x.mean()) if len(x) else np.nan, np.nan, np.nan)
+    rng = np.random.default_rng(seed)
+    b = x[rng.integers(0, len(x), (n_boot, len(x)))].mean(1)
+    return float(x.mean()), float(np.percentile(b, 2.5)), float(np.percentile(b, 97.5))
+
+
+def paired(df: pd.DataFrame, a: str, b: str, col: str = "net_payoff", n_boot: int = 2000):
+    """Mean paired difference a − b over shared paths with a 95% bootstrap CI."""
+    w = df.pivot_table(index="seed", columns="policy", values=col)
+    return _boot_ci((w[a] - w[b]).to_numpy(), n_boot)
+
+
+def evaluate_config(cfg: Config, hp, plan: LearnPlan, j: int, tag: int = 3) -> Dict:
+    """Test paths, independent pilot (ratio, better fixed rule), effect sizes."""
+    T, burn = plan.periods, plan.burn_in
+    pilot = run_config(cfg, hp, _seeds(plan, 2, j, plan.pilot_paths), T, burn, ("always", "default"))
+    pm = pilot.groupby("policy")["net_payoff"].mean()
+    best_fixed = "always" if pm["always"] >= pm["default"] else "default"
+    ratio = learnability_ratio(cfg, hp["gain"], T, _seeds(plan, 2, j, plan.pilot_paths), burn)
+    test = run_config(cfg, hp, _seeds(plan, tag, j, plan.paths), T, burn)
+    eff = {}
+    for pol in ("gate_lcb", "gate_gain", "band", "bocpd", "dro"):
+        eff[f"adv_{pol}"] = paired(test, pol, best_fixed, n_boot=plan.n_boot)
+    return dict(config=asdict(cfg), best_fixed=best_fixed, ratio=ratio, test=test, effects=eff)
+
+
+def _slope_ci(x, y, n_boot, seed=0):
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+    b = float(np.polyfit(x, y, 1)[0])
+    rng = np.random.default_rng(seed)
+    bs = []
+    for _ in range(n_boot):
+        i = rng.integers(0, len(x), len(x))
+        if np.ptp(x[i]) > 0:
+            bs.append(np.polyfit(x[i], y[i], 1)[0])
+    return b, float(np.percentile(bs, 2.5)), float(np.percentile(bs, 97.5))
+
+
+def _cv_r2(X: np.ndarray, y: np.ndarray, groups: Optional[np.ndarray] = None) -> float:
+    """Leave-one-group-out cross-validated R² of an OLS fit with intercept (groups: original configuration ids, so a
+    bootstrap duplicate is never in both the fitting and the held-out set)."""
+    n = len(y)
+    groups = np.arange(n) if groups is None else np.asarray(groups)
+    pred = np.empty(n)
+    A = np.column_stack([np.ones(n), X])
+    for g in np.unique(groups):
+        m = groups != g
+        beta = np.linalg.lstsq(A[m], y[m], rcond=None)[0]
+        pred[~m] = A[~m] @ beta
+    return float(1 - ((y - pred) ** 2).sum() / ((y - y.mean()) ** 2).sum())
+
+
+def incremental_validity(df: pd.DataFrame, target: str, n_boot: int, seed: int = 0) -> Tuple[float, float, float]:
+    """Cross-validated R² gain from adding log10 R to log sigma + log(1 + tau), with a bootstrap CI over
+    configurations (grouped cross-validation inside every bootstrap sample)."""
+    base = np.column_stack([np.log(df["sigma"]), np.log1p(df["tau"])])
+    full = np.column_stack([base, df["log10_ratio"]])
+    y = df[target].to_numpy(float)
+    d0 = _cv_r2(full, y) - _cv_r2(base, y)
+    rng = np.random.default_rng(seed)
+    bs = []
+    for _ in range(n_boot):
+        i = rng.integers(0, len(y), len(y))
+        if len(np.unique(i)) > 4:                                  # enough distinct configurations to fit 4 terms
+            bs.append(_cv_r2(full[i], y[i], i) - _cv_r2(base[i], y[i], i))
+    if len(bs) < 20:
+        return float(d0), np.nan, np.nan
+    return float(d0), float(np.percentile(bs, 2.5)), float(np.percentile(bs, 97.5))
+
+
+def config_table(results: List[Dict]) -> pd.DataFrame:
+    rows = []
+    for r in results:
+        means = r["test"].groupby("policy").mean(numeric_only=True)
+        row = {**r["config"], **{k: r["ratio"][k] for k in ("n_needed", "n_avail", "ratio", "log10_ratio")},
+               "best_fixed": r["best_fixed"]}
+        for k, (m, lo, hi) in r["effects"].items():
+            row[k], row[k + "_lo"], row[k + "_hi"] = m, lo, hi
+        for pol in means.index:
+            row[f"np_{pol}"] = means.loc[pol, "net_payoff"]
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def negative_controls(plan: LearnPlan, hp) -> pd.DataFrame:
+    base = Config(**dict(plan.baseline))
+    T, burn = plan.periods, plan.burn_in
+    out = []
+    # NC1: perfect information, costless adaptation
+    c1 = replace(base, perfect=True, cost=0.0)
+    t1 = run_config(c1, hp, _seeds(plan, 4, 1, plan.paths), T, burn)
+    diffs = {pol: paired(t1, pol, "always", n_boot=plan.n_boot) for pol in POLICIES if pol not in ("always", "oracle")}
+    ok1 = all(not (lo > 0.25) for _, lo, _ in diffs.values())
+    out.append(("NC1", ok1, "; ".join(f"{POLICY_LABELS[k]} − always {m:+.2f} [{lo:+.2f}, {hi:+.2f}]"
+                                       for k, (m, lo, hi) in diffs.items())))
+    # NC2: dominated default
+    c2 = replace(base, default="dominated")
+    t2 = run_config(c2, hp, _seeds(plan, 4, 2, plan.paths), T, burn, ("always", "gate_gain", "gate_lcb"))
+    m2 = t2.groupby("policy").mean(numeric_only=True)
+    ok2 = all(m2.loc[g, "adaptation_rate"] >= 0.9 and m2.loc[g, "net_payoff"] >= m2.loc["always", "net_payoff"]
+              - 0.05 * abs(m2.loc["always", "net_payoff"]) for g in ("gate_gain", "gate_lcb"))
+    out.append(("NC2", ok2, "; ".join(f"{POLICY_LABELS[g]}: adaptation {m2.loc[g, 'adaptation_rate']:.3f}, net payoff "
+                                      f"{m2.loc[g, 'net_payoff']:.2f} (always {m2.loc['always', 'net_payoff']:.2f})"
+                                      for g in ("gate_gain", "gate_lcb"))))
+    # NC3: stable and abundant
+    c3 = replace(base, hazard=0.0, avail=1.0, tau=0.0, sigma=5.0, default="slow")
+    T3 = max(T, 3000)
+    r3 = learnability_ratio(c3, hp["gain"], T3, _seeds(plan, 4, 30, plan.pilot_paths), burn)
+    pil = run_config(c3, hp, _seeds(plan, 4, 31, plan.pilot_paths), T3, burn, ("always", "default"))
+    pm = pil.groupby("policy")["net_payoff"].mean()
+    bf = "always" if pm["always"] >= pm["default"] else "default"
+    t3 = run_config(c3, hp, _seeds(plan, 4, 3, plan.paths), T3, burn, ("always", "default", "gate_lcb"))
+    m, lo, hi = paired(t3, "gate_lcb", bf, n_boot=plan.n_boot)
+    ok3 = r3["ratio"] < 1 and hi > -0.25
+    out.append(("NC3", ok3, f"R = {r3['ratio']:.3g}; confidence gate − {POLICY_LABELS[bf].lower()} {m:+.2f} "
+                            f"[{lo:+.2f}, {hi:+.2f}]"))
+    return pd.DataFrame(out, columns=["id", "passed", "result"])
+
+
+@dataclass
+class LearnResult:
+    plan_hash: str
+    hyperparameters: Dict
+    sweeps: pd.DataFrame          # one row per (factor, level) with paired effects
+    tests: pd.DataFrame           # one row per test configuration (jump family)
+    new_families: pd.DataFrame    # one row per configuration of the new families
+    controls: pd.DataFrame
+    verdicts: pd.DataFrame
+    market: Optional[Dict] = None
+    paths: pd.DataFrame = field(default_factory=pd.DataFrame)    # per-path outcomes of every evaluated configuration
+
+
+def run_study(plan: LearnPlan, progress: Optional[Callable[[float, str], None]] = None, market: bool = True,
+              market_plan=None) -> LearnResult:
+    note = progress or (lambda f, m: None)
+    note(0.0, "Tuning on training configurations")
+    hp, _ = tune(plan, lambda f, m: note(0.15 * f, m))
+    base = Config(**dict(plan.baseline))
+    all_paths = []
+    # one-at-a-time sweeps
+    sweep_rows, j = [], 0
+    n_sweep = sum(len(v) for _, v in plan.sweeps)
+    for factor, levels in plan.sweeps:
+        for lv in levels:
+            j += 1
+            note(0.15 + 0.3 * j / n_sweep, f"Sweep: {factor} = {lv}")
+            r = evaluate_config(replace(base, **{factor: lv}), hp, plan, 1000 + j)
+            row = config_table([r]).iloc[0].to_dict()
+            row.update(factor=factor, level=str(lv))
+            for pol in POLICIES:
+                if pol != "always":
+                    m, lo, hi = paired(r["test"], pol, "always", n_boot=plan.n_boot)
+                    row[f"vs_always_{pol}"], row[f"vs_always_{pol}_lo"], row[f"vs_always_{pol}_hi"] = m, lo, hi
+            sweep_rows.append(row)
+            all_paths.append(r["test"].assign(part="sweep", factor=factor, level=str(lv)))
+    # Latin-hypercube test configurations (jump) and new families
+    tests = []
+    for i, cfg in enumerate(_lhs_configs(plan, plan.n_test_configs, plan.seed + 3)):
+        note(0.45 + 0.3 * i / plan.n_test_configs, f"Test configuration {i + 1}")
+        r = evaluate_config(cfg, hp, plan, 2000 + i)
+        tests.append(r)
+        all_paths.append(r["test"].assign(part="test", config=i))
+    newf = []
+    for fi, fam in enumerate(plan.new_families):
+        for i, cfg in enumerate(_lhs_configs(plan, plan.n_new_family_configs, plan.seed + 4 + fi, fam)):
+            note(0.75 + 0.15 * (fi + i / plan.n_new_family_configs) / len(plan.new_families), f"{fam}: {i + 1}")
+            r = evaluate_config(cfg, hp, plan, 3000 + 100 * fi + i)
+            newf.append(r)
+            all_paths.append(r["test"].assign(part=f"family_{fam}", config=i))
+    note(0.9, "Negative controls")
+    controls = negative_controls(plan, hp)
+    T1, NF = config_table(tests), config_table(newf)
+    mres = None
+    if market:
+        from . import learnability_market as LM
+        note(0.92, "Market replication")
+        mres = LM.run_market(market_plan or LM.MarketPlan())
+    verdicts = evaluate(T1, NF, mres, plan)
+    note(1.0, "Done")
+    return LearnResult(plan.digest, hp, pd.DataFrame(sweep_rows), T1, NF, controls, verdicts, mres,
+                       pd.concat(all_paths, ignore_index=True))
+
+
+def evaluate(tests: pd.DataFrame, newf: pd.DataFrame, market: Optional[Dict], plan: LearnPlan) -> pd.DataFrame:
+    rows = []
+    b, lo, hi = _slope_ci(tests["log10_ratio"], tests["adv_gate_lcb"], plan.n_boot)
+    rows.append(("H1", "supported" if hi < 0 else "not supported",
+                 f"slope {b:+.2f} per unit of log10 R [{lo:+.2f}, {hi:+.2f}] ({len(tests)} configurations)"))
+    d, dlo, dhi = incremental_validity(tests, "adv_gate_lcb", plan.n_boot)
+    rows.append(("H2", "supported" if np.isfinite(dlo) and dlo > 0 else "not supported",
+                 f"cross-validated R² gain {d:+.3f} [{dlo:+.3f}, {dhi:+.3f}]"))
+    if len(newf):
+        b3, lo3, hi3 = _slope_ci(newf["log10_ratio"], newf["adv_gate_lcb"], plan.n_boot)
+        rows.append(("H3", "supported" if hi3 < 0 else "not supported",
+                     f"slope {b3:+.2f} [{lo3:+.2f}, {hi3:+.2f}] ({len(newf)} configurations, "
+                     f"{', '.join(plan.new_families)})"))
+    if market is not None:
+        mt = market["tests"]
+        b4, lo4, hi4 = _slope_ci(mt["log10_ratio"], mt["adv_gate_lcb"], plan.n_boot)
+        rows.append(("H4", "supported" if hi4 < 0 else "not supported",
+                     f"slope {b4:+.1f} [{lo4:+.1f}, {hi4:+.1f}] ({len(mt)} market configurations)"))
+    return pd.DataFrame([dict(id=h[0], hypothesis=h[1], decision_rule=h[2], verdict=v[1], result=v[2])
+                         for h in plan.hypotheses for v in rows if v[0] == h[0]])
+
+
+SECONDARY = ("regret", "cvar5", "adaptation_rate", "missed", "calib_bias", "calib_slope", "recovery_delay")
+
+
+def secondary_table(paths_df: pd.DataFrame, part: str = "test", n_boot: int = 2000) -> pd.DataFrame:
+    """Secondary outcomes per policy on the untouched test paths of one part of the study: mean and 95% bootstrap CI
+    over paths (descriptive; no decision rule)."""
+    d = paths_df[paths_df["part"] == part]
+    rows = []
+    for pol, g in d.groupby("policy", sort=False):
+        r = {"policy": pol, "label": POLICY_LABELS[pol]}
+        for k in SECONDARY:
+            m, lo, hi = _boot_ci(g[k].to_numpy(float), n_boot)
+            r[k], r[k + "_lo"], r[k + "_hi"] = m, lo, hi
+        rows.append(r)
+    return pd.DataFrame(rows)
+
+
+# ================================================================================================ registration
+def registration_document(plan: LearnPlan, registered_hash: Optional[str] = None) -> str:
+    """Markdown registration document of the frozen specification (exportable)."""
+    status = ("This specification is frozen in the repository: its hash covers the plan and the study code, and a test "
+              "fails if either changes without a new registration entry. It has **not** been preregistered with an "
+              "external registry (for example OSF or AsPredicted). Any external registration must be done separately; "
+              "until then, do not describe the study as externally preregistered.")
+    cur = plan.digest
+    lines = [f"# Registration: when can reliability be learned before the environment changes?", "",
+             f"* Plan hash: `{cur}`" + (f" (registered in the repository: `{registered_hash}`"
+                                        f"{'' if registered_hash == cur else ' — DIFFERENT: this plan is exploratory'})"
+                                        if registered_hash else ""),
+             f"* Status: {status}", "",
+             "## Question", "When does an agent have enough informative feedback within a regime to learn whether "
+             "adapting is reliable, before the environment changes? A proposed construct, the learnability ratio R "
+             "(observations needed to determine the sign of the advantage of adapting with 90% one-sided confidence, "
+             "divided by the informative observations available within a regime), is tested for whether it explains "
+             "policy performance beyond volatility and observation noise.", "",
+             "## Design", __doc__.split("Task\n", 1)[1].split("Proposed construct")[0].strip(), "",
+             "## Proposed construct", __doc__.split("Proposed construct:", 1)[1].strip(), "",
+             "## Primary outcome", "Net payoff per period (newsvendor payoff minus the adaptation cost c whenever the "
+             "order differs from the default's). Effects are paired differences over shared exogenous paths with 95% "
+             "bootstrap intervals; rankings are not used to declare any theory superior.", "",
+             "## Hypotheses and decision rules"]
+    lines += [f"* **{h[0]}.** {h[1]} *Decision rule:* {h[2]}" for h in plan.hypotheses]
+    lines += ["", "## Negative controls"] + [f"* **{c[0]} · {c[1]}.** {c[2]}" for c in plan.negative_controls]
+    lines += ["", "## Sets", "Training configurations (jump family) for tuning; independent pilot paths for R and for "
+              "choosing the better fixed rule; untouched test paths (new seeds) for every reported effect; new process "
+              "families (switching, drifting) for transfer. Seed blocks are disjoint by construction.", "",
+              "## Plan", "```json", plan.to_json(), "```"]
+    return "\n".join(lines)
+
+
+LEARN_PREREG = LearnPlan()

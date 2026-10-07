@@ -161,6 +161,7 @@ settings are collapsed by default; the section holding the current page opens.
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
+| When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
@@ -643,6 +644,8 @@ heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
                            decision benchmarks: Bayes, robust optimization, bandits; tuning protocol; correctness checks
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
+heiner_abm/learnability.py, learnability_market.py
+                           learnability study: when reliability can be learned before change; market replication
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -808,6 +811,37 @@ Three established decision methods are run in two tasks of the generalization st
   a golden-section search; the grid filter is O(G²) per period).
 * No results of these comparisons are reported here; they are produced on the page (Quick check or Full) with the
   plan, environments and information specification exported alongside.
+
+## When can reliability be learned before the environment changes? (proposed extension)
+
+`heiner_abm/learnability.py` (inventory task) and `heiner_abm/learnability_market.py` (market replication). The
+question, the **learnability ratio** and the operationalizations are this laboratory's own proposal; the ratio is a
+construct whose measurement and usefulness the study tests, not an established quantity.
+
+* **Construct.** On independent pilot paths, per regime: the observations needed to determine the sign of the
+  advantage of adapting with 90% one-sided confidence, n_needed = (z₀.₉ s / |μ_r|)², divided by the informative
+  observations the agent actually receives in that regime; R is the median ratio over regimes. μ_r is the regime's
+  true mean advantage (a researcher-only counterfactual used for measurement, never shown to the agents).
+* **Manipulated separately:** outcome volatility, observation error, regime-change frequency, feedback availability
+  (unobserved periods give no evidence), the gates' memory, and default quality (slow forecast, a fixed default that
+  deteriorates after the first change, a biased and a dominated default).
+* **Policies** on shared exogenous paths (common random numbers): always adapt, retain the default, inaction band,
+  the existing estimated-gain gate, the confidence-sensitive gate, Bayesian change detection (BOCPD) and the
+  distributionally robust order. The last two have no counterpart in the market's adoption decision and are reported
+  there as not applicable.
+* **Data sets.** Disjoint seed blocks for training (all tuning), pilot (R and the better fixed rule) and untouched test
+  paths; tests on two process families never used for tuning (switching and drifting means), not only new seeds.
+* **Outcomes.** Primary: net payoff per period (payoff minus the adaptation cost c in every period whose order departs
+  from the default). Secondary: regret against perfect information, downside loss (CVaR 5%), calibration of the gates'
+  predicted advantage, adaptation rate, missed opportunities and recovery delay after changes.
+* **Hypotheses** H1–H4 (the advantage of the confidence-sensitive gate over the better fixed rule falls with log R;
+  R adds cross-validated explanatory power beyond volatility and noise; the relation transfers to new families; it
+  replicates in the market) and **negative controls** NC1–NC3 (perfect information with costless adaptation; a
+  dominated default; a stable environment with abundant feedback), each with its decision rule. Effects are paired
+  differences with 95% bootstrap intervals; rank differences are not interpreted as one theory's superiority.
+* **Registration.** Plan `ec9b781e125e289d` is frozen in the repository (`registered.LEARN_PLAN`); the exported
+  document is [`docs/learnability_registration.md`](docs/learnability_registration.md) and can be downloaded from the
+  page. It has **not** been preregistered with an external registry.
 
 ## Research basis
 

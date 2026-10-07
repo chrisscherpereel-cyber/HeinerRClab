@@ -64,6 +64,12 @@ COMPONENTS: List[Component] = [
     Component("established", "Upper-confidence-bound policies for switching bandits",
               "UCB indices computed over a sliding window or with discounting track abrupt changes in the payoffs of "
               "options observed only when chosen.", ("garivier2011", "auer2002"), "Decision benchmarks"),
+    Component("established", "NK fitness landscapes",
+              "N binary decisions whose payoff contributions each depend on K_NK other decisions; K_NK tunes "
+              "interdependence and the number of local peaks. Used in organization science for search on rugged "
+              "landscapes and the imitation of complex strategies. The model represents complexity; observation noise "
+              "and landscape change are added as separate uncertainty mechanisms.",
+              ("kauffman1987", "kauffman1993", "levinthal1997", "rivkin2000"), "NK landscapes"),
     # ---------------------------------------------------------------------------------------- reduced form
     Component("reduced_form", "The market",
               "One homogeneous product, linear demand with a price floor, and a raw-material cost that follows a "
@@ -113,6 +119,11 @@ COMPONENTS: List[Component] = [
               "minimum evidence requirement) or an exploration-enabled gate (randomized trials, learning from its own "
               "payoffs only), compared with an ORACLE benchmark from independent runs. Heiner did not propose these "
               "gates; results test the laboratory's operationalization.", (), "Reliability gates page, Market lab"),
+    Component("extension", "Reliability-gated search on NK landscapes",
+              "Apparent improvements found by search are verified once, independently, and an estimated-gain or "
+              "confidence-sensitive gate learns per signal-strength bin whether acting on such improvements pays, "
+              "compared with ungated search on identical proposals and evaluation budgets; the laboratory's own "
+              "operationalization.", (), "NK landscapes"),
     Component("extension", "Learnability ratio",
               "The observations needed to determine the sign of the advantage of adapting, divided by the informative "
               "observations available within a regime, proposed as the condition under which reliability can be "

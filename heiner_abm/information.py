@@ -186,6 +186,16 @@ ENGINES: Dict[str, EngineSupport] = {
          "regime_announced": "native only (shifts not announced)", "rivals_visible": "n/a: single decision maker",
          "unmet_demand_observed": "native only (observed)"},
         InfoSpec(feedback="full", demand_knowledge="none", rivals_visible=False), fixed=True),
+    "nk": EngineSupport(
+        "nk", "NK-landscape decision environment (interaction complexity)", ("chosen",),
+        {"feedback": "agents observe the noisy payoff of the configuration they operate and of the candidates they "
+                     "evaluate within the evaluation budget; never the landscape, the true payoffs or the global maximum.",
+         "obs_noise": "manipulated (observation noise, independent of the landscape)",
+         "obs_delay": "native only (no delay; a switch decided at the end of a period takes effect in the next)",
+         "demand_knowledge": "n/a: no demand", "regime_announced": "native only (landscape changes not announced)",
+         "rivals_visible": "imitation only: a fixed share of a leader's components (no payoffs)",
+         "unmet_demand_observed": "n/a"},
+        InfoSpec(feedback="chosen", demand_knowledge="none", rivals_visible=True), fixed=True),
     "learnability": EngineSupport(
         "learnability", "Learnability study: inventory task (factor-controlled newsvendor)", ("full", "oracle"),
         {"feedback": "each period's demand is observed with probability `avail` (a manipulated factor) whatever is "
@@ -335,6 +345,21 @@ AGENTS: List[Needs] = [
        oracle=True, uses="observed demands and the TRUE generating model and parameters"),
     _a("inv_oracle", "Inventory: ORACLE (knows the mean demand)", "bench_inventory", feedback=("oracle",), oracle=True,
        uses="the true mean demand"),
+    # NK-landscape environment
+    _a("nk_hill", "NK: local hill climbing", "nk", feedback=("chosen",), uses="noisy payoffs of its configuration and "
+       "of one-flip candidates"),
+    _a("nk_stochastic", "NK: broader stochastic search", "nk", feedback=("chosen",),
+       uses="noisy payoffs of its configuration and of multi-flip candidates; budget used"),
+    _a("nk_satisfice", "NK: satisficing", "nk", feedback=("chosen",),
+       uses="noisy payoffs of its configuration and candidates; its aspiration level"),
+    _a("nk_imitate", "NK: imitation (partial observability)", "nk", feedback=("chosen",), rivals_visible=True,
+       uses="the observable components of a leader's configuration; noisy payoffs of its own candidates"),
+    _a("nk_gate_none", "NK: ungated search (same proposals and budget as the gates)", "nk", feedback=("chosen",),
+       uses="noisy payoffs of its configuration and candidates"),
+    _a("nk_gate_gain", "NK: reliability-gated search, estimated gain", "nk", feedback=("chosen",),
+       uses="noisy payoffs; verified gains of apparent improvements per strength bin"),
+    _a("nk_gate_lcb", "NK: reliability-gated search, confidence-sensitive", "nk", feedback=("chosen",),
+       uses="noisy payoffs; verified gains, their uncertainty and evidence count per strength bin"),
     # learnability study (inventory task); the market replication uses the market agents
     _a("lrn_always", "Learnability: always adapt (fast forecast)", "learnability", feedback=("full",),
        uses="observed demands"),

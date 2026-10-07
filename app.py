@@ -54,6 +54,7 @@ SECTIONS = {
         st.Page("app_pages/generalisation.py", title="Generalization", icon="🌐"),
         st.Page("app_pages/benchmarks.py", title="Decision benchmarks (Bayes, robust, bandit)", icon="🧮"),
         st.Page("app_pages/learnability.py", title="When can reliability be learned?", icon="⏳"),
+        st.Page("app_pages/nk.py", title="NK landscapes (complexity)", icon="🏔️"),
     ],
     "Reference": [
         st.Page("app_pages/agents_reference.py", title="Agents as implemented", icon="🤖"),

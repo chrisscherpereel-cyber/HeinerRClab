@@ -3,7 +3,7 @@
 Two experiments on top of the agent tournament (heiner_abm.arena):
 
 1. Principle versus implementation. On each target (model-based best reply, price-based expectation), a focal firm
-   uses one selection rule while the other eight slots hold the tournament's tuned rivals. The focal variants are
+   uses one selection rule while the other nine slots hold the tournament's tuned rivals. The focal variants are
        always            move toward the target every period (no restriction)
        band              inaction band (real options)
        rc_learned        reliability condition learned from experience, judged with the agent's own demand model

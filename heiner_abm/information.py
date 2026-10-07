@@ -293,6 +293,10 @@ AGENTS: List[Needs] = [
     _a("rl_erevroth", "Erev–Roth propensity learner", "arena", feedback=("chosen",), uses="own payoff after each move"),
     _a("imit_best", "Imitate the best", "arena", rivals_visible=True, uses="rivals' outputs and payoffs"),
     _a("imit_avg", "Imitate the average", "arena", rivals_visible=True, uses="rivals' outputs"),
+    _a("ecol_periodic", "Structural inertia · scheduled reorganization", "arena", demand_model=True,
+       uses="adaptive price expectation, believed slope; reorganizes only on a fixed schedule"),
+    _a("ecol_crisis", "Structural inertia · reorganize under threat of failure", "arena", feedback=("chosen",),
+       demand_model=True, uses="own smoothed profit against a survival threshold; adaptive price expectation, believed slope"),
     _a("ruleb", "Rule B (rigid)", "arena", uses="nothing"),
     _a("human", "Human participant (Play the market)", "arena", feedback=("chosen",),
        uses="the screen: last price, market output, own output and payoff, cost estimate; no demand model and no "

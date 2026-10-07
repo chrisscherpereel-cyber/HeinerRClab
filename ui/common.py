@@ -250,7 +250,7 @@ def render_navigation(sections, current) -> None:
     sb = st.sidebar
     sb.markdown("## ⚖️ Decision under uncertainty lab")
     sb.markdown("### Theories")
-    sb.caption("Eight theories of decision making under uncertainty, each implemented as agents and tested on equal "
+    sb.caption("Nine theories of decision making under uncertainty, each implemented as agents and tested on equal "
                "terms in the same simulated market.")
     for page in sections["Theories"]:
         sb.page_link(page, label=page.title, icon=page.icon)
@@ -258,7 +258,7 @@ def render_navigation(sections, current) -> None:
     sb.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                  help="The theory whose predictions are highlighted on every hypothesis card, in the overview and "
                       "research tables and in the tournament reviews. The others are shown as competitors. Heiner's "
-                      "reliability condition is one choice among eight.")
+                      "reliability condition is one choice among nine.")
     for name, pages in sections.items():
         if name == "Theories":
             continue
@@ -699,7 +699,7 @@ def hypothesis_card(hid: str, statement: str, title: Optional[str] = None, rc: O
             lines.append(f"* **Alternative ({h.alt_label.lower()}):** {trad}" + (f" *Reasoning:* {extra}" if extra
                                                                                   else ""))
         st.markdown("\n".join(lines))
-        with st.popover("All eight theories", width="stretch"):
+        with st.popover("All nine theories", width="stretch"):
             st.dataframe(pd.DataFrame([dict(Theory=("⭐ " if k == focal else "") + F.title(k),
                                             Prediction=F.prediction(hid, k)[0], Basis=F.prediction(hid, k)[1])
                                        for k in F.FOCAL_KEYS]), hide_index=True, width="stretch")
@@ -752,7 +752,7 @@ PREREG_TEXT = (
     "**What it is.** Before a confirmatory study is run, its plan is fixed in writing: the hypotheses, the exact test "
     "and decision rule for each (what result counts as support and what does not), the environments and sample sizes, "
     "the tuning budget every agent receives, and the random seeds. The app turns the plan, together with the source "
-    "code of the agents and the analysis, into a short fingerprint (a hash, such as `9699f86a6a899cf7`).\n\n"
+    "code of the agents and the analysis, into a short fingerprint (a hash, such as `110b3146bb072c2c`).\n\n"
     "**Why it matters.**\n"
     "* *No moving the goalposts.* Tests, settings and thresholds cannot be chosen after seeing which ones favor a "
     "theory (the 'garden of forking paths', p-hacking, or hypothesizing after the results are known).\n"

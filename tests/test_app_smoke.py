@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
 PAGES = ["app_pages/theory_overview.py", "app_pages/theory_heiner.py", "app_pages/theory_optimiser.py",
          "app_pages/theory_options.py", "app_pages/theory_cobweb.py", "app_pages/theory_heuristics.py",
-         "app_pages/theory_satisficing.py", "app_pages/theory_rl.py", "app_pages/theory_imitation.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
+         "app_pages/theory_satisficing.py", "app_pages/theory_rl.py", "app_pages/theory_imitation.py", "app_pages/theory_ecology.py", "app_pages/market_lab.py", "app_pages/hypotheses.py", "app_pages/rc_validation.py",
          "app_pages/dynamic_rc.py", "app_pages/uncertainty.py",
          "app_pages/cd_gap.py", "app_pages/evolution.py", "app_pages/theories.py", "app_pages/arena.py", "app_pages/mechanisms.py", "app_pages/rule_choice.py", "app_pages/designer.py",
          "app_pages/field_patterns.py", "app_pages/calibration.py", "app_pages/empirical.py", "app_pages/play_market.py",

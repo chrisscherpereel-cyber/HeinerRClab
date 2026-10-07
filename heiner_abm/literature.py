@@ -138,6 +138,11 @@ _REFS = [
        "Strategic Management Journal", "14", "S2", "95–112"),
     _a("hannan1984", "Hannan, M. T.; Freeman, J.", 1984, "Structural inertia and organizational change",
        "American Sociological Review", "49", "2", "149–164"),
+    _a("hannan1977", "Hannan, M. T.; Freeman, J.", 1977, "The population ecology of organizations",
+       "American Journal of Sociology", "82", "5", "929–964"),
+    _a("amburgey1993", "Amburgey, T. L.; Kelly, D.; Barnett, W. P.", 1993,
+       "Resetting the clock: The dynamics of organizational change and failure", "Administrative Science Quarterly",
+       "38", "1", "51–73"),
     _b("thompson1967", "Thompson, J. D.", 1967, "Organizations in action", "McGraw-Hill"),
     _a("staw1981", "Staw, B. M.; Sandelands, L. E.; Dutton, J. E.", 1981,
        "Threat-rigidity effects in organizational behavior: A multilevel analysis",
@@ -912,7 +917,7 @@ THEORY_SOURCES: Dict[str, List[str]] = {
     "cobweb": ["ezekiel1938", "nerlove1958", "theocharis1960", "carlson1967", "hommes1994"],
     "biasvar": ["geman1992", "gigerenzer1999", "gigerenzer2009", "dawes1979"],
     "satisficing": ["simon1955", "cyert1963", "greve1998"],
-    "ecology": ["hannan1984", "nelson1982"],
+    "ecology": ["hannan1977", "hannan1984", "amburgey1993"],
 }
 
 

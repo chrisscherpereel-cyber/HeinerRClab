@@ -24,7 +24,7 @@ st.dataframe(pd.DataFrame([
                          "Competing theories, Experiment designer, Heiner special tests",
      "Firms that differ in flexibility φ and share a production rule (margin feedback or Cournot best reply) and a selection rule."),
     ("Tournament designs", "Agent tournament, Mechanisms, Rule choice, Field patterns, Signature tests, Play the market",
-     "Seventeen designs, two per theory plus rule B, each implementing one theory's decision rule."),
+     "Nineteen designs, two per theory plus rule B, each implementing one theory's decision rule."),
     ("Mechanism variants", "Heiner: mechanisms", "The reliability-condition agent judging with the true model, and "
                                                 "an oracle that knows its rule's true reliability."),
     ("Rule-choosing firms", "Rule choice (emergence)", "Firms that switch between six tournament designs according to "
@@ -134,7 +134,11 @@ with c2.container(border=True):
         "each bin's gain E_b ← m·E_b + (1 − m)·g is learned from the profit of holding q̃ rather than q over the "
         "next h periods (rivals on their actual path, the agent's believed demand, realized costs); the agent "
         "deviates only where E_b ≥ 0.\n"
-        f"* *Aspiration*: {SELECT_TEXT['aspiration']}: A ← A + α·(π − A), move if last profit < A.")
+        f"* *Aspiration*: {SELECT_TEXT['aspiration']}: A ← A + α·(π − A), move if last profit < A.\n"
+        f"* *Scheduled reorganization* (organizational ecology): {SELECT_TEXT['periodic']}: move only in periods "
+        "t with t mod I = 0.\n"
+        f"* *Reorganize under threat of failure* (organizational ecology): {SELECT_TEXT['crisis']}: S ← S + α·(π − S), "
+        "move if S < f·|π₀|, where π₀ is the profit at the start.")
 
 DETAIL = {
     "opt_nash": r"Target $x^* = (\hat P^{\max} - \tilde c)/(\hat s\,(N+1))$, the symmetric Cournot–Nash output at the "

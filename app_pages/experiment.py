@@ -34,15 +34,25 @@ pols = {p.key: p for p in env.policies}
 if step == "question":
     st.subheader("1. Question")
     st.markdown("Pick a guided question (it loads a documented, editable preset) or write your own.")
-    names = {key: p.title for key, p in presets.PRESETS.items() if p.spec is not None}
-    c1, c2 = st.columns([3, 1])
-    pick = c1.selectbox("Guided questions", list(names), format_func=names.get, key="wb_pick_preset",
-                        index=list(names).index(spec.question.preset) if spec.question.preset in names else 0)
-    if c2.button("Load this preset", width="stretch", key="wb_load_preset"):
-        set_spec(presets.load(pick, mode()))
-        st.rerun()
-    p = presets.PRESETS[pick]
-    st.caption(p.summary + (f" Related registered study: *{p.registered_page[1]}*." if p.registered_page else ""))
+    names = {"custom": "Custom question (keep the current settings)",
+             **{key: p.title for key, p in presets.PRESETS.items() if p.spec is not None}}
+
+    def _pick(key):
+        choice = st.session_state.get(key)
+        if choice and choice != "custom":
+            set_spec(presets.load(choice, mode()))
+        elif choice == "custom":
+            spec.question.preset = "custom"
+
+    pick_key = k("preset")
+    current = spec.question.preset if spec.question.preset in names else "custom"
+    st.selectbox("Guided questions", list(names), index=list(names).index(current), format_func=names.get,
+                 key=pick_key, on_change=_pick, args=(pick_key,),
+                 help="Choosing a guided question loads its documented preset at once (question, environment, "
+                      "policies, comparison and design); everything stays editable.")
+    if current != "custom":
+        p = presets.PRESETS[current]
+        st.caption(p.summary + (f" Related registered study: *{p.registered_page[1]}*." if p.registered_page else ""))
     spec.name = st.text_input("Experiment name", spec.name, key=k("name"))
     spec.question.text = st.text_area("Research question", spec.question.text, key=k("q_text"), height=80)
     spec.question.rationale = st.text_area("Why this comparison answers it (optional)", spec.question.rationale,

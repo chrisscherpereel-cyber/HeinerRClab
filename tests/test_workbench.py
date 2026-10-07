@@ -212,7 +212,7 @@ def test_workspace_steps_and_results_pages_run():
         at.switch_page("app_pages/start.py").run()
         next(b for b in at.button if b.key == "start_use_noise_simple").click().run()
         assert not at.exception, [e.value for e in at.exception]
-        at.switch_page("app_pages/experiment.py").run()
+        at.switch_page("app_pages/experiment.py").run()       # AppTest does not keep an app-initiated page switch
         for step in ("question", "environment", "agents", "information", "design", "run"):
             at.session_state["wb_step"] = step
             at.run()
@@ -223,3 +223,27 @@ def test_workspace_steps_and_results_pages_run():
         at.switch_page("app_pages/results.py").run()
         assert not at.exception, [e.value for e in at.exception]
         assert any("Comparison" in m.value for m in at.markdown)
+
+
+def test_choosing_a_question_loads_it_at_once():
+    """Regression: picking a guided question must load its preset without a separate button, and 'Use this question'
+    on the Start page must open the workspace with that question."""
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=600)
+    at.run()
+    next(b for b in at.button if b.key == "start_use_complexity").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    spec = at.session_state["wb_spec"]
+    assert spec.question.preset == "complexity" and spec.environment == "nk"
+    assert any(t.value == presets.PRESETS["complexity"].title for t in at.text_area)   # now on the Experiment page
+    at.switch_page("app_pages/experiment.py").run()             # AppTest does not keep an app-initiated page switch
+    pick = next(s for s in at.selectbox if s.label == "Guided questions")
+    pick.set_value("noise_simple").run()
+    assert not at.exception, [e.value for e in at.exception]
+    spec = at.session_state["wb_spec"]
+    assert spec.question.preset == "noise_simple" and spec.environment == "inventory"
+    assert spec.question.comparison == ("band", "always")
+    assert any(t.value == presets.PRESETS["noise_simple"].title for t in at.text_area)
+    pick = next(s for s in at.selectbox if s.label == "Guided questions")
+    pick.set_value("custom").run()                              # custom keeps the current settings
+    assert at.session_state["wb_spec"].environment == "inventory"

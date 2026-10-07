@@ -42,6 +42,33 @@ def test_every_experiment_has_a_prediction_slot_per_theory():
         assert e.predictions["heiner"] is not None
 
 
+def test_every_theory_is_tested_in_every_experiment_and_is_an_agent():
+    """No theory is tested only on a convenient subset: each states a reasoned prediction for every experiment, and
+    every theory of the laboratory is in the directional tournament and implemented as agents."""
+    from heiner_abm.arena import THEORY_DESIGNS
+    from heiner_abm.theory_content import THEORIES as CONTENT
+    for e in EXPERIMENTS:
+        assert all(e.predictions[t.key] is not None and e.why.get(t.key) for t in THEORIES), e.key
+    assert {t.tournament_key for t in CONTENT} == {t.key for t in THEORIES}
+    assert {t.key for t in CONTENT} == set(THEORY_DESIGNS) - {"ruleb"}
+
+
+def test_agent_track_runs_every_theory_in_every_condition():
+    from heiner_abm.agent_track import AGENT_EXPERIMENT_BY_KEY, agent_scoreboard, agent_slopes, agent_track
+    from heiner_abm.arena import KEYS
+    from heiner_abm.params import linear_flex_firms
+    base = default_scenario()
+    base.firms = linear_flex_firms(n=4)
+    df = agent_track(base, 2, periods=150, burn_in=20, experiments=["volatility", "rivals"])
+    for ex in ("volatility", "rivals"):
+        assert len(df[df["experiment"] == ex]) == len(AGENT_EXPERIMENT_BY_KEY[ex].levels) * 2 * len(KEYS)
+    assert set(df["theory"]) == set(KEYS)
+    assert (df.loc[df["theory"] == "ruleb", "advantage"] == 0).all()
+    sb = agent_scoreboard(df)
+    assert set(sb["theory"]) == set(KEYS) and sb["mean_rank"].between(1, len(KEYS)).all()
+    assert set(agent_slopes(df)["theory"]) == set(KEYS) - {"ruleb"}
+
+
 def test_logistic_recovers_direction():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((2000, 1))

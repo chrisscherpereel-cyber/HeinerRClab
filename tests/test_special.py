@@ -33,6 +33,17 @@ def test_sidebar_has_five_destinations_mode_and_theory_selector():
     assert exp["More in Start"] and not exp["All pages"]                          # current section open, rest folded
     md = [m.value for m in at.sidebar.markdown]
     assert "### Base market scenario" in md
+    assert md.index("### Agents") < md.index("### Base market scenario")
+    from heiner_abm.arena import THEORY_NAMES
+    assert all(name in exp and not exp[name] for name in THEORY_NAMES.values())   # every theory's agents, folded
+    assert "**General simulations**" in md and "**Special simulations**" in md   # simulations split by fairness
+
+
+def test_every_grouped_simulation_page_exists():
+    import pathlib
+    from ui.common import SIM_GROUPS
+    app = pathlib.Path(APP).read_text(encoding="utf-8")
+    assert all(f'"app_pages/{name}.py"' in app for name in SIM_GROUPS)
 
 
 def test_hypothesis_titles_are_neutral_questions():

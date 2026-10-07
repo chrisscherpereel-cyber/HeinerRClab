@@ -8,11 +8,13 @@ import streamlit as st
 
 from heiner_abm.experiments import MEASURE_LABELS, EnvRanges
 from heiner_abm.literature import HYPOTHESIS_BY_ID, THEORY_SOURCES, bibliography
+from heiner_abm.agent_track import AGENT_EXPERIMENTS, agent_scoreboard, agent_slopes
+from heiner_abm.arena import THEORY_NAMES as AGENT_NAMES
 from heiner_abm.theories import EXPERIMENTS, THEORIES, THEORY_NAMES, score, scoreboard
 from heiner_abm.focal import tournament_key
 from heiner_abm.terminology import rule_option
 from ui.common import adaptive_supported
-from ui.common import (CAT, base_scenario, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
+from ui.common import (CAT, base_scenario, cached_agent_track, cached_horse_race, cached_tournament, download, focal_theory, focal_title,
                        fmt_p, measure_opts, measurement, replication_notice, reps, research_panel, show_errors, style,
                        to_json, verdict)
 from ui.common import evidence_note
@@ -23,13 +25,14 @@ FNAME = THEORY_NAMES.get(FKEY) if FKEY else None
 FORECASTS = {"heiner": ("rc", "K"), "optimiser": ("neoclassical",), "options": ("options",), "cobweb": ("cobweb",),
              "heuristic": ("accuracy",), "rl": ("past",)}.get(FOCAL, ())
 
-st.title("Competing theories: a tournament of predictions")
+st.title("Competing theories: every theory tested, every theory as agents")
 evidence_note("simulation")
-st.caption("Seven theories make directional predictions about when behavioral flexibility pays under uncertainty. "
-           "This page states what each predicts in this market, runs the experiments that tell them apart, and "
-           "scores every theory against the results. A second test asks which theory best *forecasts*, out of "
-           "sample, whether a firm's flexibility will beat its own rigid twin. Each theory has its own page under "
-           "*Theories*.")
+st.caption("Nine theories make directional predictions about when behavioral flexibility pays under uncertainty. "
+           "This page states what each predicts in **every** experiment, runs the experiments that tell them apart, "
+           "and scores every theory against the results. The agent track then lets every theory's own agent compete "
+           "in every experimental condition, so no theory is judged only on the few predictions it makes. A last "
+           "test asks which theory best *forecasts*, out of sample, whether a firm's flexibility will beat its own "
+           "rigid twin. Each theory has its own page under *Reference*, and its agents are described in the sidebar.")
 
 base = base_scenario()
 if not show_errors(base):
@@ -53,8 +56,10 @@ with st.expander("📚 Research behind each theory"):
 st.header("2 · What each theory predicts", divider="gray")
 st.caption("Each experiment reports one statistic; a theory predicts its sign. For E1 the statistic is the payoff "
            "to flexibility itself (a negative value means rigid firms earn more); for the others it is how that "
-           "payoff, or behavior, changes with the manipulated variable. '—' means the theory makes no clear "
-           "prediction. These are stylized readings of each literature, open to debate.")
+           "payoff, or behavior, changes with the manipulated variable. Every theory states a prediction for every "
+           "experiment; where its literature does not address an experiment directly, the prediction is read from "
+           "the theory's core mechanism (the reasoning is given below). These are stylized readings of each "
+           "literature, open to debate.")
 pred = pd.DataFrame([{"Experiment": e.title, "Statistic": e.statistic,
                       **{t.name: SYM[e.predictions.get(t.key)] for t in THEORIES}} for e in EXPERIMENTS])
 st.dataframe(pred, hide_index=True, width="stretch")
@@ -139,8 +144,84 @@ if outcomes:
             st.caption(f"Predictions of {FNAME} contradicted here: " + "; ".join(misses) + ".")
     download(res, "theory_tournament.csv")
 
+# ------------------------------------------------------------------------------------------------ agent track
+st.header("4 · Agent track: every theory's agent in every condition", divider="gray")
+st.markdown(
+    "The directional experiments above judge each theory by what it predicts about the market model's firms. Here "
+    "each theory acts for itself: its agent (the design and parameters selected in the registered agent "
+    "tournament, described in the sidebar under *Agents*) competes against every other theory's agent and rule B "
+    "in the same market, with the same information and the same random draws, in **every** condition of every "
+    "experiment. Each experiment starts from the sidebar's base scenario and changes only the manipulated "
+    "variable.")
+st.dataframe(pd.DataFrame([dict(Experiment=e.title, Levels=", ".join(f"{x:g}" for x in e.levels),
+                                Hypothesis=e.hid,
+                                Parallels=next((x.title for x in EXPERIMENTS if x.key == e.directional), "—"))
+                           for e in AGENT_EXPERIMENTS]), hide_index=True, width="stretch")
+c1, c2, c3 = st.columns([1, 1, 2])
+a_reps = c1.number_input("Markets per condition", 2, 60, 12, key="atrack_reps",
+                         help="Independent markets (different shocks) per level of each experiment. Every theory "
+                              "faces the same markets.")
+a_T = c2.number_input("Periods per market", 200, 3000, 600, step=100, key="atrack_T",
+                      help="Length of each market; the first 50 periods are discarded as burn-in.")
+akey = (to_json(base), int(a_reps), int(a_T))
+if c3.button("Run agent track", type="primary", key="atrack_btn"):
+    st.session_state["atrack_key"] = akey
+track = None
+if st.session_state.get("atrack_key") == akey:
+    with st.spinner("Every theory's agent in every condition…"):
+        track = cached_agent_track(*akey)
+if track is not None:
+    asb = agent_scoreboard(track)
+    c1, c2 = st.columns([1.3, 1])
+    with c1:
+        st.markdown("**Agent scoreboard** (all conditions of all experiments)")
+        st.dataframe(asb.assign(beats_ruleb=asb["beats_ruleb"] * 100).drop(columns="theory"), hide_index=True, width="stretch", column_config={
+            "name": "Theory (agent)", "mean_rank": st.column_config.NumberColumn("Mean profit rank", format="%.2f"),
+            "wins": "Conditions won", "beats_ruleb": st.column_config.NumberColumn("Beats rule B", format="%.0f%%"),
+            "advantage": st.column_config.NumberColumn("Mean advantage over rule B", format="%.1f"),
+            "conditions": "Market-conditions"})
+    with c2:
+        fig = go.Figure(go.Bar(y=asb["name"][::-1], x=asb["mean_rank"][::-1], orientation="h",
+                               marker_color=[CAT[0] if k == FOCAL else "#9aa0a6" for k in asb["theory"][::-1]],
+                               hovertemplate="%{y}<br>mean rank %{x:.2f}<extra></extra>"))
+        fig.update_xaxes(title="Mean profit rank (1 = best)", autorange="reversed")
+        st.plotly_chart(style(fig, 360, "Mean rank across all conditions"))
+    st.markdown("**Advantage over rule B by condition** (profit per period of the theory's agent minus rule B's, "
+                "mean over markets)")
+    tabs = st.tabs([e.title.split(" · ")[0] for e in AGENT_EXPERIMENTS])
+    for tab, e in zip(tabs, AGENT_EXPERIMENTS):
+        with tab:
+            d = track[(track["experiment"] == e.key) & (track["theory"] != "ruleb")]
+            m = d.groupby(["theory", "level"])["advantage"].mean().reset_index()
+            fig = go.Figure()
+            for j, (k, g) in enumerate(m.groupby("theory", sort=False)):
+                fig.add_trace(go.Scatter(x=g["level"], y=g["advantage"], mode="lines+markers", name=AGENT_NAMES[k],
+                                         line=dict(width=3 if k == FOCAL else 1.5, color=CAT[j % len(CAT)])))
+            fig.add_hline(y=0, line=dict(color="rgba(128,128,128,0.8)", width=1, dash="dot"))
+            fig.update_xaxes(title=e.label)
+            fig.update_yaxes(title="Advantage over rule B")
+            st.plotly_chart(style(fig, 380, e.title))
+    sl = agent_slopes(track)
+    if not sl.empty:
+        st.markdown("**How each agent's advantage over rule B changes with the manipulated variable** "
+                    "(↑ rises, ↓ falls, · no significant change at the 5% level)")
+        sym = {"+": "↑", "-": "↓", "0": "·"}
+        grid = sl.assign(cell=sl["observed"].map(sym) + sl["slope"].map(lambda x: f" {x:+.3g}"))
+        grid = grid.pivot(index="theory", columns="experiment", values="cell")
+        grid = grid.rename(index=AGENT_NAMES, columns={e.key: e.title.split(" · ")[0] for e in AGENT_EXPERIMENTS})
+        st.dataframe(grid, width="stretch")
+    top = asb.iloc[0]
+    if FOCAL in set(asb["theory"]):
+        me = asb[asb["theory"] == FOCAL].iloc[0]
+        rank = int(asb.index[asb["theory"] == FOCAL][0]) + 1
+        kind = "support" if rank == 1 else "neutral" if rank <= 3 else "reject"
+        verdict(kind, f"**{AGENT_NAMES[FOCAL]}**'s agent ranks **#{rank} of {len(asb)}** across all conditions "
+                f"(mean profit rank {me['mean_rank']:.2f}, {int(me['wins'])} conditions won). Best overall: "
+                f"**{top['name']}**.")
+    download(track, "agent_track.csv")
+
 # ------------------------------------------------------------------------------------------------ horse race
-st.header("4 · Forecasting horse race (out of sample)", divider="gray")
+st.header("5 · Forecasting horse race (out of sample)", divider="gray")
 st.markdown(
     "Directional tests reward theories for getting the average effect right. A sharper test is whether a theory "
     "tells you **which firm** will benefit from flexibility. Random environments are drawn as on the *Does the RC "
@@ -237,10 +318,10 @@ if race:
     download(hr, "theory_horse_race.csv")
 
 # ------------------------------------------------------------------------------------------------ verdict
-st.header(f"5 · Where does {focal_title()} stand among its rivals?", divider="gray")
+st.header(f"6 · Where does {focal_title()} stand among its rivals?", divider="gray")
 if not (outcomes and race):
-    st.info("Run the tournament (section 3) and the horse race (section 4) to fill in this verdict with this "
-            "session's results.", icon="ℹ️")
+    st.info("Run the tournament (section 3) and the horse race (section 5) to fill in this verdict with this "
+            "session's results; the agent track (section 4) adds a line when it has been run.", icon="ℹ️")
 else:
     sb = scoreboard(outcomes)
     hr = race[0].reset_index(drop=True)
@@ -258,6 +339,12 @@ else:
         lines.append(f"* **Forecasting:** its best forecast ranks **#{rrank} of {len(hr)}** forecasts.")
     else:
         lines.append("* **Forecasting:** it makes no firm-level forecast in the horse race.")
+    if track is not None:
+        asb = agent_scoreboard(track)
+        if FOCAL in set(asb["theory"]):
+            arank = int(asb.index[asb["theory"] == FOCAL][0]) + 1
+            lines.append(f"* **Agent track:** its agent ranks **#{arank} of {len(asb)}** by mean profit rank across "
+                         f"every condition of every experiment.")
     lines.append(f"* **Added value of the reliability condition:** combining all rival forecasts and then adding the "
                  f"RC changes the cross-validated AUC by {race[2].get('gain', np.nan):+.3f}.")
     st.markdown("\n".join(lines))
@@ -274,16 +361,19 @@ ignoring the stakes. In the reference runs (margin-feedback and Cournot best-rep
 replications, H = 20;
 see the README), "superior" holds in one sense and not the other:
 
-* **As an explanation**, the RC had the best record in all four tournaments (5–6 of 9 predictions confirmed, 1
-  contradicted). Its miss was perception noise in margin-feedback markets, which *raised* the payoff to flexibility.
+* **As an explanation**, the RC had the best net record in all four tournaments, against all nine theories (5–6
+  of 9 predictions confirmed, 1 contradicted). Its miss was perception noise in margin-feedback markets, which
+  *raised* the payoff to flexibility. Bias–variance reasoning came second in every run.
 * **As a forecasting tool**, the dynamic RC was the best theory-based forecast (AUC ≈ 0.60) but was far behind a
   firm's own track record (AUC ≈ 0.85), and added nothing once the rival forecasts were combined. The one-shot,
   one-period RC did no better than cobweb stability or accuracy alone.
 
-**Caveats.** The simulation was built to test Heiner's theory: rule B, the CD-gap and the counterfactual
-bookkeeping follow his framework. The rival predictions are stylized, and several rivals (satisficing,
-organizational ecology) are not implemented as agents, so they are tested only on the few predictions they make.
-Results depend on the base scenario (margin feedback versus Cournot best reply in particular), so rerun the
+**Caveats.** The directional experiments use the market model built for Heiner's framework (rule B, flexibility φ,
+the CD-gap and the counterfactual bookkeeping), so they are paired with the agent track, in which all nine theories,
+including satisficing, reinforcement learning, imitation and organizational ecology, act through their own agents in
+every condition. Every theory states a prediction for every experiment; where a literature does not address an
+experiment, the prediction is read from the theory's core mechanism and the reasoning is shown above, so it can be
+disputed. The forecasting horse race covers only theories that make a firm-level forecast. Results depend on the base scenario (margin feedback versus Cournot best reply in particular), so rerun the
 tournament under both. A ❌ means the tested implementation showed the opposite sign in this market; it does not
 refute the theory.
 A simulated market can show that a theory is internally coherent and discriminating. It cannot show that real

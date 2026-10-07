@@ -5,8 +5,10 @@ experiment reports one statistic (usually the regression coefficient of the with
 slope on the manipulated variable) whose sign is read at the 5% level as '+', '-' or '0'. A theory's
 prediction is scored as a match, a contradiction or inconclusive.
 
-The predictions are stylized readings of each literature, not quotations. Where a theory is silent, or its
-prediction depends on assumptions the model does not pin down, it makes no prediction (None).
+The predictions are stylized readings of each literature, not quotations. Every theory states a prediction for every
+experiment, read from its core mechanism where its literature does not address the experiment directly, so no theory
+is tested only on a convenient subset. The agent track (agent_track below) complements these predictions: every
+theory's own agent competes in every experimental condition.
 """
 from __future__ import annotations
 
@@ -51,6 +53,12 @@ THEORIES: List[Theory] = [
     Theory("satisficing", "Satisficing / aspiration-level search", cite(*THEORY_SOURCES["satisficing"]),
            "Firms change behavior when performance falls below aspiration. Worse or more volatile "
            "environments trigger more search and change."),
+    Theory("rl", "Reinforcement learning", cite(*THEORY_SOURCES["rl"]),
+           "Agents repeat what paid. Fast responses (high learning rates) pay in non-stationary environments and "
+           "cost in noisy ones, where they chase noise in rewards."),
+    Theory("imitation", "Imitation / evolutionary selection", cite(*THEORY_SOURCES["imitation"]),
+           "Successful behavior spreads by copying success. Copying the most profitable firm makes markets more "
+           "aggressive; the payoff to responsiveness depends on how much there is to copy."),
     Theory("ecology", "Structural inertia (organizational ecology)", cite(*THEORY_SOURCES["ecology"]),
            "Selection favors reliable, inert organizations in any environment, so rigidity is selected "
            "regardless of how volatile the environment is; change itself is hazardous."),
@@ -195,71 +203,120 @@ EXPERIMENTS: List[Experiment] = [
     Experiment("free_harm", "E1 · Free flexibility in a stable, low-profit market",
                "Flexibility costs a = b = 0; low profitability (margin-feedback rule with m* = 0.5, or Cournot max cost 95).",
                "Mean within-market slope of profit on φ",
-               dict(heiner="-", neo=">=0", options=">=0", cobweb=">=0", biasvar="-", satisficing=None, ecology="-"),
+               dict(heiner="-", neo=">=0", options=">=0", cobweb=">=0", biasvar="-",
+                    satisficing="-", rl="-", imitation=">=0", ecology="-"),
                run_free_harm,
                dict(heiner="Errors dominate when mistakes are costly: rigid firms win.",
                     neo="Relaxing a constraint cannot hurt.", options="An option is never worth less than zero.",
                     cobweb="Flexibility can only hurt in an unstable market; this one is stable.",
                     biasvar="Firms decide on last period's cost, so estimates are noisy: simple rules win.",
-                    ecology="Inert organizations are selected because they are reliable."), hid="H1"),
+                    ecology="Inert organizations are selected because they are reliable.",
+                    satisficing="Low profit keeps results below aspiration, so flexible firms keep changing in "
+                                "response to noise, and noise-triggered change is change for the worse.",
+                    rl="With little real change to learn, fast responders chase noise in their rewards.",
+                    imitation="Responsive firms copy success sooner; with nothing to lose from responding, "
+                              "flexibility cannot hurt."), hid="H1"),
     Experiment("volatility", "E2 · Cost volatility Δ rises",
                "Δ = 2, 8, 16, 24, 32 (sidebar market otherwise).", "Coefficient of the slope on Δ",
-               dict(heiner="-", neo="+", options="+", cobweb="0", biasvar="-", satisficing=None, ecology="0"),
+               dict(heiner="-", neo="+", options="+", cobweb="0", biasvar="-",
+                    satisficing="+", rl="+", imitation="+", ecology="0"),
                run_volatility,
                dict(heiner="Difficulty rises, the CD-gap widens and reliability falls.",
                     neo="More change to respond to raises the value of responding.",
                     options="Option value rises with uncertainty.",
                     cobweb="Additive shocks do not change the stability of a linear cobweb.",
                     biasvar="Noisier environment: the variance of flexible rules grows.",
-                    ecology="Inertia is favored in every environment; volatility does not change the ranking."), hid="H3"),
+                    ecology="Inertia is favored in every environment; volatility does not change the ranking.",
+                    satisficing="When the environment really moves, problemistic search adapts the firm and rigid "
+                                "firms fall behind.",
+                    rl="Non-stationary rewards favor fast learning (a higher step size).",
+                    imitation="The more the environment moves, the more there is to gain from copying whoever "
+                              "adapted best."), hid="H3"),
     Experiment("competence", "E3 · Competence κ (cost foresight) rises",
                "κ = 0, 0.25, 0.5, 0.75, 1.", "Coefficient of the slope on κ",
-               dict(heiner="+", neo="+", options="-", cobweb="0", biasvar="+", satisficing=None, ecology="0"),
+               dict(heiner="+", neo="+", options="-", cobweb="0", biasvar="+",
+                    satisficing="+", rl="+", imitation="0", ecology="0"),
                run_competence,
                dict(heiner="Competence closes the CD-gap: r rises, w falls.",
                     neo="Better information complements flexibility.",
                     options="Less uncertainty about the future lowers the option value of flexibility.",
                     cobweb="Foresight shifts perceived cost but not the adjustment dynamics.",
                     biasvar="Lower estimation error favors the flexible rule.",
-                    ecology="Selection acts on organizational inertia, not on individual competence."), hid="H7"),
+                    ecology="Selection acts on organizational inertia, not on individual competence.",
+                    satisficing="Search guided by better information finds better alternatives.",
+                    rl="Rewards that follow well-informed actions are less noisy, so responding to them pays more.",
+                    imitation="Copying success does not use the firm's own information; competence does not change "
+                              "what imitation gains."), hid="H7"),
     Experiment("noise", "E4 · Perception noise σ rises",
                "σ = 0, 5, 10, 15, 20.", "Coefficient of the slope on σ",
-               dict(heiner="-", neo=None, options="+", cobweb="0", biasvar="-", satisficing=None, ecology="0"),
+               dict(heiner="-", neo="-", options="+", cobweb="0", biasvar="-",
+                    satisficing="-", rl="-", imitation="-", ecology="0"),
                run_noise,
                dict(heiner="Noise lowers competence: the CD-gap widens.",
                     options="More uncertainty raises option value.",
                     cobweb="Additive noise does not change stability.",
                     biasvar="Estimation variance punishes flexible rules.",
-                    ecology="Inertia is favored whatever the noise; no gradient."), hid="H8"),
+                    ecology="Inertia is favored whatever the noise; no gradient.",
+                    neo="Noise lowers the value of responding to signals (but never below zero for an optimizer that "
+                        "filters it).",
+                    satisficing="Noise pushes results below aspiration by chance, triggering change for the worse.",
+                    rl="Noisy rewards punish fast learning: the best learning rate falls.",
+                    imitation="Noise blurs who is successful, so copying becomes less informative."), hid="H8"),
     Experiment("stakes", "E5 · Fixed costs raise the stakes (margin-feedback rule, margin includes F/q)",
                "b = 0, 500, 1000, 1500; marginal costs unchanged.", "Coefficient of the slope on b",
-               dict(heiner="-", neo="0", options=None, cobweb=None, biasvar="0", satisficing=None, ecology="0"),
+               dict(heiner="-", neo="0", options="0", cobweb="0", biasvar="0",
+                    satisficing="-", rl="0", imitation="0", ecology="0"),
                run_stakes,
                dict(heiner="Gains shrink and losses grow, so the tolerance limit rises.",
                     neo="Decisions are made at the margin; fixed costs are sunk.",
                     biasvar="Accuracy is unchanged, so rules keep their ranking.",
-                    ecology="Inertia is favored at every level of fixed cost."), hid="H4"),
+                    ecology="Inertia is favored at every level of fixed cost.",
+                    options="A fixed cost paid whether or not the firm adjusts leaves the option to adjust unchanged.",
+                    cobweb="Fixed costs do not change the adjustment dynamics.",
+                    satisficing="Fixed costs push profit below aspiration, so firms search more and noise-triggered "
+                                "change grows.",
+                    rl="A cost paid in every period shifts all rewards equally and leaves the ranking of actions "
+                       "unchanged.",
+                    imitation="Every firm pays the same fixed cost, so who is most successful does not "
+                              "change."), hid="H4"),
     Experiment("rivals", "E6 · More rivals (strategic difficulty)",
                "n = 2, 4, 6, 8, 12 firms, φ spread over the same range.", "Coefficient of the slope on n",
-               dict(heiner="-", neo=None, options=None, cobweb="-", biasvar=None, satisficing=None, ecology="0"),
+               dict(heiner="-", neo="0", options="0", cobweb="-", biasvar="-",
+                    satisficing="0", rl="-", imitation="+", ecology="0"),
                run_rivals,
                dict(heiner="The target moves more (f′ = −(n−1)/2), so the reliable speed β₀ falls.",
                     cobweb="More firms shrink the stability region (φ < 4/(n+1)).",
-                    ecology="Inertia is favored whatever the number of competitors."), hid="H11"),
+                    ecology="Inertia is favored whatever the number of competitors.",
+                    neo="More rivals change the target, not the value of best-responding to it.",
+                    options="More rivals do not change the option logic directly.",
+                    biasvar="A target set by more rivals is harder to estimate, which favors simple rules.",
+                    satisficing="Aspirations adapt to the industry's performance (social comparison), so the number "
+                                "of rivals does not change who gains from search.",
+                    rl="Each firm's reward depends on more co-learners, which makes rewards noisier.",
+                    imitation="More rivals mean more successful behaviors to copy."), hid="H11"),
     Experiment("predictability", "E7 · Do reliability-learning agents become more predictable as Δ rises?",
                "Every firm uses the Adaptive selection rule; Δ = 2, 8, 16, 24, 32.",
                "Coefficient of the deviation rate on Δ",
-               dict(heiner="-", neo="+", options="-", cobweb=None, biasvar=None, satisficing="+", ecology="-"),
+               dict(heiner="-", neo="+", options="-", cobweb="0", biasvar="-",
+                    satisficing="+", rl="+", imitation="0", ecology="-"),
                run_predictability,
                dict(heiner="Heiner's core 1983 claim: greater uncertainty makes behavior more rule-governed.",
                     neo="Bigger shocks make re-optimizing worthwhile more often.",
                     options="The zone of inaction widens with uncertainty (Dixit 1989).",
                     satisficing="Volatility pushes results below aspiration more often, triggering change.",
-                    ecology="Change is hazardous, and more so in volatile environments: organizations become more inert."), hid="H10"),
+                    ecology="Change is hazardous, and more so in volatile environments: organizations become more inert.",
+                    cobweb="Adaptive firms adjust every period whatever the uncertainty; only the size of changes "
+                           "varies.",
+                    biasvar="Noisier environments push agents toward their simple default rule.",
+                    rl="Noisier, larger payoff changes keep learned values unsettled, so agents explore and change "
+                       "more.",
+                    imitation="Individual learning about one's own reliability is outside the theory: no "
+                              "gradient."), hid="H10"),
     Experiment("partial", "E8 · Best adjustment speed as errors grow (symmetric Cournot)",
                "Every firm uses the same φ from 0.05 to 1; perception noise σ = 0, 5, 10, 20.",
                "Coefficient of the profit-maximizing φ on σ",
-               dict(heiner="-", neo="-", options="+", cobweb="0", biasvar="-", satisficing=None, ecology="0"),
+               dict(heiner="-", neo="-", options="+", cobweb="0", biasvar="-",
+                    satisficing="-", rl="-", imitation="0", ecology="0"),
                run_partial_adjustment,
                dict(heiner="Heiner (1989) Theorem 2: β₀ = 1/((1+K)(1−f′)) falls as K rises.",
                     neo="An optimizer that accounts for noise attenuates its response (optimal filtering; "
@@ -267,17 +324,28 @@ EXPERIMENTS: List[Experiment] = [
                     options="More uncertainty favors keeping and using flexibility.",
                     cobweb="The best speed is set by the stability limit, which noise does not move.",
                     biasvar="Shrink estimates toward the default as noise rises.",
-                    ecology="Inertia is favored at every noise level: no gradient."), hid="BOUND"),
+                    ecology="Inertia is favored at every noise level: no gradient.",
+                    satisficing="Slower adjustment avoids chasing shortfalls that noise creates.",
+                    rl="The best learning rate falls as reward noise rises (Sutton & Barto 2018).",
+                    imitation="When every firm uses the same speed there is no one to copy: no "
+                              "gradient."), hid="BOUND"),
     Experiment("evolution", "E9 · Which flexibility do industries evolve at different volatilities?",
                "Firms imitate the most profitable rival's φ (plus mutation) for 3,000 periods; Δ = 3, 10, 20, 30.",
                "Coefficient of evolved φ on Δ",
-               dict(heiner="-", neo="+", options="+", cobweb="0", biasvar=None, satisficing=None, ecology="0"),
+               dict(heiner="-", neo="+", options="+", cobweb="0", biasvar="-",
+                    satisficing="+", rl="+", imitation="+", ecology="0"),
                run_evolution,
                dict(heiner="Volatile industries evolve toward rigidity.",
                     neo="Volatility raises the value of flexibility, so it is selected.",
                     options="Option value rises with volatility.",
                     cobweb="Selection on stability does not depend on additive shocks.",
-                    ecology="Inertia is selected everywhere; no volatility gradient."), hid="EVO"),
+                    ecology="Inertia is selected everywhere; no volatility gradient.",
+                    biasvar="Volatile, noisy industries select simpler, slower rules.",
+                    satisficing="Volatile industries keep firms below aspiration, so search, and the flexibility it "
+                                "needs, spreads.",
+                    rl="Non-stationary environments select faster learners.",
+                    imitation="Copying success selects responsiveness where there is most change to respond "
+                              "to."), hid="EVO"),
 ]
 EXPERIMENT_BY_KEY = {e.key: e for e in EXPERIMENTS}
 

@@ -113,7 +113,9 @@ many replications. For heavy research runs, use a local installation.
 
 ## Pages
 
-The app guides a study through **choose a question → configure the experiment → check validity → run → interpret → export**. The left panel has five destinations (Start, Experiment, Results, Validation, Reference), an interface **mode** (Explore for teaching and a first investigation, with simplified uncertainty presets that show the settings they change and quick previews; Research for controlled experiments, with every setting, validity checks and background runs; both use the same engines), the pages within the current section, every other page under *All pages*, the **theory under test** (the theory highlighted on hypothesis cards and theory pages; Heiner's reliability condition is the default, not a privileged position) and the base market scenario used by the specialized market pages. Every earlier page remains available within these sections.
+The app guides a study through **choose a question → configure the experiment → check validity → run → interpret → export**. The left panel has five destinations (Start, Experiment, Results, Validation, Reference), an interface **mode** (Explore for teaching and a first investigation, with simplified uncertainty presets that show the settings they change and quick previews; Research for controlled experiments, with every setting, validity checks and background runs; both use the same engines), the pages within the current section, every other page under *All pages*, the **theory under test** (the theory highlighted on hypothesis cards and theory pages; Heiner's reliability condition is the default, not a privileged position) the **agents** of every theory (one folded entry per theory, plus rule B, giving each agent design's decision rule and tuned parameters, read from the code) and the base market scenario used by the specialized market pages. Every earlier page remains available within these sections.
+
+Within each section the simulation pages are split by fairness. **General simulations** compare the theories on equal terms: every theory takes part as agents (or, in the directional experiments, as a stated prediction for every experiment), with the same information, random draws and tuning budget: Competing theories, Agent tournament, Rule choice and Signature tests by theory. **Special simulations** are built around Heiner's framework (rule B, the market model's flexibility φ, the CD-gap and the reliability-condition bookkeeping): Market lab, Experiment designer, Endogenous flexibility, Generalization tasks, When can reliability be learned?, NK landscapes, Mechanisms, Reliability gates, Dynamic RC, CD-gap explorer, Does the RC predict performance? and Heiner vs optimal filtering. Rival predictions appear there where they apply, but the models themselves are Heiner's.
 
 **Start** (choose a question)
 
@@ -130,10 +132,10 @@ The app guides a study through **choose a question → configure the experiment 
 | Experiment | The central workspace: six revisitable steps (question, environment, agents, information, design, run) editing one experiment specification. Environment, candidate generation, selection policy and information are kept separate; complete policies show their assumptions; one uncertainty panel (outcome variation, observation quality, environmental change, model knowledge, decision complexity) with advanced settings disclosed on demand; an agent table, an access matrix, a design table with validity checks, a workload estimate, preview runs in the page and research runs in a background process with progress and cancellation |
 | Market lab | One market with editable heterogeneous firm agents. Shows price/cost dynamics, a per-firm reliability scoreboard, and a period-by-period decision inspector (correct deviations, type I and type II errors) |
 | Experiment designer | Your own *what if* question: sweep one or two settings of the base market and plot any outcome, with common random numbers across conditions. The page explains its purpose, the steps, a worked example and what each outcome means; CSV export |
-| Agent tournament | Every rival theory implemented as two agent designs competing in the same market (17 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six hypotheses fixed in advance, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
+| Agent tournament | Every rival theory implemented as two agent designs competing in the same market (19 designs, including target × selection-rule composites). Equal tuning budget per design on training environments, design selection on training data, held-out test environments, a frozen hashed plan with six hypotheses fixed in advance, six performance criteria (profit, downside risk, survival, volatility, regret, worst case), a selection-rule experiment, invasion tests, global sensitivity analysis and replication across seeds |
 | Rule choice (emergence) | Firms switch between six rules (three restricted, three flexible) by recent performance with logit choice and an adjustable intensity of choice β (Brock & Hommes 1997). Rule shares, change rates, price volatility and distance from Cournot–Nash across uncertainty levels. Frozen plan with four pre-registered hypotheses |
 | Endogenous flexibility | Firms imitate the most profitable rival's φ (plus mutation). Does volatility breed rigidity? |
-| Competing theories | Heiner's RC against neoclassical optimization, real options (as operationalized here), cobweb stability, bias–variance / ecological rationality, satisficing and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions; an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
+| Competing theories | Heiner's RC against neoclassical optimization, real options (as operationalized here), cobweb stability, bias–variance / ecological rationality, satisficing, reinforcement learning, imitation and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions, with every theory predicting every experiment; an agent track lets every theory's own agent (registered tuned design) compete against all others and rule B in every condition of six experiments (profitability, volatility, competence, noise, number of rivals, demand shifts); an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Generalization | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
 | When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
 | NK landscapes (complexity) | Search on NK landscapes with K_NK interacting components: hill climbing, stochastic search, satisficing, imitation with stated observability and (extension) reliability-gated search, under separately controlled observation noise and landscape change. Exact benchmarks by enumeration for small N, best-known otherwise; performance against interdependence, noise and change with landscape-clustered intervals |
@@ -170,7 +172,7 @@ The app guides a study through **choose a question → configure the experiment 
 | Reference | Theory, equations and methods, agent specifications, information access and the bibliography |
 | Overview | The nine theories side by side (core claim, view of uncertainty, what triggers change, effect of uncertainty on the value of flexibility), the common testbed, how each fared, every hypothesis with its research, and the contribution to the literature |
 | One page per theory | Heiner, optimization, real options, cobweb, simple heuristics, satisficing, reinforcement learning, imitation, organizational ecology. Same sections for each: origins, formal core, view of flexibility, an interactive illustration, how the laboratory implements it, how it fared in the registered runs, strengths and limits, references |
-| Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the seventeen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
+| Agents as implemented | Every agent in the laboratory as the code implements it: the shared decision cycle, the market-lab firms (production and selection rules, adaptive learning, endogenous flexibility), the nineteen tournament designs with their equations, parameters, registered tuned values and sources, the mechanism variants, the rule-choosing firms, the task agents, the tracking rules, the experiment's rivals and shadows, and the rules fitted to human data |
 | Model & methods | Equations, schedule, measurement, statistics, baseline calibration, a full description of every preset scenario (setup, why to run it, the hypotheses it serves and a typical result), what a frozen plan is (and how it differs from external preregistration), the model specification table, the kinds of uncertainty and evidence, and verification |
 | Research & contribution | The simulation's contributions to the literature, the evidence matrix (supporting and alternative research for every hypothesis), the research behind each rival theory and method, and the full bibliography with BibTeX, APA and CSV export |
 
@@ -228,6 +230,15 @@ at every noise level, but its advantage shrinks rather than grows with noise; th
 slightly less, not more, often in more volatile markets; and the tuned reinforcement learner does not improve
 significantly with experience over 1,500 periods. Each of these is a statement about the implementation tested.
 
+> **Revision note (7 October 2026, every theory in every experiment).** Reinforcement learning and imitation joined
+> the directional tournament, and every theory now states a prediction for every experiment (before, neoclassical
+> optimization, real options, cobweb stability, bias–variance and satisficing made no prediction for some
+> experiments). The four reference runs were repeated on the old and the new code: the old code reproduced every
+> record, and every experiment's result was bit-identical on the new code, so only the scoring changed. Earlier
+> records (Bertrand seeds 1 and 3; Cournot, both seeds): bias–variance 4/2/0 and 3/2/1; 3/2/1. Satisficing 0/1/0
+> everywhere. Neoclassical 2/4/1 and 1/4/2; 3/2/2. Real options 2/4/1 and 2/3/2; 2/3/2. Cobweb 1/5/1 and 2/4/1;
+> 4/3/0. Heiner and ecology are unchanged, and Heiner keeps the best net record in all four runs.
+
 > **Revision note (6 October 2026, organizational ecology).** The signature tests use the registered tuned agents,
 > which were retuned in the ten-agent tournament, and the ecology test is new. Earlier results: optimization
 > **supported** (profit slope on foresight +40.6, p = 0.012); real options −11.2 per unit of volatility (p < 0.001);
@@ -268,18 +279,26 @@ seeds have not been rerun since):
 | Theory | Tournament record, Bertrand (✅ / ❌ / ➖) | Tournament record, Cournot (✅ / ❌ / ➖) |
 |---|---|---|
 | Heiner: reliability condition | 6/1/2 and 5/1/3 | 6/1/2 (both seeds) |
-| Bias–variance / ecological rationality | 4/2/0 and 3/2/1 | 3/2/1 (both seeds) |
-| Cobweb stability theory | 1/5/1 and 2/4/1 | 4/3/0 (both seeds) |
-| Real options | 2/4/1 and 2/3/2 | 2/3/2 (both seeds) |
-| Neoclassical optimization | 2/4/1 and 1/4/2 | 3/2/2 (both seeds) |
+| Bias–variance / ecological rationality | 5/2/2 and 4/2/3 | 5/2/2 (both seeds) |
+| Satisficing / aspiration-level search | 5/3/1 and 4/3/2 | 4/3/2 (both seeds) |
+| Reinforcement learning | 3/4/2 and 2/4/3 | 4/3/2 (both seeds) |
+| Neoclassical optimization | 3/5/1 and 2/5/2 | 4/3/2 (both seeds) |
+| Real options | 3/5/1 and 3/4/2 | 2/5/2 (both seeds) |
 | Structural inertia (organizational ecology) | 4/5/0 and 5/4/0 | 3/6/0 (both seeds) |
+| Cobweb stability theory | 1/7/1 and 2/6/1 | 4/5/0 (both seeds) |
+| Imitation / evolutionary selection | 0/7/2 and 1/6/2 | 2/5/2 (both seeds) |
+
+Every theory states a prediction for each of the nine experiments (read from its core mechanism where its literature
+does not address an experiment; the reasoning is shown on the page), so no theory is scored on a convenient subset.
+The *agent track* on the same page complements these records: every theory's own agent competes in every condition
+of six experiments (an exploratory analysis run on the page; no registered numbers).
 
 Heiner had the best net record in all four runs (a record of predicted signs in these experiments, not a ranking of
 the theories in general). Its one contradiction differs by market: in margin-feedback ("Bertrand") markets
 perception noise *raised* the payoff to flexibility, and in Cournot markets free flexibility did not hurt at the
 tested low-profit level. Evolved flexibility showed no volatility gradient in any run. The best adjustment speed
-fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 1960) predicts the same, so that test
-does not discriminate between them.
+fell with noise, as Heiner predicts, but optimal filtering (Muth 1960; Kalman 1960), bias–variance reasoning,
+satisficing and reinforcement learning predict the same, so that test does not discriminate between them.
 
 Out-of-sample forecasting within the simulation (100 random environments × 2 replications, 800 firms, both
 production rules; simulation comparison, not behavioral prediction): the dynamic

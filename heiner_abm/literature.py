@@ -931,6 +931,8 @@ THEORY_SOURCES: Dict[str, List[str]] = {
     "cobweb": ["ezekiel1938", "nerlove1958", "theocharis1960", "carlson1967", "hommes1994"],
     "biasvar": ["geman1992", "gigerenzer1999", "gigerenzer2009", "dawes1979"],
     "satisficing": ["simon1955", "cyert1963", "greve1998"],
+    "rl": ["roth1995", "erev1998", "sutton2018"],
+    "imitation": ["alchian1950", "nelson1982", "vegaredondo1997"],
     "ecology": ["hannan1977", "hannan1984", "amburgey1993"],
 }
 

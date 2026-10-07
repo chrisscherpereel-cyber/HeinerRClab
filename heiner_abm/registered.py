@@ -56,14 +56,17 @@ TOURNAMENT: Dict[str, Dict] = {
 # Directional tournament of experiments (Competing theories page): matches / contradictions / inconclusive, for the
 # Bertrand and the Cournot reference market, two seeds each (1,000 periods, 20 replications, H = 20). Seeds: 1 and 3
 # (Bertrand), 1 and 42 (Cournot). Rerun on 6 October 2026 with the observable Adaptive rule; only the Cournot seed-1
-# records changed (see the revision notes under FINDING_FINGERPRINTS).
+# records changed. Rescored on 7 October 2026 with a prediction from all nine theories in every experiment
+# (reinforcement learning and imitation added); see the revision notes under FINDING_FINGERPRINTS.
 DIRECTIONAL: Dict[str, Dict[str, Tuple[str, str]]] = {
     "heiner": {"Bertrand": ("6/1/2", "5/1/3"), "Cournot": ("6/1/2", "6/1/2")},
-    "neo": {"Bertrand": ("2/4/1", "1/4/2"), "Cournot": ("3/2/2", "3/2/2")},
-    "options": {"Bertrand": ("2/4/1", "2/3/2"), "Cournot": ("2/3/2", "2/3/2")},
-    "cobweb": {"Bertrand": ("1/5/1", "2/4/1"), "Cournot": ("4/3/0", "4/3/0")},
-    "biasvar": {"Bertrand": ("4/2/0", "3/2/1"), "Cournot": ("3/2/1", "3/2/1")},
-    "satisficing": {"Bertrand": ("0/1/0", "0/1/0"), "Cournot": ("0/1/0", "0/1/0")},
+    "neo": {"Bertrand": ("3/5/1", "2/5/2"), "Cournot": ("4/3/2", "4/3/2")},
+    "options": {"Bertrand": ("3/5/1", "3/4/2"), "Cournot": ("2/5/2", "2/5/2")},
+    "cobweb": {"Bertrand": ("1/7/1", "2/6/1"), "Cournot": ("4/5/0", "4/5/0")},
+    "biasvar": {"Bertrand": ("5/2/2", "4/2/3"), "Cournot": ("5/2/2", "5/2/2")},
+    "satisficing": {"Bertrand": ("5/3/1", "4/3/2"), "Cournot": ("4/3/2", "4/3/2")},
+    "rl": {"Bertrand": ("3/4/2", "2/4/3"), "Cournot": ("4/3/2", "4/3/2")},
+    "imitation": {"Bertrand": ("0/7/2", "1/6/2"), "Cournot": ("2/5/2", "2/5/2")},
     "ecology": {"Bertrand": ("4/5/0", "5/4/0"), "Cournot": ("3/6/0", "3/6/0")},
 }
 
@@ -315,6 +318,12 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   supported, numbers updated in SPECIAL_RESULTS and the README with the earlier values; field patterns — excess
 #   volatility no longer reproduced (4 of 6), README updated with the earlier values. horse_race, presets and
 #   preset_adaptive do not depend on the changed files. Re-fingerprinted.
+# * 7 October 2026, every theory tested in every experiment (theories.py: reinforcement learning and imitation added to
+#   the directional tournament; a reasoned prediction filled in for every theory and experiment that had none). No
+#   computation changed. Rerun with tools/rerun_adaptive_findings.py (directional B1, B3, C1, C42) on the committed code
+#   and on the code of commit 4ce3132: the old code reproduced every record in DIRECTIONAL, and every experiment's
+#   result was bit-identical on the new code; only the scoring changed. DIRECTIONAL updated, earlier records in the
+#   README revision note. Heiner keeps the best net record in all four runs. Re-fingerprinted.
 
 FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "directional": ("Competing theories: directional tournament records (matches / contradictions / inconclusive)",
@@ -334,7 +343,7 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "69ed77eb5ab42eb3",
+    "directional": "b77ae980f52f8e79",
     "horse_race": "94b4811784863c0a",
     "presets": "94b4811784863c0a",
     "preset_adaptive": "94b4811784863c0a",

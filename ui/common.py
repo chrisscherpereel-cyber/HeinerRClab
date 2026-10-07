@@ -245,9 +245,61 @@ SECTION_NOTES = {
 }
 
 
+# Simulation pages by fairness (keyed by page url path, i.e. the file name without .py). General simulations compare
+# the theories on equal terms: every theory takes part as agents (or as a stated prediction for every experiment) with
+# the same information, random draws and tuning budget. Special simulations are built around Heiner's framework
+# (rule B, the market model's flexibility φ, the CD-gap and the reliability-condition bookkeeping).
+SIM_GROUPS = {
+    "theories": "general", "arena": "general", "rule_choice": "general", "special_tests": "general",
+    "market_lab": "special", "designer": "special", "evolution": "special", "generalisation": "special",
+    "learnability": "special", "nk": "special", "mechanisms": "special", "reliability_gates": "special",
+    "dynamic_rc": "special", "cd_gap": "special", "rc_validation": "special", "tracking": "special",
+}
+SIM_GROUP_LABELS = {"general": ("General simulations", "fair comparisons: every theory as agents, on equal terms"),
+                    "special": ("Special simulations", "built around Heiner's framework")}
+
+
+def _grouped_links(pages) -> None:
+    """Page links, with simulation pages under General and Special simulations headings and the rest after them."""
+    rest = [p for p in pages if p.url_path not in SIM_GROUPS]
+    for g, (label, note) in SIM_GROUP_LABELS.items():
+        mine = [p for p in pages if SIM_GROUPS.get(p.url_path) == g]
+        if mine:
+            st.markdown(f"**{label}**")
+            st.caption(note)
+            for page in mine:
+                st.page_link(page, label=page.title, icon=page.icon)
+    if rest and len(rest) < len(pages):
+        st.markdown("**Other pages**")
+    for page in rest:
+        st.page_link(page, label=page.title, icon=page.icon)
+
+
+def _arena():
+    """The agent definitions, looked up at call time (see _literature)."""
+    import heiner_abm.arena as arena
+    return arena
+
+
+def render_agents() -> None:
+    """Sidebar: every theory's agents, with the decision rule each one implements (read from the code)."""
+    ar = _arena()
+    sb = st.sidebar
+    sb.markdown("### Agents")
+    sb.caption("Every theory is implemented as agents that compete in the same market with the same information. "
+               "Open a theory to see its agents' decision rules.")
+    for theory, keys in ar.THEORY_DESIGNS.items():
+        with sb.expander(ar.THEORY_NAMES[theory]):
+            for k in keys:
+                d = ar.DESIGNS[k]
+                params = ", ".join(d.SPACE) or "none"
+                st.markdown(f"**{d.name}** · `{k}`  \n{d.rule}  \n*Tuned parameters:* {params}")
+
+
 def render_navigation(sections, current) -> None:
     """Sidebar navigation: the interface mode, the five destinations, then the pages within the current section and
-    every other page in collapsed groups."""
+    every other page in collapsed groups (simulation pages split into General and Special simulations), then every
+    theory's agents."""
     sb = st.sidebar
     sb.markdown("## ⚖️ Decision under uncertainty lab")
     sb.radio("Mode", ["explore", "research"], key="wb_mode", horizontal=True,
@@ -261,20 +313,19 @@ def render_navigation(sections, current) -> None:
     if here and len(sections[here]) > 1:
         with sb.expander(f"More in {here}", expanded=True):
             st.caption(SECTION_NOTES.get(here, ""))
-            for page in sections[here][1:]:
-                st.page_link(page, label=page.title, icon=page.icon)
+            _grouped_links(sections[here][1:])
     with sb.expander("All pages", expanded=False):
         for name, pages in sections.items():
             if name == here:
                 continue
-            st.markdown(f"**{name}**")
-            for page in pages[1:]:
-                st.page_link(page, label=page.title, icon=page.icon)
+            st.markdown(f"#### {name}")
+            _grouped_links(pages[1:])
     with sb.expander("Theory under test", expanded=False):
         st.selectbox("Highlighted theory", _focal().FOCAL_KEYS, format_func=_focal().title, key="focal_theory",
                      help="The theory whose predictions are highlighted on every hypothesis card, in the overview "
                           "and research tables and in the tournament reviews. The others are shown as competitors. "
                           "Heiner's reliability condition is one choice among nine.")
+    render_agents()
 
 
 def render_sidebar(sections=None, current=None):
@@ -612,6 +663,12 @@ def cached_rc_validation(js: str, n_env: int, n_reps: int, ranges_js: str, horiz
 @st.cache_data(show_spinner=False, max_entries=8)
 def cached_tournament(js: str, n_reps: int, horizon: int):
     return run_tournament(from_json(js), n_reps, horizon=horizon)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def cached_agent_track(js: str, n_reps: int, periods: int):
+    from heiner_abm.agent_track import agent_track
+    return agent_track(from_json(js), n_reps, periods=periods)
 
 
 @st.cache_data(show_spinner=False, max_entries=8)

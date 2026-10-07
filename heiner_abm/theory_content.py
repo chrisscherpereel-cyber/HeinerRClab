@@ -271,7 +271,7 @@ exploration against exploitation.""",
                 "Rewards depend on the agent's own past actions, which can lock in poor habits."),
         refs=("erev1998", "roth1995", "sutton2018", "march1991", "levinthal1993"),
         hypotheses=("RC", "ARENA"),
-        tournament_key=None, page="app_pages/theory_rl.py"),
+        tournament_key="rl", page="app_pages/theory_rl.py"),
     TheoryContent(
         "imitation", "Imitation and evolutionary selection", "🧬",
         "No one needs to know what is optimal: successful behavior spreads by imitation and selection.",
@@ -301,7 +301,7 @@ $$Q^W = \frac{a-c}{b} \quad\text{rather than the Cournot–Nash output}\quad Q^N
                 "Says little about when an individual should be flexible."),
         refs=("alchian1950", "nelson1982", "vegaredondo1997", "huck1999", "boyd1985"),
         hypotheses=("H5", "H6", "EVO", "ARENA"),
-        tournament_key=None, page="app_pages/theory_imitation.py"),
+        tournament_key="imitation", page="app_pages/theory_imitation.py"),
     TheoryContent(
         "ecology", "Organizational ecology: structural inertia", "🏛️",
         "Selection favors reliable, accountable organizations, and reliability requires structural inertia; "

@@ -186,6 +186,15 @@ ENGINES: Dict[str, EngineSupport] = {
          "regime_announced": "native only (shifts not announced)", "rivals_visible": "n/a: single decision maker",
          "unmet_demand_observed": "native only (observed)"},
         InfoSpec(feedback="full", demand_knowledge="none", rivals_visible=False), fixed=True),
+    "learnability": EngineSupport(
+        "learnability", "Learnability study: inventory task (factor-controlled newsvendor)", ("full", "oracle"),
+        {"feedback": "each period's demand is observed with probability `avail` (a manipulated factor) whatever is "
+                     "ordered; unobserved periods give no feedback.",
+         "obs_noise": "manipulated (observation error tau)", "obs_delay": "native only (no delay; feedback at the end "
+         "of the period)", "demand_knowledge": "native only (no demand model)", "regime_announced": "native only (not "
+         "announced)", "rivals_visible": "n/a: single decision maker",
+         "unmet_demand_observed": "observed when the period is observed (no censoring)"},
+        InfoSpec(feedback="full", demand_knowledge="none", rivals_visible=False), fixed=True),
     "bench_bandit": EngineSupport(
         "bench_bandit", "Decision benchmarks: nonstationary bandit (chosen-action version of the learning task)",
         ("chosen", "oracle"),
@@ -325,6 +334,21 @@ AGENTS: List[Needs] = [
     _a("inv_bayes_true", "Inventory: Bayes, correctly specified (benchmark)", "bench_inventory", feedback=("oracle",),
        oracle=True, uses="observed demands and the TRUE generating model and parameters"),
     _a("inv_oracle", "Inventory: ORACLE (knows the mean demand)", "bench_inventory", feedback=("oracle",), oracle=True,
+       uses="the true mean demand"),
+    # learnability study (inventory task); the market replication uses the market agents
+    _a("lrn_always", "Learnability: always adapt (fast forecast)", "learnability", feedback=("full",),
+       uses="observed demands"),
+    _a("lrn_default", "Learnability: retain the default", "learnability", uses="its default order"),
+    _a("lrn_band", "Learnability: inaction band", "learnability", feedback=("full",), uses="observed demands"),
+    _a("lrn_gate_gain", "Learnability: estimated-gain gate", "learnability", feedback=("full",),
+       uses="observed gains of the flexible over the default order, per size bin"),
+    _a("lrn_gate_lcb", "Learnability: confidence-sensitive gate", "learnability", feedback=("full",),
+       uses="observed gains, their uncertainty and evidence count, per size bin; adaptation cost"),
+    _a("lrn_bocpd", "Learnability: Bayesian change detection (misspecified)", "learnability", feedback=("full",),
+       uses="observed demands"),
+    _a("lrn_dro", "Learnability: distributionally robust order", "learnability", feedback=("full",),
+       uses="the last N observed demands"),
+    _a("lrn_oracle", "Learnability: ORACLE (perfect information)", "learnability", feedback=("oracle",), oracle=True,
        uses="the true mean demand"),
     # decision benchmarks: nonstationary bandit
     _a("bandit_ucb", "Bandit: UCB (stationary baseline)", "bench_bandit", feedback=("chosen",),

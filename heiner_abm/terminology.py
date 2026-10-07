@@ -130,6 +130,8 @@ EVIDENCE_BY_RESULT: List[Tuple[str, str, str]] = [
     ("Decision benchmarks: correctness checks on solvable and enumerated cases", "analytical", ""),
     ("Decision benchmarks: inventory and bandit comparisons", "simulation",
      "Tuned on training environments, selected on validation environments, reported on test environments."),
+    ("When can reliability be learned? (frozen study, proposed construct)", "simulation",
+     "Untouched test paths and new process families; effects as paired differences with intervals."),
     ("Reliability gates under uncertainty (proposed extension)", "simulation",
      "Compares the laboratory's own selection gates; lower-bound coverage is measured, not assumed."),
     ("Field patterns", "simulation",

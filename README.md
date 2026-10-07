@@ -161,6 +161,7 @@ settings are collapsed by default; the section holding the current page opens.
 | Field patterns | Pattern-oriented validation (Grimm et al. 2005): cobweb cycles, damping by adaptive adjustment, sticky and lumpy adjustment, imitation beyond Cournot–Nash, excess volatility around equilibrium and positive markups, each with a criterion fixed in advance and its sources |
 | Calibration to experiments | Fits every theory's decision rule per subject to learning-to-forecast cobweb data (Hommes et al. 2007 design) or Cournot data (Huck et al. 1999 design) on the first half of periods and scores it on the second half; classifies subjects by best-predicting rule. Upload data or check recovery on synthetic subjects |
 | Decision benchmarks (Bayes, robust, bandit) | Established decision methods under one protocol (training, validation and test environments; tuning performance against the evaluation budget): Bayesian change detection, correctly specified and misspecified, and distributionally robust versus empirical optimization in the inventory task; sliding-window and discounted UCB in a chosen-action-feedback version of the learning task. Correctness is checked on analytic and enumerated cases first; benchmarks, oracles and the full-feedback reference are kept out of the rankings |
+| When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
 | Empirical validation (public data) | The five public datasets that can validate the simulation, their access, licenses and caveats; a protocol fixed in advance (seven hypotheses); loaders that read each repository's files as distributed; per-dataset analyses (out-of-sample rule comparison, generative check of simulated Cournot markets, newsvendor patterns, structural changes, time pressure); registered results |
 | Play the market | A person runs one firm against three agent rivals in three counterbalanced blocks (low, medium, high uncertainty) of 25 periods; every agent design records in shadow mode what it would have chosen. Download the decisions as CSV |
 | Experiment analysis | Pools participants' files, classifies each person by the best-predicting design, and tests X1 (fewer changes under high uncertainty) and X2 (restraint pays under high uncertainty). Synthetic demonstration clearly labeled |
@@ -643,6 +644,8 @@ heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
                            decision benchmarks: Bayes, robust optimization, bandits; tuning protocol; correctness checks
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
+heiner_abm/learnability.py, learnability_market.py
+                           learnability study: when reliability can be learned before change; market replication
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -808,6 +811,77 @@ Three established decision methods are run in two tasks of the generalization st
   a golden-section search; the grid filter is O(G²) per period).
 * No results of these comparisons are reported here; they are produced on the page (Quick check or Full) with the
   plan, environments and information specification exported alongside.
+
+## When can reliability be learned before the environment changes? (proposed extension)
+
+`heiner_abm/learnability.py` (inventory task) and `heiner_abm/learnability_market.py` (market replication). The
+question, the **learnability ratio** and the operationalizations are this laboratory's own proposal; the ratio is a
+construct whose measurement and usefulness the study tests, not an established quantity.
+
+* **Construct.** On independent pilot paths, per regime: the observations needed to determine the sign of the
+  advantage of adapting with 90% one-sided confidence, n_needed = (z₀.₉ s / |μ_r|)², divided by the informative
+  observations the agent actually receives in that regime; R is the median ratio over regimes. μ_r is the regime's
+  true mean advantage (a researcher-only counterfactual used for measurement, never shown to the agents).
+* **Manipulated separately:** outcome volatility, observation error, regime-change frequency, feedback availability
+  (unobserved periods give no evidence), the gates' memory, and default quality (slow forecast, a fixed default that
+  deteriorates after the first change, a biased and a dominated default).
+* **Policies** on shared exogenous paths (common random numbers): always adapt, retain the default, inaction band,
+  the existing estimated-gain gate, the confidence-sensitive gate, Bayesian change detection (BOCPD) and the
+  distributionally robust order. The last two have no counterpart in the market's adoption decision and are reported
+  there as not applicable.
+* **Data sets.** Disjoint seed blocks for training (all tuning), pilot (R and the better fixed rule) and untouched test
+  paths; tests on two process families never used for tuning (switching and drifting means), not only new seeds.
+* **Outcomes.** Primary: net payoff per period (payoff minus the adaptation cost c in every period whose order departs
+  from the default). Secondary: regret against perfect information, downside loss (CVaR 5%), calibration of the gates'
+  predicted advantage, adaptation rate, missed opportunities and recovery delay after changes.
+* **Hypotheses** H1–H4 (the advantage of the confidence-sensitive gate over the better fixed rule falls with log R;
+  R adds cross-validated explanatory power beyond volatility and noise; the relation transfers to new families; it
+  replicates in the market) and **negative controls** NC1–NC3 (perfect information with costless adaptation; a
+  dominated default; a stable environment with abundant feedback), each with its decision rule. Effects are paired
+  differences with 95% bootstrap intervals; rank differences are not interpreted as one theory's superiority.
+* **Registration.** Plan `ec9b781e125e289d` is frozen in the repository (`registered.LEARN_PLAN`); the exported
+  document is [`docs/learnability_registration.md`](docs/learnability_registration.md) and can be downloaded from the
+  page. It has **not** been preregistered with an external registry.
+
+### Results under the frozen plan `ec9b781e125e289d`
+
+One run of the registered plan on commit `b748da3` (the specification commit), about 11 minutes. Tuned on training
+configurations only: forecast gain 0.1, band b = 0.5, BOCPD (hazard 0.005, prior sd 30, obs sd 25), robust order
+(N = 20, ρ = 0.01); market band threshold 50. Tables: [`docs/learnability_results/`](docs/learnability_results/).
+
+| | Decision rule | Result | Verdict |
+|---|---|---|---|
+| H1 | slope of the gate's advantage on log10 R, CI below 0 | −1.44 [−2.36, −0.59], 30 jump configurations | supported |
+| H2 | cross-validated R² gain of log10 R over volatility and noise, CI above 0 | +0.23 [−0.46, +0.84] | **not supported** |
+| H3 | H1 slope in the new families (switching, drifting) | −1.75 [−2.79, −1.01], 30 configurations | supported |
+| H4 | H1 slope in the market | −1625 [−2922, −478], 16 configurations | supported |
+| NC1 | perfect information, costless adaptation: nothing beats always adapting | every policy − always ≤ −0.16 per period | passed |
+| NC2 | dominated default: gates adapt ≥ 90%, lose ≤ 5% | adaptation 1.000 and 0.995; −31.80 and −32.85 vs −31.78 | passed |
+| NC3 | stable, abundant feedback: R < 1, gate not worse | R = 0.076; gate − default 0.00 [−0.00, +0.00] | passed |
+
+How to read this:
+* **The construct's usefulness is not established.** R ordered the gate's advantage in the inventory task, the new
+  families and the market (H1, H3, H4), but it did not add cross-validated explanatory power beyond volatility and
+  observation noise (H2): the interval is wide and includes zero. In the 30 test configurations log10 R correlates
+  with log σ (r = 0.37) and with feedback availability (r = −0.55), so H1 and H3 alone cannot separate R from the
+  factors it is built from.
+* **The confidence-sensitive gate rarely paid.** In the inventory task the better fixed rule was always adapting in
+  every configuration; the gate's advantage was below zero with its interval excluding zero in 22 of 30 jump and 29 of
+  30 new-family configurations, and above zero in none. The slope says how *much* it lost, more where R is large; it
+  does not show a region where waiting for evidence wins. Its losses are largest with scarce feedback (avail 0.2:
+  −3.40 [−5.51, −1.26] against always adapting).
+* **The market replication is weak evidence.** Retaining the default was the better fixed rule in 15 of 16 market
+  configurations, per-configuration intervals are wide (only 5 of 16 exclude zero, 4 below and 1 above), and the
+  slope comes from 16 points. It is a direction, not a precise effect.
+* **Other policies (secondary, not hypotheses).** Against the better fixed rule, Bayesian change detection's
+  interval was above zero in 20 of 30 jump configurations and below in 4; the robust order 9 above and 10 below; the
+  estimated-gain gate 3 and 7; the inaction band 0 and 11. These are per-configuration counts with intervals, not a
+  ranking, and the tuned settings come from one training family; they are not evidence that one theory is superior.
+* **Secondary outcomes** (jump-family test paths, means with 95% intervals; `secondary.csv`): regret per period
+  always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 11.0 [10.2, 11.9], BOCPD 7.3 [6.8, 7.8],
+  robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 63% of periods and miss 14% and 29%
+  of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 21.3 for the gates.
+  Both gates share one learned estimate, so their calibration is identical (slope 0.76 [0.72, 0.79], bias −0.66).
 
 ## Research basis
 

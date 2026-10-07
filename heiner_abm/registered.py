@@ -26,6 +26,9 @@ CHOICE_PLAN = "f15f62149d08e800"       # endogenous rule choice (Rule choice pag
 TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization page)
 TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
 EXPERIMENT_PLAN = "01f956595e90e5ab"   # human experiment protocol (Play the market / Experiment analysis)
+# Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
+# not preregistered with any external registry.
+LEARN_PLAN = "ec9b781e125e289d"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.

@@ -113,6 +113,11 @@ COMPONENTS: List[Component] = [
               "minimum evidence requirement) or an exploration-enabled gate (randomized trials, learning from its own "
               "payoffs only), compared with an ORACLE benchmark from independent runs. Heiner did not propose these "
               "gates; results test the laboratory's operationalization.", (), "Reliability gates page, Market lab"),
+    Component("extension", "Learnability ratio",
+              "The observations needed to determine the sign of the advantage of adapting, divided by the informative "
+              "observations available within a regime, proposed as the condition under which reliability can be "
+              "learned before the environment changes; its measurement and incremental usefulness are tested in a "
+              "frozen (not externally preregistered) study.", (), "When can reliability be learned?"),
     Component("extension", "Lopsided stakes against certainty equivalence",
               "With asymmetric losses and unchanged information, restricting moves in the costly direction is compared "
               "with optimal filtering, which predicts that stakes shift the level of the action but not its response "

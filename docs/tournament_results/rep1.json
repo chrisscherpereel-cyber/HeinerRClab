@@ -1,0 +1,312 @@
+{
+ "label": "rep1",
+ "plan_hash": "629f565e1403890e",
+ "registered_plan_hash": "22393384781bed84",
+ "matches_registered_plan": false,
+ "exploratory": true,
+ "train_seed": 1101,
+ "test_seed": 2102,
+ "budget_rule": "per_parameter",
+ "budget_per_parameter": 24,
+ "design_budgets": {
+  "heiner_m": 144,
+  "heiner_p": 120,
+  "opt_br": 72,
+  "opt_nash": 48,
+  "options_m": 96,
+  "options_p": 72,
+  "cobweb_p": 48,
+  "cobweb_q": 48,
+  "heur_wsls": 24,
+  "heur_markup": 48,
+  "satis_m": 96,
+  "satis_p": 72,
+  "rl_softmax": 72,
+  "rl_erevroth": 72,
+  "imit_best": 48,
+  "imit_avg": 48,
+  "ecol_periodic": 72,
+  "ecol_crisis": 96,
+  "ruleb": 24
+ },
+ "selected_design": {
+  "heiner": "heiner_p",
+  "optimiser": "opt_nash",
+  "options": "options_p",
+  "cobweb": "cobweb_p",
+  "heuristic": "heur_markup",
+  "satisficing": "satis_p",
+  "rl": "rl_softmax",
+  "imitation": "imit_best",
+  "ecology": "ecol_crisis",
+  "ruleb": "ruleb"
+ },
+ "selected_design_name": {
+  "cobweb": "Adaptive price expectations",
+  "heuristic": "Target-margin rule",
+  "ecology": "Structural inertia \u00b7 reorganize under threat of failure",
+  "options": "Inaction-band heuristic \u00b7 price-based target",
+  "heiner": "Reliability condition \u00b7 price-based target",
+  "imitation": "Imitate the best",
+  "optimiser": "Rational expectations (Cournot\u2013Nash)",
+  "ruleb": "Rule B (rigid)",
+  "rl": "Softmax value learner",
+  "satisficing": "Aspiration search \u00b7 price-based target"
+ },
+ "tuned_params": {
+  "heiner_m": {
+   "a_cost": 0.592853,
+   "a_rival": 0.085794,
+   "phi": 0.06844,
+   "theta": 39.260778,
+   "memory": 0.803956,
+   "horizon": 15.0
+  },
+  "heiner_p": {
+   "lam": 0.058547,
+   "phi": 0.152081,
+   "theta": 15.973492,
+   "memory": 0.845218,
+   "horizon": 13.0
+  },
+  "opt_br": {
+   "a_cost": 0.905433,
+   "a_rival": 0.055536,
+   "phi": 0.058138
+  },
+  "opt_nash": {
+   "a_cost": 0.261493,
+   "phi": 0.247502
+  },
+  "options_m": {
+   "a_cost": 0.161638,
+   "a_rival": 0.240143,
+   "phi": 0.064387,
+   "k": 2.155653
+  },
+  "options_p": {
+   "lam": 0.895893,
+   "phi": 0.287751,
+   "k": 0.094705
+  },
+  "cobweb_p": {
+   "lam": 0.980374,
+   "phi": 0.535424
+  },
+  "cobweb_q": {
+   "a_rival": 0.080533,
+   "phi": 0.097116
+  },
+  "heur_wsls": {
+   "step": 1.035687
+  },
+  "heur_markup": {
+   "phi": 0.376154,
+   "m": 2.603841
+  },
+  "satis_m": {
+   "a_cost": 0.640784,
+   "a_rival": 0.052744,
+   "phi": 0.050117,
+   "alpha": 0.030805
+  },
+  "satis_p": {
+   "lam": 0.053507,
+   "phi": 0.387886,
+   "alpha": 0.074725
+  },
+  "rl_softmax": {
+   "step": 1.680566,
+   "eta": 0.016801,
+   "temp": 1.808246
+  },
+  "rl_erevroth": {
+   "step": 1.485349,
+   "forget": 0.002032,
+   "gain": 0.10174
+  },
+  "imit_best": {
+   "p": 0.091331,
+   "noise": 7.326769
+  },
+  "imit_avg": {
+   "p": 0.242076,
+   "noise": 1.33467
+  },
+  "ecol_periodic": {
+   "lam": 0.057279,
+   "phi": 0.193341,
+   "interval": 65.0
+  },
+  "ecol_crisis": {
+   "lam": 0.912912,
+   "phi": 0.624295,
+   "floor": 0.679438,
+   "alpha": 0.024172
+  },
+  "ruleb": {}
+ },
+ "verdicts": {
+  "PR1": "not supported",
+  "PR2": "not supported",
+  "PR3": "not supported",
+  "PR4": "not supported",
+  "PR5": "not supported",
+  "PR6": "not supported"
+ },
+ "verdict_results": {
+  "PR1": "Better than 1 of 9 rivals; worse than Real options, Cobweb / adaptive expectations, Simple heuristics (bias\u2013variance), Organizational ecology (structural inertia)",
+  "PR2": "slope -47.8 per SD of difficulty (p = 0.0436)",
+  "PR3": "Invaded by Cobweb / adaptive expectations, Organizational ecology (structural inertia), Simple heuristics (bias\u2013variance), Imitation / evolutionary selection, Neoclassical optimization, Real options, Reinforcement learning, Rule B (benchmark)",
+  "PR4": "Invades 7 of 9 rival populations",
+  "PR5": "model target +57 [17, 97] *; price target -505 [-640, -376] * (profit, reliability condition \u2212 always; * = Holm-significant)",
+  "PR6": "model target +218 [101, 333] *; price target -2556 [-3364, -1807] * (CVaR 5%, reliability condition \u2212 always; * = Holm-significant)"
+ },
+ "mean_rank": {
+  "cobweb": 2.8,
+  "heuristic": 3.08,
+  "ecology": 4.03,
+  "options": 4.19,
+  "heiner": 5.9,
+  "imitation": 6.08,
+  "optimiser": 6.11,
+  "ruleb": 6.49,
+  "rl": 7.05,
+  "satisficing": 9.29
+ },
+ "aggregate_rank": {
+  "cobweb": 2.5,
+  "heuristic": 4.33,
+  "ecology": 4.83,
+  "options": 2.67,
+  "heiner": 7.0,
+  "imitation": 8.83,
+  "optimiser": 5.0,
+  "ruleb": 5.83,
+  "rl": 6.0,
+  "satisficing": 7.83
+ },
+ "selection": [
+  {
+   "target": "model",
+   "select": "band",
+   "design": "Inaction-band heuristic \u00b7 model-based target",
+   "criterion": "profit",
+   "diff": 29.1,
+   "lo": -38.7,
+   "hi": 93.2,
+   "significant": false
+  },
+  {
+   "target": "model",
+   "select": "band",
+   "design": "Inaction-band heuristic \u00b7 model-based target",
+   "criterion": "cvar5",
+   "diff": 1726.7,
+   "lo": 1201.3,
+   "hi": 2317.5,
+   "significant": true
+  },
+  {
+   "target": "model",
+   "select": "rc",
+   "design": "Reliability condition \u00b7 model-based target",
+   "criterion": "profit",
+   "diff": 57.0,
+   "lo": 16.8,
+   "hi": 96.6,
+   "significant": true
+  },
+  {
+   "target": "model",
+   "select": "rc",
+   "design": "Reliability condition \u00b7 model-based target",
+   "criterion": "cvar5",
+   "diff": 217.9,
+   "lo": 100.9,
+   "hi": 333.3,
+   "significant": true
+  },
+  {
+   "target": "model",
+   "select": "aspiration",
+   "design": "Aspiration search \u00b7 model-based target",
+   "criterion": "profit",
+   "diff": -340.9,
+   "lo": -444.1,
+   "hi": -241.7,
+   "significant": true
+  },
+  {
+   "target": "model",
+   "select": "aspiration",
+   "design": "Aspiration search \u00b7 model-based target",
+   "criterion": "cvar5",
+   "diff": 1536.9,
+   "lo": 1142.2,
+   "hi": 1959.4,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "band",
+   "design": "Inaction-band heuristic \u00b7 price-based target",
+   "criterion": "profit",
+   "diff": -158.1,
+   "lo": -195.1,
+   "hi": -122.0,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "band",
+   "design": "Inaction-band heuristic \u00b7 price-based target",
+   "criterion": "cvar5",
+   "diff": -87.1,
+   "lo": -155.4,
+   "hi": -23.2,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "rc",
+   "design": "Reliability condition \u00b7 price-based target",
+   "criterion": "profit",
+   "diff": -504.7,
+   "lo": -639.7,
+   "hi": -376.0,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "rc",
+   "design": "Reliability condition \u00b7 price-based target",
+   "criterion": "cvar5",
+   "diff": -2556.4,
+   "lo": -3363.8,
+   "hi": -1806.6,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "aspiration",
+   "design": "Aspiration search \u00b7 price-based target",
+   "criterion": "profit",
+   "diff": -980.0,
+   "lo": -1136.2,
+   "hi": -813.2,
+   "significant": true
+  },
+  {
+   "target": "price",
+   "select": "aspiration",
+   "design": "Aspiration search \u00b7 price-based target",
+   "criterion": "cvar5",
+   "diff": -1363.2,
+   "lo": -1886.8,
+   "hi": -858.1,
+   "significant": true
+  }
+ ],
+ "minutes": 1.7
+}

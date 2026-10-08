@@ -14,9 +14,15 @@ so Heiner's claim, that a reliability-based selection rule improves on a flexibl
 target. Other designs (Cournot-Nash play, a markup rule, win-stay/lose-shift, two learners, two imitators) stand alone.
 
 Fairness protocol (see PREREG):
-    1. every theory has two designs, and every design is tuned with the same budget of evaluations (Latin-hypercube
-       search) on training environments only, in two rounds; each theory enters the tournament with whichever of its
-       two designs scored higher on the training environments;
+    1. every theory has two designs, and every design is tuned at the same *search density* on training environments
+       only, in two rounds: Prereg.budget_per_parameter candidate settings for each of the design's free parameters
+       (Latin-hypercube, the defaults included as candidate 0). Designs carry between one and six free parameters
+       (Agent.SPACE), so a fixed number of candidates per design would search a six-dimensional space far less
+       thoroughly than a one-dimensional one; scaling the budget with the dimension removes that artifact. It matters
+       for the comparison because the two reliability-condition designs have the most free parameters of any theory,
+       so the old rule searched the focal theory's space least thoroughly. Prereg.budget_rule = "per_design" restores
+       the legacy fixed budget of Prereg.budget candidates for every design. Each theory enters the tournament with
+       whichever of its two designs scored higher on the training environments;
     2. environments are drawn at random from pre-registered ranges; training and test environments are disjoint;
     3. the plan (ranges, budgets, hypotheses, decision rules) and the agent and analysis code are hashed;
     4. results use several yardsticks: head-to-head profit, downside risk, survival, volatility, regret and worst case
@@ -42,6 +48,7 @@ from .analysis import ols
 from .params import FirmSpec, GlobalFirmParams, MarketParams, Scenario, StructuralParams
 
 P_MAX, P_MIN, C0, Q_MIN = 100.0, 10.0, 45.0, 5.0
+MAX_TUNING_MARKETS = 600   # markets per simulate call while tuning: bounds memory as the budget grows
 N_BINS = 5
 CAPITAL_PERIODS = 20      # survival buffer: a firm is ruined if cumulative profit falls below -20 periods of Nash profit
 
@@ -652,7 +659,9 @@ class Prereg:
     reps_test: int = 2
     periods: int = 800
     burn_in: int = 50
-    budget: int = 24
+    budget_rule: str = "per_parameter"       # "per_parameter": budget_per_parameter candidates per free parameter
+    budget_per_parameter: int = 24           #                  (equal search density); "per_design": legacy, `budget`
+    budget: int = 24                         # legacy fixed budget per design (budget_rule == "per_design")
     rounds: int = 2
     train_seed: int = 1001
     test_seed: int = 2002
@@ -723,15 +732,54 @@ class Tuned:
         return [self.design[t] for t in theories]
 
 
-def tune(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None) -> Tuple[Tuned, pd.DataFrame]:
-    """Equal-budget tuning and design selection on the training environments.
+def design_budget(pr: Prereg, design: str) -> int:
+    """Candidate settings evaluated for one design per round.
 
-    Every design gets `budget` candidate parameter vectors (default included) per round, evaluated in a mixed market
-    with one firm per theory, where the other theories use their current design and parameters (round 1: first
-    design, defaults). Each theory then enters with whichever of its two designs scored higher. Every theory has two
-    designs, so every theory gets the same total budget."""
+    "per_parameter" (registered): pr.budget_per_parameter for each of the design's free parameters, so every design's
+    space is searched at the same density. Designs carry one to six free parameters, and the reliability-condition
+    designs carry the most, so a fixed per-design budget searched the focal theory's space least thoroughly.
+    "per_design" (legacy): pr.budget candidates whatever the dimension."""
+    d = max(1, len(DESIGNS[design].SPACE))
+    if pr.budget_rule == "per_parameter":
+        return int(pr.budget_per_parameter) * d
+    if pr.budget_rule == "per_design":
+        return int(pr.budget)
+    raise ValueError(f"Unknown budget rule {pr.budget_rule!r} (use 'per_parameter' or 'per_design').")
+
+
+def _score_candidates(pr: Prereg, envs, tuned: "Tuned", design: str, slot: int, cand: Dict[str, np.ndarray],
+                      k: int) -> np.ndarray:
+    """Mean profit of the design's slot per candidate, in chunks of at most MAX_TUNING_MARKETS markets.
+
+    Every market is seeded from its environment alone (Market.__init__), so a market's outcome does not depend on
+    which other markets share its batch: chunking is numerically identical to one call and keeps memory flat as the
+    budget grows with the number of free parameters."""
+    E = len(envs)
+    step = max(1, MAX_TUNING_MARKETS // E)
+    score = np.empty(k)
+    for a in range(0, k, step):
+        b = min(a + step, k)
+        n = b - a
+        lineup = np.tile(np.array(tuned.lineup(), dtype=object), (n * E, 1))
+        lineup[:, slot] = design
+        params = {d: dict(v) for d, v in tuned.params.items()}
+        params[design] = {name: np.repeat(v[a:b], E) for name, v in cand.items()}
+        out = simulate(envs * n, lineup, params, pr.periods, pr.burn_in)
+        score[a:b] = out["profit"][:, slot].reshape(n, E).mean(1)
+    return score
+
+
+def tune(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None) -> Tuple[Tuned, pd.DataFrame]:
+    """Equal-density tuning and design selection on the training environments.
+
+    Every design gets `design_budget(pr, design)` candidate parameter vectors (the defaults are candidate 0) per
+    round, evaluated in a mixed market with one firm per theory, where the other theories use their current design
+    and parameters (round 1: first design, defaults). Each theory then enters with whichever of its two designs
+    scored higher. Under the registered "per_parameter" rule each design is searched at the same number of
+    candidates per free parameter, so no theory is penalized for having a richer parameterization; the log records
+    each design's free parameters, candidates and candidates per parameter."""
     envs = train_envs(pr)
-    E, K = len(envs), pr.budget
+    E = len(envs)
     tuned = Tuned(design={t: d[0] for t, d in THEORY_DESIGNS.items()},
                   params={d: default_params(d) for d in DESIGNS})
     log = []
@@ -746,16 +794,14 @@ def tune(pr: Prereg, progress: Optional[Callable[[float, str], None]] = None) ->
                 if progress:
                     progress(done / steps, f"Round {rnd}: tuning {DESIGNS[design].name}")
                 rng = np.random.default_rng([pr.train_seed, rnd, list(DESIGNS).index(design)])
+                K = design_budget(pr, design)
+                n_par = max(1, len(DESIGNS[design].SPACE))
                 cand = _lhs(DESIGNS[design].SPACE, K, rng)
-                lineup = np.tile(np.array(tuned.lineup(), dtype=object), (K * E, 1))
-                lineup[:, slot] = design
-                params = {d: dict(v) for d, v in tuned.params.items()}
-                params[design] = {n: np.repeat(v, E) for n, v in cand.items()}
-                out = simulate(envs * K, lineup, params, pr.periods, pr.burn_in)
-                score = out["profit"][:, slot].reshape(K, E).mean(1)
+                score = _score_candidates(pr, envs, tuned, design, slot, cand, K)
                 b = int(np.argmax(score))
                 new_params[design] = {n: float(v[b]) for n, v in cand.items()}
                 log.append(dict(round=rnd, theory=theory, design=design, design_name=DESIGNS[design].name,
+                                n_params=n_par, n_candidates=K, candidates_per_param=K / n_par,
                                 default_score=float(score[0]), best_score=float(score[b]),
                                 gain=float(score[b] - score[0]),
                                 **{f"param:{n}": float(v[b]) for n, v in cand.items()}))
@@ -1063,4 +1109,5 @@ def prereg_from_dict(d: dict) -> Prereg:
 
 
 PREREG = Prereg()
-QUICK = Prereg(n_train=6, n_test=8, reps_test=1, periods=250, burn_in=30, budget=6, rounds=1, n_boot=200)
+QUICK = Prereg(n_train=6, n_test=8, reps_test=1, periods=250, burn_in=30, budget_per_parameter=3, budget=6,
+               rounds=1, n_boot=200)

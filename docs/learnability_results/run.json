@@ -1,9 +1,15 @@
 {
- "plan_hash": "ec9b781e125e289d",
+ "plan_hash": "8f43bedc7dae10bc",
+ "registered_plan_hash": "8f43bedc7dae10bc",
+ "matches_registered_plan": true,
  "hyperparameters": {
   "gain": 0.1,
   "band": {
    "b": 0.5
+  },
+  "gate": {
+   "conf": 0.8,
+   "nmin": 3.0
   },
   "bocpd": {
    "hazard": 0.005,
@@ -15,5 +21,10 @@
    "rho": 0.01
   }
  },
- "market_theta": 50.0
+ "market_theta": 50.0,
+ "market_gate": [
+  0.8,
+  3.0
+ ],
+ "minutes": 7.4
 }

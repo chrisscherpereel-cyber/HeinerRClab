@@ -1,0 +1,42 @@
+{
+ "cobweb": {
+  "verdict": "supported",
+  "result": "n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, simulated 0.55; n = 8: theory 0.44, simulated 0.45",
+  "ok": true
+ },
+ "ecology": {
+  "verdict": "not supported",
+  "result": "\u0394 = 2: +2 [+2, +3]; \u0394 = 10: +62 [+45, +77]; \u0394 = 20: +194 [+176, +215]; \u0394 = 30: +255 [+241, +269]",
+  "ok": false
+ },
+ "heuristic": {
+  "verdict": "not supported",
+  "result": "heuristic's advantage changes by -29.3 per unit of noise (p = 1.23e-10); at the highest noise +500 [+410, +605]",
+  "ok": false
+ },
+ "imitation": {
+  "verdict": "supported",
+  "result": "imitate-the-best markets produce 1.25 [1.24, 1.27] \u00d7 the Cournot\u2013Nash output",
+  "ok": true
+ },
+ "optimiser": {
+  "verdict": "not supported",
+  "result": "profit slope on foresight -35.9 per unit (p = 0.000258); with full information the rational market's price is within 0.13% of Cournot\u2013Nash on average",
+  "ok": false
+ },
+ "options": {
+  "verdict": "not supported",
+  "result": "value of flexibility changes by -3.9 per unit of volatility (p = 0.00043)",
+  "ok": false
+ },
+ "rl": {
+  "verdict": "not supported",
+  "result": "relative profit improves by -72 [-247, +104] from the first to the last third in a stationary market, and by -202 [-386, -38] with unannounced shifts",
+  "ok": false
+ },
+ "satisficing": {
+  "verdict": "not supported",
+  "result": "change rate changes by -0.0017 per unit of volatility (p = 5.49e-21)",
+  "ok": false
+ }
+}

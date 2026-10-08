@@ -1,0 +1,50 @@
+[
+ {
+  "pattern": "Cobweb cycles",
+  "key": "cycles",
+  "population": "Naive expectations (adaptive price expectations with \u03bb = 1, \u03c6 = 1)",
+  "passed": true,
+  "result": "lag-1 autocorrelation -0.80",
+  "detail": "100% of markets below \u22120.3"
+ },
+ {
+  "pattern": "Adaptive adjustment dampens cycles",
+  "key": "damping",
+  "population": "Adaptive expectations (\u03bb = 0.3, \u03c6 = 0.3)",
+  "passed": true,
+  "result": "s.d. 18.4 vs 37.4; autocorrelation +0.94 vs -0.80",
+  "detail": "lower volatility in 100% of markets"
+ },
+ {
+  "pattern": "Sticky, lumpy adjustment",
+  "key": "sticky",
+  "population": "Inaction band, price-based target (tuned)",
+  "passed": false,
+  "result": "output changes in 91% of periods (always-adjusting: 99%); mean change 257.5 vs 42.1",
+  "detail": "inaction band vs adaptive price expectations, same environments"
+ },
+ {
+  "pattern": "Imitation makes oligopolies more competitive",
+  "key": "imitation",
+  "population": "Imitate the best (tuned)",
+  "passed": true,
+  "result": "mean output 1.18 \u00d7 Cournot\u2013Nash",
+  "detail": "above Nash in 100% of markets"
+ },
+ {
+  "pattern": "Prices fluctuate around equilibrium with excess volatility",
+  "key": "excess",
+  "population": "Mixed tuned designs (one of each flexible and restricted rule)",
+  "passed": true,
+  "result": "mean price within 8.1% of Nash; s.d. 1.05 \u00d7 Nash s.d.",
+  "detail": "excess volatility in 58% of markets"
+ },
+ {
+  "pattern": "Positive, persistent markups",
+  "key": "markups",
+  "population": "Mixed tuned designs",
+  "passed": true,
+  "result": "mean price 46.5, mean cost 42.1, monopoly price 71.1",
+  "detail": "between cost and monopoly price in 100% of markets"
+ }
+]

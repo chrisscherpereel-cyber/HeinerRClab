@@ -10,8 +10,8 @@ from heiner_abm import learnability as L
 from heiner_abm import learnability_market as LM
 from heiner_abm import registered
 
-HP = {"gain": 0.2, "band": {"b": 0.5}, "bocpd": {"hazard": 0.01, "prior_sd": 40.0, "obs_sd": 25.0},
-      "dro": {"window": 30, "rho": 0.05}}
+HP = {"gain": 0.2, "band": {"b": 0.5}, "gate": {"conf": 0.9, "nmin": 5.0},
+      "bocpd": {"hazard": 0.01, "prior_sd": 40.0, "obs_sd": 25.0}, "dro": {"window": 30, "rho": 0.05}}
 
 
 def test_specification_is_frozen_and_not_claimed_as_external_preregistration():
@@ -113,3 +113,63 @@ def test_market_replication_runs():
     t = out["tests"]
     assert len(t) == 3 and {"log10_ratio", "adv_gate_lcb", "adv_gate_gain", "adv_band"} <= set(t.columns)
     assert set(out["not_applicable"]) == {"bocpd", "dro"}
+
+
+# ---------------------------------------------------------------- equal tuning budget (7 October 2026)
+def test_every_tunable_policy_gets_the_same_number_of_candidates():
+    """Policies are compared on equivalent computational budgets: one candidate count for every policy that has
+    hyperparameters. Until 6 October 2026 the two gates got none while their four comparators got four each."""
+    plan = replace(L.LEARN_PREREG, **{**L.QUICK_LEARN, "periods": 200, "n_train_configs": 2, "train_paths": 1})
+    _, log = L.tune(plan)
+    assert set(log["policy"]) == set(L.TUNABLE)
+    assert log["n_candidates"].nunique() == 1 and log["n_candidates"].iloc[0] == len(dict(plan.tuning_grid)["gain"])
+    # the grid itself must offer the same number of settings to each of them
+    grid = dict(plan.tuning_grid)
+    assert len({len(grid[k]) for k in L.TUNABLE.values()}) == 1
+    # candidate 0 of the gate is the setting used before it had a budget, so the search can only help
+    assert tuple(grid["gate"][0]) == (L.GATE_HP0["conf"], L.GATE_HP0["nmin"])
+    assert (log["gain_over_candidate0"] >= -1e-9).all()
+
+
+def test_the_plans_gate_settings_are_read_rather_than_shadowed_by_defaults():
+    """LearnPlan.gate_confidence / gate_min_evidence were in the frozen plan but never reached the gate; the legacy
+    path must now actually use them."""
+    plan = replace(L.LEARN_PREREG, **{**L.QUICK_LEARN, "periods": 200, "n_train_configs": 1, "train_paths": 1},
+                   tune_gate=False, gate_confidence=0.95, gate_min_evidence=1e9)
+    hp, log = L.tune(plan)
+    assert hp["gate"] == {"conf": 0.95, "nmin": 1e9}
+    assert int(log.loc[log["policy"] == "gate_lcb", "n_candidates"].iloc[0]) == 0
+    cfg = L.Config()
+    p = L.paths(cfg, 300, 11)
+    c = L.candidate_orders(cfg, p, hp["gain"])
+    # an unreachable minimum evidence means the confidence gate can never adopt: it is exactly the default
+    S = L.policy_orders("gate_lcb", cfg, p, c, hp)[0]
+    np.testing.assert_array_equal(S, c["S_D"])
+
+
+def test_gate_hyperparameters_change_behavior_through_policy_orders():
+    cfg = L.Config(hazard=0.02)
+    p = L.paths(cfg, 400, 13)
+    c = L.candidate_orders(cfg, p, HP["gain"])
+    loose = L.policy_orders("gate_lcb", cfg, p, c, {**HP, "gate": {"conf": 0.6, "nmin": 2.0}})[0]
+    strict = L.policy_orders("gate_lcb", cfg, p, c, {**HP, "gate": {"conf": 0.99, "nmin": 50.0}})[0]
+    assert (loose != c["S_D"]).sum() > (strict != c["S_D"]).sum()
+    # omitting the key falls back to the registered candidate 0, not to an arbitrary value
+    np.testing.assert_array_equal(L.policy_orders("gate_lcb", cfg, p, c, {k: v for k, v in HP.items() if k != "gate"})[0],
+                                  L.policy_orders("gate_lcb", cfg, p, c, {**HP, "gate": L.GATE_HP0})[0])
+
+
+def test_market_replication_tunes_the_gate_with_the_same_budget_as_the_band():
+    mp = LM.MarketPlan(**{**LM.QUICK_MARKET, "periods": 200, "n_test_configs": 1, "n_train_configs": 1, "paths": 2,
+                          "pilot_paths": 2, "band_grid": (10.0, 25.0), "gate_grid": ((0.9, 5.0), (0.8, 3.0))})
+    assert len(mp.band_grid) == len(mp.gate_grid)
+    out = LM.run_market(mp)
+    assert len(out["band_scores"]) == len(out["gate_scores"]) == 2
+    assert out["gate_hp"] in mp.gate_grid
+    assert out["tests"]["gate_confidence"].iloc[0] == out["gate_hp"][0]
+
+
+def test_market_gate_settings_reach_the_scenario():
+    cfg = LM.MarketConfig()
+    s = LM.scenario(cfg, "gate_lcb", 1, 200, 20, 5, 25.0, (0.8, 7.0))
+    assert (s.adaptive.gate, s.adaptive.confidence, s.adaptive.min_evidence) == ("lcb", 0.8, 7.0)

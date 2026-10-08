@@ -43,7 +43,7 @@ st.dataframe(pd.DataFrame([dict(ID=h[0], Hypothesis=h[1], Decision_rule=h[2]) fo
              hide_index=True, width="stretch")
 
 scale = st.radio("Protocol", ["Quick check (exploratory)", "Registered plan"], horizontal=True, key="lrn_scale",
-                 help="The registered plan runs the frozen specification (about 15 minutes). The quick check is a small "
+                 help="The registered plan runs the frozen specification (about 8 minutes). The quick check is a small "
                       "exploratory run with a different hash; it is not evidence for or against the hypotheses.")
 quick = scale.startswith("Quick")
 plan = replace(plan_full, **L.QUICK_LEARN) if quick else plan_full
@@ -68,8 +68,19 @@ st.header("Results", divider="gray")
 if res.plan_hash != LEARN_PLAN:
     st.info(f"Exploratory run (plan `{res.plan_hash}`, registered `{LEARN_PLAN}`).")
 st.caption(f"Tuned on training configurations only: flexible forecast gain {res.hyperparameters['gain']:g}, band "
-           f"b = {res.hyperparameters['band']['b']:g}, change detection {res.hyperparameters['bocpd']}, robust "
-           f"order {res.hyperparameters['dro']}.")
+           f"b = {res.hyperparameters['band']['b']:g}, confidence-sensitive gate {res.hyperparameters['gate']}, "
+           f"change detection {res.hyperparameters['bocpd']}, robust order {res.hyperparameters['dro']}.")
+with st.expander("Tuning budget: the same number of candidate settings for every policy that has hyperparameters"):
+    st.markdown("Each policy below was given the same number of candidate settings from the frozen plan, scored on "
+                "the same training configurations and paths; candidate 0 is the registered starting value, so the "
+                "search can only help. *Retain the default*, the *estimated-gain gate* and the *ORACLE* have no free "
+                "hyperparameters and receive none. Policies are compared on equivalent information, adaptation costs "
+                "and tuning budgets.")
+    if len(res.tuning):
+        st.dataframe(res.tuning.round(3), hide_index=True, width="stretch")
+    n = sorted(set(res.tuning["n_candidates"])) if len(res.tuning) else []
+    if len(n) > 1:
+        st.warning(f"Unequal budgets in this run: {n}. Results are not a like-for-like comparison.", icon="⚠️")
 for _, r in res.verdicts.iterrows():
     verdict("support" if r["verdict"] == "supported" else "neutral", f"**{r['id']}** {r['verdict']}: {r['result']}")
 st.subheader("Negative controls")
@@ -113,8 +124,11 @@ st.plotly_chart(style(f, 360, barmode="group"))
 
 if res.market is not None:
     st.subheader("Market replication")
-    st.caption(f"Inaction-band threshold tuned on training configurations: {res.market['theta']:g}. Not applicable in "
-               "the market: " + "; ".join(f"{k}: {v}" for k, v in res.market["not_applicable"].items()))
+    st.caption(f"Tuned on training configurations, same budget each: inaction-band threshold {res.market['theta']:g} "
+               f"of {len(res.market['band_scores'])} candidates; confidence-sensitive gate (confidence, minimum "
+               f"evidence) = {tuple(res.market['gate_hp'])} of {max(len(res.market['gate_scores']), 1)} candidates. "
+               "Not applicable in the market: "
+               + "; ".join(f"{k}: {v}" for k, v in res.market["not_applicable"].items()))
     st.dataframe(res.market["tests"].round(2), hide_index=True, width="stretch")
 
 st.subheader("Secondary outcomes (jump-family test paths, means with 95% intervals)")

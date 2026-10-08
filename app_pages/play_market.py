@@ -68,24 +68,27 @@ if S["stage"] == "comprehension":
     if S.get("comp_error"):
         st.error(S["comp_error"])
     qs = COMPREHENSION + ((AID_QUESTION,) if a.aid else ())
-    with st.form(f"comp_{S['attempts']}"):
-        answers = {k: st.radio(text, opts, index=None, key=f"play_comp_{k}_{S['attempts']}")
-                   for k, text, opts, _ in qs}
-        ok = st.form_submit_button("Check answers", type="primary")
-    if ok:
+
+    def _check(questions, attempt):
+        """Grade the answers in the submit callback, before the script reruns, so the next run renders exactly one
+        screen. Grading after the widgets were drawn and calling st.rerun() leaves the replaced screen's widgets in
+        the rendered output of that run, which breaks the next interaction (seen with streamlit.testing)."""
+        answers = {k: st.session_state.get(f"play_comp_{k}_{attempt}") for k, *_ in questions}
         S["attempts"] += 1
-        wrong = [text for k, text, opts, right in qs if answers[k] != opts[right]]
+        wrong = [text for k, text, opts, right in questions if answers[k] != opts[right]]
         if not wrong:
-            S.update(stage="practice", passed=True)
+            S.update(stage="practice", passed=True, comp_error=None)
             S["market"] = block_market("B", -1, practice=True)
-            st.rerun()
         elif S["attempts"] >= PLAN.max_attempts:
             S.update(stage="done", passed=False)
-            st.rerun()
         else:
             S["comp_error"] = (f"Not quite: please reread the instructions and try again ({len(wrong)} answer(s) to "
                                f"correct; attempt {S['attempts']} of {PLAN.max_attempts}).")
-            st.rerun()
+
+    with st.form(f"comp_{S['attempts']}"):
+        for k, text, opts, _ in qs:
+            st.radio(text, opts, index=None, key=f"play_comp_{k}_{S['attempts']}")
+        st.form_submit_button("Check answers", type="primary", on_click=_check, args=(qs, S["attempts"]))
     st.stop()
 
 

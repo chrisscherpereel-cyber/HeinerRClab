@@ -33,15 +33,27 @@ Policies (all see the same exogenous paths: common random numbers)
     band        inaction band: S_F if |S_F - S_D| > b * sd, else S_D (b tuned)
     gate_gain   existing estimated-gain gate (heiner_abm.gates): per size bin of |S_F - S_D| / sd, adapt if the
                 learned mean of g = payoff(S_F, y) - payoff(S_D, y) is at least c
-    gate_lcb    confidence-sensitive gate: adapt if at least 5 effective observations and the 90% lower bound > c
-                (both gates learn from every observed period, whatever they chose: the observed demand values both
-                orders; feedback is released at the end of the period)
+    gate_lcb    confidence-sensitive gate: adapt if the bin has at least `nmin` effective observations and the
+                one-sided lower bound at confidence `conf` exceeds c; (conf, nmin) are tuned on the training
+                configurations with the same budget as every other tunable policy (both gates learn from every
+                observed period, whatever they chose: the observed demand values both orders; feedback is released
+                at the end of the period)
     bocpd       Bayesian change detection (Adams & MacKay 2007), misspecified Gaussian reset model, tuned; orders its
                 predictive 0.8-quantile; it does not use the default
     dro         distributionally robust newsvendor on the last N observed demands (modified chi-squared ball,
                 Ben-Tal et al. 2013), N and rho tuned
     oracle      PERFECT INFORMATION (knows mu_t): order max(0, mu_t + z sigma); a bound, not ranked
 Every policy pays c whenever its order differs from the default's.
+
+Equal tuning budget
+    Every policy with free hyperparameters gets the same number of candidate settings (len of its entry in
+    LearnPlan.tuning_grid, four by default), each scored on the same training configurations and paths, and the best
+    is carried into the pilot and test runs: `always` (forecast gain), `band` (b), `gate_lcb` (conf, nmin), `bocpd`
+    (hazard, prior sd, obs sd) and `dro` (window, rho). `default` and `gate_gain` have no free hyperparameters, so
+    they receive none; `oracle` is a bound, not a competitor. tune() returns a log with one row per policy giving the
+    number of candidates evaluated, so the equality is checkable rather than asserted. Before 7 October 2026 the two
+    gates received no tuning at all while their four comparators received four candidates each, and LearnPlan's
+    `gate_confidence` / `gate_min_evidence` were never read: see LearnPlan.tune_gate for the legacy setting.
 
 Outcomes (per path, recorded periods t >= burn_in)
     primary     net payoff per period = -(H_OVER (S - d)+ + P_SHORT (d - S)+) - c 1[S != S_D]
@@ -92,6 +104,11 @@ POLICY_LABELS = {"always": "Always adapt", "default": "Retain the default", "ban
                  "bocpd": "Bayesian change detection", "dro": "Distributionally robust", "oracle": "ORACLE (perfect information)"}
 CHOOSERS = ("always", "default", "band", "gate_gain", "gate_lcb")   # choose between S_D and S_F
 Z90 = 1.2815515655446004
+# Candidate 0 of the lcb gate: the settings used before the gate was given a tuning budget (7 October 2026).
+GATE_HP0 = {"conf": 0.9, "nmin": 5.0}
+# Policies with free hyperparameters, and the key of their entry in LearnPlan.tuning_grid. Every one of them receives
+# the same number of candidate settings; the rest (default, gate_gain, oracle) have no hyperparameters to tune.
+TUNABLE = {"always": "gain", "band": "band_b", "gate_lcb": "gate", "bocpd": "bocpd", "dro": "dro"}
 
 
 @dataclass(frozen=True)
@@ -166,8 +183,12 @@ def candidate_orders(cfg: Config, p: Dict[str, np.ndarray], gain: float) -> Dict
 
 
 # ================================================================================================ policies
-def gated(cfg: Config, p, c: Dict[str, np.ndarray], gate: str, conf: float = 0.9, nmin: float = 5.0):
-    """Orders of a reliability gate (heiner_abm.gates) and its prediction per period (NaN without evidence)."""
+def gated(cfg: Config, p, c: Dict[str, np.ndarray], gate: str, conf: float = GATE_HP0["conf"],
+          nmin: float = GATE_HP0["nmin"]):
+    """Orders of a reliability gate (heiner_abm.gates) and its prediction per period (NaN without evidence).
+
+    conf and nmin are the confidence and the minimum effective evidence of the `lcb` gate; the `gain` gate ignores
+    them. Callers pass the tuned values (hyperparameters["gate"]); the defaults are the registered candidate 0."""
     S_F, S_D, sd, y = c["S_F"], c["S_D"], c["sd"], p["y"]
     T = len(y)
     nb = len(EDGES) + 1
@@ -229,7 +250,8 @@ def policy_orders(policy: str, cfg: Config, p, c, hp: Dict[str, Dict[str, float]
         dev = np.abs(c["S_F"] - c["S_D"]) > hp["band"]["b"] * c["sd"]
         return np.where(dev, c["S_F"], c["S_D"]), None, None
     if policy in ("gate_gain", "gate_lcb"):
-        return gated(cfg, p, c, policy[5:])
+        g = hp.get("gate", GATE_HP0)
+        return gated(cfg, p, c, policy[5:], conf=float(g["conf"]), nmin=float(g["nmin"]))
     if policy == "bocpd":
         h = hp["bocpd"]
         return bocpd_orders(p["y"], h["hazard"], h["prior_sd"], h["obs_sd"]), None, None
@@ -380,10 +402,12 @@ class LearnPlan:
     n_new_family_configs: int = 15
     tuning_grid: Tuple[Tuple[str, Tuple], ...] = (
         ("gain", (0.05, 0.1, 0.2, 0.4)), ("band_b", (0.25, 0.5, 1.0, 2.0)),
+        ("gate", ((0.9, 5.0), (0.8, 3.0), (0.9, 12.0), (0.95, 25.0))),
         ("bocpd", ((0.005, 30.0, 25.0), (0.01, 40.0, 25.0), (0.02, 40.0, 20.0), (0.005, 60.0, 35.0))),
         ("dro", ((20, 0.01), (40, 0.01), (40, 0.1), (80, 0.05))))
-    gate_confidence: float = 0.9
-    gate_min_evidence: float = 5.0
+    tune_gate: bool = True                   # False = legacy: the gates are not tuned and use the two fields below
+    gate_confidence: float = 0.9             # confidence of the lcb gate when tune_gate is False (and candidate 0)
+    gate_min_evidence: float = 5.0           # minimum effective evidence of the lcb gate when tune_gate is False
     n_boot: int = 2000
     hypotheses: Tuple = HYPOTHESES
     negative_controls: Tuple = NEGATIVE_CONTROLS
@@ -440,7 +464,16 @@ def run_config(cfg: Config, hp, seeds: Sequence[int], T: int, burn: int,
 
 
 def tune(plan: LearnPlan, progress=None) -> Tuple[Dict, pd.DataFrame]:
-    """Hyperparameters chosen on training configurations only (jump family, seeds disjoint from pilot and test)."""
+    """Hyperparameters chosen on training configurations only (jump family, seeds disjoint from pilot and test).
+
+    Every tunable policy (TUNABLE) gets the same number of candidate settings from LearnPlan.tuning_grid, scored on
+    the same training configurations and paths; candidate 0 is the registered starting value. The returned log has one
+    row per policy with the number of candidates evaluated and the chosen setting, so the budgets can be compared.
+    Policies are tuned in order: the forecast gain first (it defines the candidate orders every chooser uses), then
+    the band, the confidence-sensitive gate, change detection and the robust order.
+
+    With plan.tune_gate = False the gate is not tuned (legacy behavior up to 6 October 2026); it then uses
+    plan.gate_confidence and plan.gate_min_evidence, and its budget is logged as 0."""
     cfgs = _lhs_configs(plan, plan.n_train_configs, plan.seed + 1)
     grid = dict(plan.tuning_grid)
     T, burn = plan.periods, plan.burn_in
@@ -453,22 +486,34 @@ def tune(plan: LearnPlan, progress=None) -> Tuple[Dict, pd.DataFrame]:
             tot.append(df["net_payoff"].mean())
         return float(np.mean(tot))
 
+    def pick(policy, key, make, note):
+        """Score every candidate of `policy` and keep the best; `make` turns a grid entry into its hyperparameters."""
+        cands = list(grid[key])
+        scores = [score(policy, {**hp, **make(v)}) for v in cands]
+        b = int(np.argmax(scores))
+        log.append(dict(policy=policy, parameters=key, n_candidates=len(cands), chosen=str(cands[b]),
+                        candidate0_score=float(scores[0]), chosen_score=float(scores[b]),
+                        gain_over_candidate0=float(scores[b] - scores[0])))
+        hp.update(make(cands[b]))
+        if progress:
+            progress(note[0], note[1])
+
     hp = {"gain": grid["gain"][0], "band": {"b": grid["band_b"][0]},
+          "gate": dict(zip(("conf", "nmin"), grid["gate"][0])),
           "bocpd": dict(zip(("hazard", "prior_sd", "obs_sd"), grid["bocpd"][0])),
           "dro": dict(zip(("window", "rho"), grid["dro"][0]))}
-    best = max(grid["gain"], key=lambda g: score("always", {**hp, "gain": g}))
-    log += [dict(policy="always", value=best)]
-    hp["gain"] = best
-    if progress:
-        progress(0.25, "Tuned the flexible forecast")
-    hp["band"] = {"b": max(grid["band_b"], key=lambda b: score("band", {**hp, "band": {"b": b}}))}
-    hp["bocpd"] = dict(zip(("hazard", "prior_sd", "obs_sd"),
-                           max(grid["bocpd"], key=lambda v: score("bocpd", {**hp, "bocpd": dict(
-                               zip(("hazard", "prior_sd", "obs_sd"), v))}))))
-    if progress:
-        progress(0.6, "Tuned change detection")
-    hp["dro"] = dict(zip(("window", "rho"), max(grid["dro"], key=lambda v: score("dro", {**hp, "dro": dict(
-        zip(("window", "rho"), v))}))))
+    pick("always", "gain", lambda g: {"gain": g}, (0.2, "Tuned the flexible forecast"))
+    pick("band", "band_b", lambda b: {"band": {"b": b}}, (0.4, "Tuned the inaction band"))
+    if plan.tune_gate:
+        pick("gate_lcb", "gate", lambda v: {"gate": dict(zip(("conf", "nmin"), v))},
+             (0.6, "Tuned the confidence-sensitive gate"))
+    else:
+        hp["gate"] = {"conf": float(plan.gate_confidence), "nmin": float(plan.gate_min_evidence)}
+        log.append(dict(policy="gate_lcb", parameters="gate", n_candidates=0, chosen=str(tuple(hp["gate"].values())),
+                        candidate0_score=np.nan, chosen_score=np.nan, gain_over_candidate0=np.nan))
+    pick("bocpd", "bocpd", lambda v: {"bocpd": dict(zip(("hazard", "prior_sd", "obs_sd"), v))},
+         (0.8, "Tuned change detection"))
+    pick("dro", "dro", lambda v: {"dro": dict(zip(("window", "rho"), v))}, (1.0, "Tuned the robust order"))
     return hp, pd.DataFrame(log)
 
 
@@ -608,13 +653,14 @@ class LearnResult:
     verdicts: pd.DataFrame
     market: Optional[Dict] = None
     paths: pd.DataFrame = field(default_factory=pd.DataFrame)    # per-path outcomes of every evaluated configuration
+    tuning: pd.DataFrame = field(default_factory=pd.DataFrame)   # one row per policy: candidates evaluated and choice
 
 
 def run_study(plan: LearnPlan, progress: Optional[Callable[[float, str], None]] = None, market: bool = True,
               market_plan=None) -> LearnResult:
     note = progress or (lambda f, m: None)
     note(0.0, "Tuning on training configurations")
-    hp, _ = tune(plan, lambda f, m: note(0.15 * f, m))
+    hp, tuning_log = tune(plan, lambda f, m: note(0.15 * f, m))
     base = Config(**dict(plan.baseline))
     all_paths = []
     # one-at-a-time sweeps
@@ -658,7 +704,7 @@ def run_study(plan: LearnPlan, progress: Optional[Callable[[float, str], None]] 
     verdicts = evaluate(T1, NF, mres, plan)
     note(1.0, "Done")
     return LearnResult(plan.digest, hp, pd.DataFrame(sweep_rows), T1, NF, controls, verdicts, mres,
-                       pd.concat(all_paths, ignore_index=True))
+                       pd.concat(all_paths, ignore_index=True), tuning_log)
 
 
 def evaluate(tests: pd.DataFrame, newf: pd.DataFrame, market: Optional[Dict], plan: LearnPlan) -> pd.DataFrame:

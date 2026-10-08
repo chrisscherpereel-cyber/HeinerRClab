@@ -1,6 +1,6 @@
 # Registration: when can reliability be learned before the environment changes?
 
-* Plan hash: `ec9b781e125e289d` (registered in the repository: `ec9b781e125e289d`)
+* Plan hash: `8f43bedc7dae10bc` (registered in the repository: `8f43bedc7dae10bc`)
 * Status: This specification is frozen in the repository: its hash covers the plan and the study code, and a test fails if either changes without a new registration entry. It has **not** been preregistered with an external registry (for example OSF or AsPredicted). Any external registration must be done separately; until then, do not describe the study as externally preregistered.
 
 ## Question
@@ -35,15 +35,27 @@ Policies (all see the same exogenous paths: common random numbers)
     band        inaction band: S_F if |S_F - S_D| > b * sd, else S_D (b tuned)
     gate_gain   existing estimated-gain gate (heiner_abm.gates): per size bin of |S_F - S_D| / sd, adapt if the
                 learned mean of g = payoff(S_F, y) - payoff(S_D, y) is at least c
-    gate_lcb    confidence-sensitive gate: adapt if at least 5 effective observations and the 90% lower bound > c
-                (both gates learn from every observed period, whatever they chose: the observed demand values both
-                orders; feedback is released at the end of the period)
+    gate_lcb    confidence-sensitive gate: adapt if the bin has at least `nmin` effective observations and the
+                one-sided lower bound at confidence `conf` exceeds c; (conf, nmin) are tuned on the training
+                configurations with the same budget as every other tunable policy (both gates learn from every
+                observed period, whatever they chose: the observed demand values both orders; feedback is released
+                at the end of the period)
     bocpd       Bayesian change detection (Adams & MacKay 2007), misspecified Gaussian reset model, tuned; orders its
                 predictive 0.8-quantile; it does not use the default
     dro         distributionally robust newsvendor on the last N observed demands (modified chi-squared ball,
                 Ben-Tal et al. 2013), N and rho tuned
     oracle      PERFECT INFORMATION (knows mu_t): order max(0, mu_t + z sigma); a bound, not ranked
 Every policy pays c whenever its order differs from the default's.
+
+Equal tuning budget
+    Every policy with free hyperparameters gets the same number of candidate settings (len of its entry in
+    LearnPlan.tuning_grid, four by default), each scored on the same training configurations and paths, and the best
+    is carried into the pilot and test runs: `always` (forecast gain), `band` (b), `gate_lcb` (conf, nmin), `bocpd`
+    (hazard, prior sd, obs sd) and `dro` (window, rho). `default` and `gate_gain` have no free hyperparameters, so
+    they receive none; `oracle` is a bound, not a competitor. tune() returns a log with one row per policy giving the
+    number of candidates evaluated, so the equality is checkable rather than asserted. Before 7 October 2026 the two
+    gates received no tuning at all while their four comparators received four candidates each, and LearnPlan's
+    `gate_confidence` / `gate_min_evidence` were never read: see LearnPlan.tune_gate for the legacy setting.
 
 Outcomes (per path, recorded periods t >= burn_in)
     primary     net payoff per period = -(H_OVER (S - d)+ + P_SHORT (d - S)+) - c 1[S != S_D]
@@ -127,7 +139,7 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
   ]
  ],
  "burn_in": 100,
- "code": "f7cada35b52e2e29c0cc599ed4895ec1ec8da721a36b122c623b626af38adb77",
+ "code": "d984038f495b6ade82225a36c8815aabd7411c416043a8a1ff745db83e3e8b7b",
  "gate_confidence": 0.9,
  "gate_min_evidence": 5.0,
  "hypotheses": [
@@ -269,6 +281,7 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
   ]
  ],
  "train_paths": 3,
+ "tune_gate": true,
  "tuning_grid": [
   [
    "gain",
@@ -286,6 +299,27 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
     0.5,
     1.0,
     2.0
+   ]
+  ],
+  [
+   "gate",
+   [
+    [
+     0.9,
+     5.0
+    ],
+    [
+     0.8,
+     3.0
+    ],
+    [
+     0.9,
+     12.0
+    ],
+    [
+     0.95,
+     25.0
+    ]
    ]
   ],
   [

@@ -3,6 +3,24 @@
 These numbers come from the registered runs documented in the README. They are tied to the plan hashes below:
 tests/test_theory_pages.py fails when the code changes the hashes, so the numbers cannot silently go stale.
 
+Revision note (8 October 2026, equal search density in the tournament): every tournament design was tuned with the
+same *number* of candidate settings, but designs carry one to six free parameters, so the same budget searched a
+six-dimensional space six times less thoroughly than a one-dimensional one — and the two reliability-condition
+designs have the most free parameters of any theory, so the rule searched the focal theory's space least thoroughly.
+Prereg now gives every design `budget_per_parameter` candidates *per free parameter* (24, so 24–144 per design; no
+design is searched less than under the old flat budget of 24). `Prereg.budget_rule = "per_design"` restores the old
+rule. arena.code_digest() changed, so the tournament, the mechanism study and the rule-choice study were re-registered
+and rerun, together with the signature tests and the field patterns, which use the tuned agents:
+tournament 110b3146bb072c2c → 22393384781bed84, mechanism study 11a279e507f246e2 → bbfaed9e70b900d6, rule choice
+f15f62149d08e800 → d2f88699dc6e6eb6, signature-test fingerprint 71d28315d7da1800 → 1ca69a156d8a3b3a, field-pattern
+fingerprint c18e9f0d5c24e544 → 899d4e263e8e7c5e. Design selection was unchanged for every theory; the tuned
+parameters, the ranks and several effects were not. Two conclusions moved, in opposite directions: reliability-based
+selection on the model-based target now raises profit significantly in all four runs (+23, +57, +109, +46) where it
+was mixed before, while the reliability-condition agent's head-to-head profit rank got worse (4.29 → 7.19 in the main
+run) because the mid-dimensional rivals gained more from the larger search than it did. The ecology signature test
+flipped from supported to not supported. All earlier values under the superseded plans are kept in the README's
+revision notes and REQUIRE REPLICATION.
+
 Revision note (7 October 2026, equal tuning budgets): the learnability study gave four comparator policies a
 four-candidate hyperparameter search on training configurations and the two reliability gates none, and the frozen
 plan's `gate_confidence` / `gate_min_evidence` never reached the gate (the market replication tuned the inaction band
@@ -30,9 +48,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-TOURNAMENT_PLAN = "110b3146bb072c2c"
-STUDY_PLAN = "11a279e507f246e2"
-CHOICE_PLAN = "f15f62149d08e800"       # endogenous rule choice (Rule choice page)
+TOURNAMENT_PLAN = "22393384781bed84"
+STUDY_PLAN = "bbfaed9e70b900d6"
+CHOICE_PLAN = "d2f88699dc6e6eb6"       # endogenous rule choice (Rule choice page)
 TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization page)
 TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
 # Human experiment protocol 2.0 (Play the market / Human experiments: analysis). It replaced protocol 1.0
@@ -46,22 +64,16 @@ LEARN_PLAN = "8f43bedc7dae10bc"
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.
 TOURNAMENT: Dict[str, Dict] = {
-    "cobweb": dict(design="Adaptive price expectations", profit=(2.10, 3.53, 3.11, 3.24), aggregate=(3.50, 4.17, 3.00, 3.50)),
-    "heuristic": dict(design="Target-margin rule", profit=(2.96, 2.41, 2.29, 2.79), aggregate=(4.50, 5.00, 3.83, 4.67)),
-    "options": dict(design="Inaction-band heuristic · price-based target", profit=(3.50, 2.85, 4.10, 6.16),
-                    aggregate=(3.67, 2.83, 4.00, 6.33)),
-    "heiner": dict(design="Reliability condition · price-based target", profit=(4.29, 5.00, 6.10, 3.98),
-                   aggregate=(4.17, 6.17, 4.50, 3.17)),
-    "ecology": dict(design="Reorganize under threat of failure (scheduled reorganization in one replication)",
-                    profit=(5.30, 4.64, 6.25, 3.60), aggregate=(3.33, 5.00, 6.83, 5.00)),
-    "optimiser": dict(design="Rational expectations (Cournot–Nash)", profit=(6.33, 6.53, 5.80, 5.85),
-                      aggregate=(5.83, 6.17, 6.67, 6.00)),
-    "imitation": dict(design="Imitate the best (imitate the average in two replications)",
-                      profit=(6.35, 6.00, 5.73, 6.00), aggregate=(9.00, 6.33, 7.67, 6.33)),
-    "ruleb": dict(design="Rule B (rigid)", profit=(6.71, 7.49, 5.74, 6.89), aggregate=(6.00, 6.67, 4.17, 6.17)),
-    "rl": dict(design="Softmax value learner", profit=(8.71, 7.68, 6.98, 7.69), aggregate=(9.17, 6.83, 5.67, 7.33)),
-    "satisficing": dict(design="Aspiration search · price-based target (model-based in one replication)",
-                        profit=(8.75, 8.89, 8.91, 8.81), aggregate=(5.33, 5.50, 8.50, 6.17)),
+    "heuristic": dict(design="Target-margin rule", profit=(2.01, 3.08, 2.0, 3.67), aggregate=(4.0, 4.33, 4.33, 4.5)),
+    "cobweb": dict(design="Adaptive price expectations", profit=(3.91, 2.8, 5.01, 1.82), aggregate=(4.0, 2.5, 2.83, 2.33)),
+    "optimiser": dict(design="Rational expectations (Cournot–Nash)", profit=(5.11, 6.11, 6.58, 5.5), aggregate=(3.5, 5.0, 7.5, 4.5)),
+    "ecology": dict(design="Reorganize under threat of failure (scheduled reorganization in one replication)", profit=(5.3, 4.03, 3.77, 5.74), aggregate=(6.0, 4.83, 4.5, 7.17)),
+    "options": dict(design="Inaction-band heuristic · price-based target", profit=(5.31, 4.19, 3.67, 2.98), aggregate=(6.17, 2.67, 4.0, 3.83)),
+    "ruleb": dict(design="Rule B (rigid)", profit=(5.55, 6.49, 6.11, 6.84), aggregate=(3.83, 5.83, 5.0, 5.83)),
+    "imitation": dict(design="Imitate the best (imitate the average in two replications)", profit=(5.89, 6.08, 5.9, 6.05), aggregate=(8.33, 8.83, 6.67, 6.0)),
+    "rl": dict(design="Softmax value learner", profit=(6.34, 7.05, 7.01, 7.42), aggregate=(5.83, 6.0, 6.0, 6.67)),
+    "heiner": dict(design="Reliability condition · price-based target", profit=(7.19, 5.9, 5.86, 5.8), aggregate=(7.67, 7.0, 7.17, 7.33)),
+    "satisficing": dict(design="Aspiration search · price-based target", profit=(8.39, 9.29, 9.07, 9.18), aggregate=(5.5, 7.83, 6.33, 6.83)),
 }
 
 # Directional tournament of experiments (Competing theories page): matches / contradictions / inconclusive, for the
@@ -84,22 +96,29 @@ DIRECTIONAL: Dict[str, Dict[str, Tuple[str, str]]] = {
 # Mechanism study findings that bear on each theory.
 MECHANISMS: Dict[str, str] = {
     "heiner": (
-        "With known reliability the reliability condition beats always adjusting toward the error-prone model-based "
-        "target by +119 per period (95% CI 72–175) and breaks even near an error-to-signal ratio K ≈ 1. An agent that "
-        "must learn its own reliability keeps little of the gain (+13 on the model-based target, −170 on the "
-        "price-based target), mostly because it judges its past decisions with a misspecified model."),
+        'With known reliability the reliability condition beats always adjusting toward the error-prone model-based '
+        'target by +57 per period (95% CI 31–84) and breaks even near an error-to-signal ratio K ≈ 0.98. An agent '
+        'that must learn its own reliability keeps little of that gain (+10 [5, 15] on the model-based target; +10 '
+        '[−20, 44], not distinguishable from zero, on the price-based target): the total cost of learning is +48 '
+        '[21, 74] on the model-based target, almost all of it from judging past decisions with a misspecified model '
+        '(+49 [7, 97]) rather than from estimation noise (−1 [−49, +43]).'
+    ),
     "optimiser": (
-        "Always adjusting toward the filtered best reply is the reference rule. On the model-based target it is beaten "
-        "by a reliability-based restriction that knows the true reliability (+119 per period), because a misspecified "
-        "demand model makes the best reply unreliable after unannounced shifts."),
+        'Always adjusting toward the filtered best reply is the reference rule. On the model-based target it is '
+        'beaten by a reliability-based restriction that knows the true reliability (+57 per period), because a '
+        'misspecified demand model makes the best reply unreliable after unannounced shifts.'
+    ),
     "options": (
-        "An inaction band on the model-based target cut downside risk in every run of the tournament; in the mechanism "
-        "study it raised profit by +216 per period (95% CI 141–291) and broke even near K ≈ 1.03. On the reliable "
-        "price-based target it cost profit (−137 per period)."),
+        'An inaction band on the model-based target cut downside risk in every run of the tournament; in the '
+        'mechanism study it raised profit by +165 per period (95% CI 110–219) and broke even near K ≈ 0.98. On the '
+        'reliable price-based target it also raised profit (+92 [79, 107]).'
+    ),
     "cobweb": (
-        "The adaptive price-expectations design needs no demand model; it ranked first on profit in the main "
-        "tournament run and among the top three in every replication. In the mechanism study, restricting it "
-        "(inaction band or reliability condition) lowered profit."),
+        'The adaptive price-expectations design needs no demand model; it ranked second on profit in the main '
+        'tournament run, behind the target-margin rule, and first in two of the three replications. In the mechanism '
+        'study, restricting the price-based target with an inaction band raised profit (+92 [79, 107]); restricting '
+        'it with the learned reliability condition did not change it detectably (+10 [−20, 44]).'
+    ),
 }
 
 
@@ -120,29 +139,29 @@ TUNED_DESIGN: Dict[str, str] = {'heiner': 'heiner_p',
  'imitation': 'imit_best',
  'ecology': 'ecol_crisis',
  'ruleb': 'ruleb'}
-TUNED_PARAMS: Dict[str, Dict[str, float]] = {'heiner_m': {'a_cost': 0.262729,
-              'a_rival': 0.063353,
-              'phi': 0.239951,
-              'theta': 3.44545,
-              'memory': 0.886542,
-              'horizon': 13.0},
- 'heiner_p': {'lam': 0.892012, 'phi': 0.445786, 'theta': 4.142132, 'memory': 0.937095, 'horizon': 10.0},
- 'opt_br': {'a_cost': 0.230705, 'a_rival': 0.134275, 'phi': 0.083533},
- 'opt_nash': {'a_cost': 0.150325, 'phi': 0.200264},
- 'options_m': {'a_cost': 0.059442, 'a_rival': 0.6927, 'phi': 0.112801, 'k': 1.764088},
- 'options_p': {'lam': 0.977468, 'phi': 0.520112, 'k': 0.476872},
- 'cobweb_p': {'lam': 0.698148, 'phi': 0.879722},
- 'cobweb_q': {'a_rival': 0.474026, 'phi': 0.054956},
- 'heur_wsls': {'step': 2.654714},
- 'heur_markup': {'phi': 0.434838, 'm': 2.534681},
- 'satis_m': {'a_cost': 0.633627, 'a_rival': 0.069392, 'phi': 0.134541, 'alpha': 0.085199},
- 'satis_p': {'lam': 0.060947, 'phi': 0.086688, 'alpha': 0.014058},
- 'rl_softmax': {'step': 8.154122, 'eta': 0.131628, 'temp': 0.970332},
- 'rl_erevroth': {'step': 1.055022, 'forget': 0.001978, 'gain': 5.001642},
- 'imit_best': {'p': 0.13636, 'noise': 4.569344},
- 'imit_avg': {'p': 0.256161, 'noise': 3.704685},
- 'ecol_periodic': {'lam': 0.092515, 'phi': 0.434964, 'interval': 11.0},
- 'ecol_crisis': {'lam': 0.82682, 'phi': 0.150208, 'floor': 0.827044, 'alpha': 0.016794},
+TUNED_PARAMS: Dict[str, Dict[str, float]] = {'heiner_m': {'a_cost': 0.226082,
+              'a_rival': 0.078607,
+              'phi': 0.063212,
+              'theta': 13.961262,
+              'memory': 0.922407,
+              'horizon': 15.0},
+ 'heiner_p': {'lam': 0.987565, 'phi': 0.874157, 'theta': 8.889382, 'memory': 0.973606, 'horizon': 3.0},
+ 'opt_br': {'a_cost': 0.112079, 'a_rival': 0.071136, 'phi': 0.067446},
+ 'opt_nash': {'a_cost': 0.105048, 'phi': 0.955373},
+ 'options_m': {'a_cost': 0.090808, 'a_rival': 0.228507, 'phi': 0.11664, 'k': 2.781461},
+ 'options_p': {'lam': 0.932418, 'phi': 0.947886, 'k': 0.244807},
+ 'cobweb_p': {'lam': 0.942435, 'phi': 0.580972},
+ 'cobweb_q': {'a_rival': 0.139733, 'phi': 0.052618},
+ 'heur_wsls': {'step': 5.803435},
+ 'heur_markup': {'phi': 1.820927, 'm': 3.738067},
+ 'satis_m': {'a_cost': 0.592298, 'a_rival': 0.081083, 'phi': 0.087846, 'alpha': 0.163209},
+ 'satis_p': {'lam': 0.088779, 'phi': 0.079298, 'alpha': 0.255155},
+ 'rl_softmax': {'step': 2.157201, 'eta': 0.29541, 'temp': 1.760235},
+ 'rl_erevroth': {'step': 1.058066, 'forget': 0.001552, 'gain': 0.196501},
+ 'imit_best': {'p': 0.237141, 'noise': 3.455233},
+ 'imit_avg': {'p': 0.094798, 'noise': 3.334032},
+ 'ecol_periodic': {'lam': 0.061428, 'phi': 0.319639, 'interval': 18.0},
+ 'ecol_crisis': {'lam': 0.932537, 'phi': 0.761047, 'floor': 0.349556, 'alpha': 0.07261},
  'ruleb': {}}
 
 
@@ -236,22 +255,23 @@ EMPIRICAL_RULES: Dict[str, Dict] = {'Cournot, aggregate information': {'particip
 # Signature tests by theory (heiner_abm.special), reference run at the Full scale. Not a hashed plan: the tests are
 # deterministic given the code, so rerunning them on the page at the Full scale reproduces these lines.
 SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
-            'n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, simulated '
-            '0.55; n = 8: theory 0.44, simulated 0.45'),
- 'ecology': ('supported',
-             'Δ = 2: -6 [-9, -3]; Δ = 10: -94 [-101, -87]; Δ = 20: -310 [-326, -293]; Δ = 30: -753 [-778, -728]'),
+            'n = 3: theory 1.00, simulated 0.95; n = 4: theory 0.80, simulated 0.80; n = 6: theory 0.57, '
+            'simulated 0.55; n = 8: theory 0.44, simulated 0.45'),
+ 'ecology': ('not supported',
+             'Δ = 2: +2 [+2, +3]; Δ = 10: +62 [+45, +77]; Δ = 20: +194 [+176, +215]; Δ = 30: +255 [+241, '
+             '+269]'),
  'heuristic': ('not supported',
-               "heuristic's advantage changes by -8.8 per unit of noise (p = 0.00777); at the highest noise +409 "
-               '[+311, +525]'),
- 'imitation': ('supported', 'imitate-the-best markets produce 1.24 [1.22, 1.26] × the Cournot–Nash output'),
+               "heuristic's advantage changes by -29.3 per unit of noise (p = 1.23e-10); at the highest noise "
+               '+500 [+410, +605]'),
+ 'imitation': ('supported', 'imitate-the-best markets produce 1.25 [1.24, 1.27] × the Cournot–Nash output'),
  'optimiser': ('not supported',
-               "profit slope on foresight -10.6 per unit (p = 0.0807); with full information the rational market's "
-               'price is within 0.13% of Cournot–Nash on average'),
- 'options': ('not supported', 'value of flexibility changes by -3.7 per unit of volatility (p = 0.0289)'),
+               'profit slope on foresight -35.9 per unit (p = 0.000258); with full information the rational '
+               "market's price is within 0.13% of Cournot–Nash on average"),
+ 'options': ('not supported', 'value of flexibility changes by -3.9 per unit of volatility (p = 0.00043)'),
  'rl': ('not supported',
-        'relative profit improves by -73 [-283, +156] from the first to the last third in a stationary market, and '
-        'by +148 [-163, +424] with unannounced shifts'),
- 'satisficing': ('not supported', 'change rate changes by -0.0011 per unit of volatility (p = 0.00213)')}
+        'relative profit improves by -72 [-247, +104] from the first to the last third in a stationary market, '
+        'and by -202 [-386, -38] with unannounced shifts'),
+ 'satisficing': ('not supported', 'change rate changes by -0.0017 per unit of volatility (p = 5.49e-21)')}
 
 
 # ================================================================================================ unhashed findings
@@ -358,8 +378,8 @@ FINDING_FINGERPRINTS: Dict[str, str] = {
     "horse_race": "94b4811784863c0a",
     "presets": "94b4811784863c0a",
     "preset_adaptive": "94b4811784863c0a",
-    "special": "71d28315d7da1800",
-    "patterns": "c18e9f0d5c24e544",
+    "special": "1ca69a156d8a3b3a",
+    "patterns": "899d4e263e8e7c5e",
     "calibration": "854400653fe42159",
 }
 

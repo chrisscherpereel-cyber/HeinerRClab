@@ -1,0 +1,729 @@
+{
+ "plan_hash": "bbfaed9e70b900d6",
+ "registered_plan_hash": "bbfaed9e70b900d6",
+ "matches_registered_plan": true,
+ "boundary": {
+  "model rc_oracle": "{'intercept': 4.079843916647883, 'slope': 220.92317334907324, 'p': 0.03341130305154729, 'r2': np.float64(0.03777423942200797), 'K_star': 0.9817022228419179}",
+  "model rc_learned": "{'intercept': 5.4752625448088486, 'slope': 17.689748034136052, 'p': 0.36706302533751667, 'r2': np.float64(0.006900115831158793), 'K_star': 0.7338019270881633}",
+  "model band": "{'intercept': 11.766705855326002, 'slope': 633.3050320240322, 'p': 0.003398772446772483, 'r2': np.float64(0.07041649721354226), 'K_star': 0.9815917016635858}",
+  "price rc_oracle": "{'intercept': -96.73531469153566, 'slope': 305.37378589174426, 'p': 0.024716950939633324, 'r2': np.float64(0.04201512211809377), 'K_star': 1.3726960799949228}",
+  "price rc_learned": "{'intercept': -168.88962663285815, 'slope': 465.80791483861424, 'p': 0.00024313947563648863, 'r2': np.float64(0.10826342924107901), 'K_star': 1.437022901902736}",
+  "price band": "{'intercept': 44.71231471862364, 'slope': 123.59638106405654, 'p': 0.03002314213972733, 'r2': np.float64(0.039274806132768014), 'K_star': 0.6964490003321665}",
+  "pooled": "{'slope': 262.6502110814682, 'p': 0.002043678238961032}",
+  "data": "     env       lnK target  gain_rc_oracle  gain_rc_learned   gain_band\n0      0  0.214983  model       -6.542662       -39.306644  271.275519\n1      1  0.267249  model      523.846234        -4.944452  101.375117\n2      2  0.120955  model        0.000000         6.834524   55.406359\n3      3  0.185036  model        0.000000       -13.082872 -214.039684\n4      4  0.255079  model       20.549815         6.232174  -42.348820\n..   ...       ...    ...             ...              ...         ...\n235  115  0.356703  price     -112.501221      -223.020670   23.308559\n236  116  0.182819  price        0.000000         5.488229    3.954662\n237  117  0.404654  price        8.756588        13.540741   22.235249\n238  118  0.570909  price       33.303558        83.285683   63.485585\n239  119  0.357228  price        0.000000      -276.213666   95.407048\n\n[240 rows x 6 columns]"
+ },
+ "effects": [
+  {
+   "target": "model",
+   "variant": "band",
+   "label": "Inaction band",
+   "diff": 164.724767619,
+   "lo": 110.1374374948,
+   "hi": 219.0737843649,
+   "p": 0.001
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "label": "RC, learned",
+   "diff": 9.7477527913,
+   "lo": 4.7113348044,
+   "hi": 14.7266249039,
+   "p": 0.001
+  },
+  {
+   "target": "model",
+   "variant": "rc_memory_0.9",
+   "label": "RC, memory 0.9",
+   "diff": 6.983716291,
+   "lo": 1.8225979229,
+   "hi": 12.074244358,
+   "p": 0.006
+  },
+  {
+   "target": "model",
+   "variant": "rc_memory_0.97",
+   "label": "RC, memory 0.97",
+   "diff": 4.215481055,
+   "lo": -1.9397667278,
+   "hi": 10.6524699335,
+   "p": 0.182
+  },
+  {
+   "target": "model",
+   "variant": "rc_memory_0.99",
+   "label": "RC, memory 0.99",
+   "diff": 4.7114972692,
+   "lo": -0.5869087408,
+   "hi": 10.0016338478,
+   "p": 0.08
+  },
+  {
+   "target": "model",
+   "variant": "rc_memory_0.999",
+   "label": "RC, memory 0.999",
+   "diff": 6.3675396607,
+   "lo": 0.9226312583,
+   "hi": 12.2386396159,
+   "p": 0.018
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "label": "RC, oracle",
+   "diff": 57.4379868105,
+   "lo": 31.1819283354,
+   "hi": 84.2109636091,
+   "p": 0.001
+  },
+  {
+   "target": "model",
+   "variant": "rc_true_model",
+   "label": "RC, learned with the true model",
+   "diff": 58.4590742845,
+   "lo": 16.9147540001,
+   "hi": 107.2632728808,
+   "p": 0.006
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "label": "Inaction band",
+   "diff": 92.2488557063,
+   "lo": 78.5482335578,
+   "hi": 107.1083048797,
+   "p": 0.001
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "label": "RC, learned",
+   "diff": 10.265271314,
+   "lo": -20.1910354986,
+   "hi": 44.4338180518,
+   "p": 0.566
+  },
+  {
+   "target": "price",
+   "variant": "rc_memory_0.9",
+   "label": "RC, memory 0.9",
+   "diff": 0.8588979502,
+   "lo": -28.2286101656,
+   "hi": 32.4732771955,
+   "p": 0.99
+  },
+  {
+   "target": "price",
+   "variant": "rc_memory_0.97",
+   "label": "RC, memory 0.97",
+   "diff": 13.438833858,
+   "lo": -15.6838742539,
+   "hi": 45.061808144,
+   "p": 0.372
+  },
+  {
+   "target": "price",
+   "variant": "rc_memory_0.99",
+   "label": "RC, memory 0.99",
+   "diff": 9.1772204142,
+   "lo": -27.912386462,
+   "hi": 48.0367033603,
+   "p": 0.684
+  },
+  {
+   "target": "price",
+   "variant": "rc_memory_0.999",
+   "label": "RC, memory 0.999",
+   "diff": -3.7017018665,
+   "lo": -35.2886787606,
+   "hi": 32.4572412872,
+   "p": 0.788
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "label": "RC, oracle",
+   "diff": 20.7148352614,
+   "lo": -13.3051311581,
+   "hi": 56.3969375175,
+   "p": 0.248
+  },
+  {
+   "target": "price",
+   "variant": "rc_true_model",
+   "label": "RC, learned with the true model",
+   "diff": 45.8124247624,
+   "lo": 20.582992946,
+   "hi": 77.4163388371,
+   "p": 0.001
+  }
+ ],
+ "decomposition": [
+  {
+   "target": "model",
+   "component": "Total cost of learning",
+   "diff": 47.6902340192,
+   "lo": 20.8470232011,
+   "hi": 74.0602493043,
+   "p": 0.001
+  },
+  {
+   "target": "model",
+   "component": "Estimation from experience",
+   "diff": -1.0210874739,
+   "lo": -48.916465299,
+   "hi": 43.3279901358,
+   "p": 0.976
+  },
+  {
+   "target": "model",
+   "component": "Judging with a misspecified model",
+   "diff": 48.7113214931,
+   "lo": 7.3587074181,
+   "hi": 97.0603096933,
+   "p": 0.01
+  },
+  {
+   "target": "model",
+   "component": "Value of the principle (oracle \u2212 always)",
+   "diff": 57.4379868105,
+   "lo": 31.1819283354,
+   "hi": 84.2109636091,
+   "p": 0.001
+  },
+  {
+   "target": "price",
+   "component": "Total cost of learning",
+   "diff": 10.4495639474,
+   "lo": -28.2489053993,
+   "hi": 43.9660764764,
+   "p": 0.554
+  },
+  {
+   "target": "price",
+   "component": "Estimation from experience",
+   "diff": -25.0975895009,
+   "lo": -58.2063249466,
+   "hi": 4.3504306554,
+   "p": 0.102
+  },
+  {
+   "target": "price",
+   "component": "Judging with a misspecified model",
+   "diff": 35.5471534484,
+   "lo": 12.1739232017,
+   "hi": 58.5603768706,
+   "p": 0.004
+  },
+  {
+   "target": "price",
+   "component": "Value of the principle (oracle \u2212 always)",
+   "diff": 20.7148352614,
+   "lo": -13.3051311581,
+   "hi": 56.3969375175,
+   "p": 0.248
+  }
+ ],
+ "types": [
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.2389668444,
+   "lo": 0.036549945,
+   "hi": 0.4709836737,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": 0.0077096377,
+   "lo": -0.1591674246,
+   "hi": 0.1401570536,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": 0.0966742215,
+   "lo": -0.0476579516,
+   "hi": 0.2319397834,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.2704726011,
+   "lo": 0.1226964288,
+   "hi": 0.4036364237,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": 0.0404270859,
+   "lo": -0.1274829846,
+   "hi": 0.1903835074,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.1445662825,
+   "lo": -0.3397008804,
+   "hi": 0.0067337198,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_oracle",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": 0.2655065546,
+   "lo": 0.1225563119,
+   "hi": 0.4063744355,
+   "hazard_minus_delta_lo": -0.4565457443,
+   "hazard_minus_delta_hi": 0.1370175257
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.2672930816,
+   "lo": 0.1039011942,
+   "hi": 0.4445021734,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": -0.0692529882,
+   "lo": -0.2409456653,
+   "hi": 0.1068967498,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": 0.1369139121,
+   "lo": -0.0270105959,
+   "hi": 0.3125280478,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.0019447862,
+   "lo": -0.2169468804,
+   "hi": 0.1795733813,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": 0.038151441,
+   "lo": -0.1122963863,
+   "hi": 0.2136377161,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.124629631,
+   "lo": -0.3083308837,
+   "hi": 0.0628089039,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "rc_learned",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": 0.1842471544,
+   "lo": 0.0227573714,
+   "hi": 0.358340193,
+   "hazard_minus_delta_lo": -0.389648718,
+   "hazard_minus_delta_hi": 0.1464101626
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.1964038169,
+   "lo": 0.0606732535,
+   "hi": 0.3316124479,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": -0.037657686,
+   "lo": -0.1922686799,
+   "hi": 0.1422968472,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": 0.1084454443,
+   "lo": -0.0208117008,
+   "hi": 0.2670101655,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.4726256916,
+   "lo": 0.3418092658,
+   "hi": 0.5794786772,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": 0.0468610776,
+   "lo": -0.0946104545,
+   "hi": 0.1686809373,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.0372030884,
+   "lo": -0.1829429564,
+   "hi": 0.1341667722,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "model",
+   "variant": "band",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": 0.1638280315,
+   "lo": -0.0045731363,
+   "hi": 0.3134022222,
+   "hazard_minus_delta_lo": -0.2805938368,
+   "hazard_minus_delta_hi": 0.1103977835
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.1881315247,
+   "lo": -0.059643061,
+   "hi": 0.3284343681,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": -0.0794646981,
+   "lo": -0.2269950923,
+   "hi": 0.0527687821,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": -0.021203519,
+   "lo": -0.2870047803,
+   "hi": 0.1587742044,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.272170129,
+   "lo": 0.1197267439,
+   "hi": 0.398935752,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": -0.1404409236,
+   "lo": -0.3062112116,
+   "hi": 0.0739607779,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.0952906756,
+   "lo": -0.3006002529,
+   "hi": 0.0881114645,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_oracle",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": -0.0157060074,
+   "lo": -0.1850182391,
+   "hi": 0.1786042747,
+   "hazard_minus_delta_lo": -0.4942800194,
+   "hazard_minus_delta_hi": 0.0529108406
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.1143914564,
+   "lo": -0.1877750872,
+   "hi": 0.2942724583,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": 0.0388931284,
+   "lo": -0.1045188388,
+   "hi": 0.1894617331,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": -0.167546457,
+   "lo": -0.3447932454,
+   "hi": 0.028771824,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.2133782066,
+   "lo": 0.0369223185,
+   "hi": 0.3444006369,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": -0.2380468552,
+   "lo": -0.3944844965,
+   "hi": -0.0154646594,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.0123601705,
+   "lo": -0.2126357608,
+   "hi": 0.1837769927,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "rc_learned",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": 0.0591269869,
+   "lo": -0.1492593643,
+   "hi": 0.2421198561,
+   "hazard_minus_delta_lo": -0.5755833165,
+   "hazard_minus_delta_hi": 0.1006053199
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "delta",
+   "label": "Risk: cost volatility \u0394",
+   "coef": 0.2230471299,
+   "lo": 0.0239738005,
+   "hi": 0.3952209759,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "noise",
+   "label": "Perception error \u03c3",
+   "coef": 0.0460411518,
+   "lo": -0.1086652366,
+   "hi": 0.1977899036,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "hazard",
+   "label": "Misspecification: shift hazard \u03bb",
+   "coef": -0.014181429,
+   "lo": -0.1595961103,
+   "hi": 0.1592866476,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "belief_lag",
+   "label": "Misspecification: model-updating lag L",
+   "coef": 0.1746534772,
+   "lo": -0.0143170336,
+   "hi": 0.3236696007,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "foresight",
+   "label": "Competence: cost foresight \u03ba",
+   "coef": -0.1137899692,
+   "lo": -0.2594938336,
+   "hi": 0.0495327877,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "c_max",
+   "label": "Stakes: maximum cost (lower = more profitable)",
+   "coef": -0.0280922525,
+   "lo": -0.1915175143,
+   "hi": 0.1383068739,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  },
+  {
+   "target": "price",
+   "variant": "band",
+   "axis": "q_range",
+   "label": "Demand quantity range",
+   "coef": 0.4417463777,
+   "lo": 0.310091346,
+   "hi": 0.5561785118,
+   "hazard_minus_delta_lo": -0.4807396967,
+   "hazard_minus_delta_hi": 0.0853441081
+  }
+ ],
+ "verdicts": [
+  {
+   "id": "M1",
+   "hypothesis": "Principle: with known reliability, reliability-based restriction beats always adjusting toward the model-based target.",
+   "decision_rule": "Paired profit difference rc_oracle \u2212 always on the model-based target, 95% cluster-bootstrap CI over environments. Supported if the CI lies above 0.",
+   "verdict": "supported",
+   "result": "+57 [31, 84]"
+  },
+  {
+   "id": "M2",
+   "hypothesis": "Cost of applying the principle: the oracle beats the learned reliability condition on both targets.",
+   "decision_rule": "Paired difference rc_oracle \u2212 rc_learned per target, Holm-adjusted over the two targets. Supported if both are significantly positive.",
+   "verdict": "not supported",
+   "result": "model +48 [21, 74] *; price +10 [-28, 44]"
+  },
+  {
+   "id": "M3",
+   "hypothesis": "Model bias: judging past decisions with the true model improves the learned reliability condition on the model-based target.",
+   "decision_rule": "Paired difference rc_true_model \u2212 rc_learned on the model-based target. Supported if the CI lies above 0.",
+   "verdict": "supported",
+   "result": "+49 [7, 97]"
+  },
+  {
+   "id": "M4",
+   "hypothesis": "Boundary: the gain from reliability-based restriction rises with the flexible rule's error-to-signal ratio K.",
+   "decision_rule": "OLS of (rc_oracle \u2212 always) on ln K of the always-adjusting rule, with a target indicator, pooled over both targets. Supported if the ln K slope is positive with p < \u03b1.",
+   "verdict": "supported",
+   "result": "slope +263 per unit of ln K (p = 0.00204)"
+  },
+  {
+   "id": "M5",
+   "hypothesis": "Type of uncertainty: misspecification raises the gain from restriction more than risk does.",
+   "decision_rule": "Standardized regression of (rc_oracle \u2212 always) on the model-based target on all uncertainty axes. Supported if the bootstrap CI of (hazard coefficient \u2212 volatility coefficient) lies above 0.",
+   "verdict": "not supported",
+   "result": "hazard \u2212 volatility coefficient, 95% CI [-0.46, +0.14]"
+  }
+ ],
+ "minutes": 0.2
+}

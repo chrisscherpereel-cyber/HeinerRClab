@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from heiner_abm.arena import (DESIGNS, FEATURES, KEYS, PREREG, QUICK, THEORY_DESIGNS, THEORY_NAMES, Prereg,
+                              design_budget,
                               pairwise, replicate, run_protocol)
 from heiner_abm.literature import cite
 from ui.common import CAT, DIVERGING, download, focal_theory, focal_title, hypothesis_card, style, verdict, prereg_explainer
@@ -37,10 +38,10 @@ st.markdown(
     "and a cost estimate of the same quality. Model-based agents use the same (possibly outdated) demand model.\n"
     "2. **Two designs per theory, equal budget per design.** Every design's free parameters are tuned with the same "
     "number of candidate settings (Latin-hypercube search, defaults included) on *training* environments, in two "
-    "rounds. Each theory then enters with whichever design scored higher on training data, never on test data. The "
-    "budget is equal in evaluations, not in search density: designs have between one and six free parameters, "
-    "and the reliability-condition designs have the most, so the protocol handicaps the focal theory rather "
-    "than favoring it (see the candidates-per-parameter column in section 4).\n"
+    "rounds. Each theory then enters with whichever design scored higher on training data, never on test data. "
+    "Budgets are equal in **search density**, not in raw evaluations: designs carry between one and six free "
+    "parameters, so each gets the same number of candidates *per free parameter* and none is penalized for a "
+    "richer parameterization (see section 4).\n"
     "3. **Held-out, randomly drawn environments.** Test environments come from pre-registered ranges with different "
     "seeds and are never used for tuning or design selection.\n"
     "4. **Several criteria and yardsticks.** Mean profit, downside risk (CVaR 5%), survival against a capital buffer, "
@@ -67,8 +68,10 @@ scale = st.radio("Protocol", ["Pre-registered", "Quick check", "Custom"], horizo
 pr = PREREG if scale == "Pre-registered" else QUICK
 if scale == "Custom":
     c = st.columns(4)
-    budget = c[0].number_input("Tuning budget per design", 4, 200, PREREG.budget,
-                               help="Candidate parameter settings evaluated for every design (equal for all).")
+    budget = c[0].number_input("Tuning candidates per free parameter", 1, 100, PREREG.budget_per_parameter,
+                               help="Candidate settings per free parameter, so every design's space is searched at "
+                                    "the same density. A design with six free parameters therefore gets six times "
+                                    "the candidates of a one-parameter design.")
     n_train = c[1].number_input("Training environments", 4, 200, PREREG.n_train,
                                 help="Environments used only for tuning and design selection.")
     n_test = c[2].number_input("Test environments", 4, 300, PREREG.n_test,
@@ -82,16 +85,19 @@ if scale == "Custom":
                                   help="Firms of the resident type; one mutant joins them.")
     train_seed = c[2].number_input("Training seed", 0, 10**6, PREREG.train_seed, help="Seed for training environments.")
     test_seed = c[3].number_input("Test seed", 0, 10**6, PREREG.test_seed, help="Seed for test environments.")
-    pr = Prereg(**{**asdict(PREREG), "budget": int(budget), "n_train": int(n_train), "n_test": int(n_test),
+    pr = Prereg(**{**asdict(PREREG), "budget_per_parameter": int(budget), "n_train": int(n_train), "n_test": int(n_test),
                    "periods": int(periods), "rounds": int(rounds), "residents": int(residents),
                    "train_seed": int(train_seed), "test_seed": int(test_seed)})
+_budgets = [design_budget(pr, d) for d in DESIGNS]
+min_k, max_k = min(_budgets), max(_budgets)
 exploratory = pr.digest != PREREG.digest
 c1, c2 = st.columns([2, 1])
 with c1:
     st.markdown(f"**Plan hash:** `{pr.digest}` " + ("· **exploratory** (differs from the registered plan "
                                                      f"`{PREREG.digest}`)" if exploratory else "· registered plan"))
     st.caption(f"{pr.n_train} training and {pr.n_test} × {pr.reps_test} test environments · {pr.periods} periods "
-               f"(burn-in {pr.burn_in}) · budget {pr.budget} per design × 2 designs per theory × {pr.rounds} rounds · "
+               f"(burn-in {pr.burn_in}) · {pr.budget_per_parameter} tuning candidates per free parameter "
+               f"({min_k}–{max_k} per design) × 2 designs per theory × {pr.rounds} rounds · "
                f"invasion: {pr.residents} residents + 1 mutant · α = {pr.alpha}")
 with c2:
     st.download_button("Download plan (.json)", pr.to_json().encode(), file_name=f"prereg_{pr.digest}.json",
@@ -128,23 +134,27 @@ st.header("4 · Design selection and tuning", divider="gray")
 log = res.tuning_log
 last = log[log["round"] == log["round"].max()].copy()
 last["theory"] = last["theory"].map(THEORY_NAMES)
-last["n_params"] = last["design"].map(lambda d: len(DESIGNS[d].SPACE))
-last["per_param"] = pr.budget / last["n_params"].clip(lower=1)
-st.dataframe(last[["theory", "design_name", "selected", "n_params", "per_param", "default_score", "best_score", "gain"]
-                  + [c for c in last if c.startswith("param:")]],
+if "n_params" not in last:                      # older cached runs
+    last["n_params"] = last["design"].map(lambda d: len(DESIGNS[d].SPACE))
+    last["n_candidates"] = pr.budget
+    last["candidates_per_param"] = pr.budget / last["n_params"].clip(lower=1)
+last = last.rename(columns={"candidates_per_param": "per_param"})
+st.dataframe(last[["theory", "design_name", "selected", "n_params", "n_candidates", "per_param", "default_score",
+                   "best_score", "gain"] + [c for c in last if c.startswith("param:")]],
              hide_index=True, width="stretch", column_config={
                  "theory": "Theory", "design_name": "Design", "selected": "Enters the tournament",
                  "n_params": st.column_config.NumberColumn("Free parameters", format="%d"),
+                 "n_candidates": st.column_config.NumberColumn("Candidates evaluated", format="%d"),
                  "per_param": st.column_config.NumberColumn("Candidates per parameter", format="%.1f"),
                  "default_score": st.column_config.NumberColumn("Profit, default settings", format="%.0f"),
                  "best_score": st.column_config.NumberColumn("Profit, tuned", format="%.0f"),
                  "gain": st.column_config.NumberColumn("Gain from tuning", format="%+.0f")})
-st.caption(f"Final tuning round, training environments only. Every design evaluated {pr.budget} settings per round; "
-           "each theory enters with its higher-scoring design. **The budget is equal in evaluations, not in search "
-           f"density:** with {pr.budget} candidates, a design with six free parameters is searched far less thoroughly "
-           "than one with two. The reliability-condition designs have the most free parameters of any theory, so a "
-           "tournament rank for Heiner is a lower bound on what a better-tuned implementation could reach; the same "
-           "caution applies to every design with many parameters.")
+st.caption(f"Final tuning round, training environments only. Every design was searched at the same density, "
+           f"{pr.budget_per_parameter} candidate settings per free parameter ({min_k}–{max_k} candidates depending on "
+           "the design); each theory enters with its higher-scoring design. Until 7 October 2026 every design got the "
+           "same *number* of candidates whatever its dimension, which searched the six-parameter "
+           "reliability-condition design six times less thoroughly than a one-parameter design and so handicapped the "
+           "focal theory; `Prereg.budget_rule = \"per_design\"` restores that behavior.")
 
 # ------------------------------------------------------------------------------------------------ head to head
 st.header("5 · Head-to-head on several criteria", divider="gray")

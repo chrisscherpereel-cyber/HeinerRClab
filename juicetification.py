@@ -2528,70 +2528,8 @@ def _scroll_to_top_on_nav():
     )
 
 
-_BUSY_OVERLAY_HTML = """
-<script>
-(function () {
-  try {
-    var W = window.parent, D = W.document;
-    if (W.__jccBusyInstalled) { return; }   /* install the logic in the PARENT page exactly once */
-    W.__jccBusyInstalled = true;
-    /* Inject a <script> INTO the parent document so the click-listener and observer live in the
-       parent's own JS context — they then survive this component iframe being reused or remounted
-       (the previous version attached the listener from inside the iframe, so a remount killed it). */
-    var boot = D.createElement('script');
-    boot.textContent =
-      "(function(){"
-      + "var D=document, ov=D.getElementById('jcc-busy'); if(ov){return;}"
-      + "var st=D.createElement('style'); st.textContent="
-      + "'#jcc-busy{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;'"
-      + "+'justify-content:center;background:rgba(31,42,68,0.45);backdrop-filter:blur(1.5px);'"
-      + "+'-webkit-backdrop-filter:blur(1.5px);}'"
-      + "+'#jcc-busy .bx{background:#fff;border:2px solid #ea580c;border-radius:16px;padding:20px 30px;'"
-      + "+'box-shadow:0 18px 50px rgba(0,0,0,.33);display:flex;align-items:center;gap:16px;'"
-      + "+'font-family:Inter,-apple-system,Segoe UI,sans-serif;max-width:82vw;}'"
-      + "+'#jcc-busy .sp{width:36px;height:36px;border:4px solid #fde3c8;border-top-color:#ea580c;'"
-      + "+'border-radius:50%;animation:jccsp .8s linear infinite;flex:none;}'"
-      + "+'#jcc-busy .tx{font-size:1.1rem;font-weight:800;color:#9a3412;line-height:1.3;}'"
-      + "+'#jcc-busy .tx small{display:block;font-weight:600;color:#b45309;font-size:.82rem;margin-top:2px;}'"
-      + "+'@keyframes jccsp{to{transform:rotate(360deg);}}';"
-      + "D.head.appendChild(st);"
-      + "ov=D.createElement('div'); ov.id='jcc-busy';"
-      + "ov.innerHTML='<div class=\\\"bx\\\"><div class=\\\"sp\\\"></div><div class=\\\"tx\\\">Working\\u2026"
-      + "<small>Running on the server \\u2014 please wait</small></div></div>';"
-      + "D.body.appendChild(ov);"
-      + "var shownAt=0, maxT=null, dbT=null;"
-      + "function hide(){ ov.style.display='none'; clearTimeout(maxT); }"
-      + "function show(){ ov.style.display='flex'; shownAt=Date.now(); clearTimeout(maxT);"
-      + " maxT=setTimeout(hide, 25000); }"
-      /* Hide when the page finishes re-rendering (DOM settles), but keep it up at least 400ms so
-         a fast run doesn't just flash. */
-      + "var obs=new MutationObserver(function(){ if(ov.style.display!=='flex'){return;}"
-      + " clearTimeout(dbT); dbT=setTimeout(function(){ var el=Date.now()-shownAt;"
-      + " if(el>=400){hide();} else {setTimeout(hide, 400-el);} }, 160); });"
-      + "var root=D.querySelector('[data-testid=\\\"stAppViewContainer\\\"]')||D.body;"
-      + "obs.observe(root,{childList:true,subtree:true});"
-      /* Show the overlay the instant any action button is pressed (skip the tiny dice/faces
-         steppers, whose reruns are instant). Capture phase so we see it before Streamlit does. */
-      + "D.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b){return;}"
-      + " if(b.closest('.st-key-ops_card')){return;}"
-      + " if(b.closest('[data-testid=\\\"stButton\\\"],[data-testid=\\\"stFormSubmitButton\\\"],"
-      + "[data-testid=\\\"stDownloadButton\\\"]')){ show(); } }, true);"
-      + "})();";
-    D.head.appendChild(boot);
-  } catch (e) { /* if the parent document isn't reachable, fail silently */ }
-})();
-</script>
-"""
-
-
-def _render_busy_overlay():
-    """A full-screen "Working…" overlay that appears the INSTANT any action button is clicked —
-    entirely client-side, so it shows during the network round-trip and the server queue (the gap
-    where the app feels unresponsive on Streamlit Cloud). The logic is installed into the PARENT
-    page once and hides itself (via a DOM observer) when the rerun's content lands, with a minimum
-    on-screen time so a fast run doesn't just flash, and a 25-second safety timeout. Content is
-    constant so the component iframe is NOT remounted — keeping the installed listener alive."""
-    components.html(_BUSY_OVERLAY_HTML, height=0)
+# (The click-time "Working…" overlay is implemented in pure CSS — see the button rules in the
+# main style block — so it needs no JavaScript and cannot be blocked by iframe sandboxing.)
 
 
 def lab_apply_setup(prefix, idx=None, force_reset=False):
@@ -5945,13 +5883,13 @@ st.markdown(
            and flashes an orange ring the instant it's clicked, and holds a "busy" look while the
            app reruns, so a student always knows their click registered. */
         div[data-testid="stButton"] > button:hover { border-color: #ea580c; }
+        /* Press feedback via box-shadow ONLY — deliberately NO `transform` and NO `filter`,
+           because either one on the button would make it the containing block for the
+           full-screen :focus overlay below and trap it to the button's size instead of the
+           viewport. (box-shadow does not create a containing block.) */
         div[data-testid="stButton"] > button:active {
-            transform: translateY(1px) scale(0.98) !important;
-            box-shadow: 0 0 0 3px rgba(234,88,12,0.45), inset 0 2px 5px rgba(0,0,0,0.12) !important;
-            filter: brightness(0.96);
+            box-shadow: 0 0 0 3px rgba(234,88,12,0.45), inset 0 2px 6px rgba(0,0,0,0.16) !important;
         }
-        /* After the click, the button keeps keyboard/mouse focus during the rerun — show that as
-           a steady orange ring so "I pressed it, it's working" is obvious. */
         div[data-testid="stButton"] > button:focus:not(:active) {
             box-shadow: 0 0 0 3px rgba(234,88,12,0.35) !important; outline: none !important;
         }
@@ -5961,12 +5899,39 @@ st.markdown(
             box-shadow: 0 8px 18px rgba(234,88,12,0.32) !important;
         }
         button[data-testid="stBaseButton-primary"]:hover {
-            filter: brightness(1.06); color: #fff !important; transform: translateY(-1px);
+            color: #fff !important; box-shadow: 0 10px 22px rgba(234,88,12,0.45) !important;
         }
         button[data-testid="stBaseButton-primary"]:active {
-            transform: translateY(1px) scale(0.985) !important;
-            box-shadow: 0 0 0 3px rgba(234,88,12,0.55), inset 0 2px 6px rgba(0,0,0,0.25) !important;
-            filter: brightness(0.94) !important;
+            box-shadow: 0 0 0 3px rgba(234,88,12,0.6), inset 0 2px 7px rgba(0,0,0,0.3) !important;
+        }
+
+        /* ---------- Pure-CSS "Working…" overlay ----------
+           A full-screen dim + spinner box that appears the instant an action button is clicked
+           (the button holds :focus during the whole click → server round-trip). It is pure CSS —
+           no JavaScript, no component iframe — so nothing on Streamlit Cloud can block it. A
+           one-shot animation fades it out after ~4s so it can NEVER get stuck on screen, and it
+           clears immediately when the result re-renders and the button loses focus. The tiny
+           dice/faces steppers are excluded (their reruns are instant). */
+        div[data-testid="stButton"] > button:focus::before {
+            content: ""; position: fixed; inset: 0; z-index: 2147483000;
+            background: rgba(31, 42, 68, 0.48); -webkit-backdrop-filter: blur(1px);
+            backdrop-filter: blur(1px); pointer-events: none; opacity: 0;
+            animation: jccBusyFade 4s ease-out forwards;
+        }
+        div[data-testid="stButton"] > button:focus::after {
+            content: "⏳  Working…  running on the server — please wait";
+            position: fixed; top: 46%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2147483001; background: #ffffff; border: 2px solid #ea580c;
+            border-radius: 16px; padding: 18px 26px; max-width: 82vw; text-align: center;
+            font-weight: 800; color: #9a3412; font-size: 1.08rem; line-height: 1.35;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.33); pointer-events: none; opacity: 0;
+            animation: jccBusyFade 4s ease-out forwards;
+        }
+        @keyframes jccBusyFade { 0% {opacity:0;} 5% {opacity:1;} 78% {opacity:1;} 100% {opacity:0;} }
+        /* Exclude the sidebar dice/faces ▲▼ steppers from the overlay. */
+        .st-key-ops_card div[data-testid="stButton"] > button:focus::before,
+        .st-key-ops_card div[data-testid="stButton"] > button:focus::after {
+            content: none !important; animation: none !important; background: none !important;
         }
 
         /* ---------- "Show charts" switch — prominent, with clear spacing so it never
@@ -5994,6 +5959,30 @@ st.markdown(
             box-shadow: 0 4px 14px rgba(234,88,12,0.22) !important;
         }
         [data-testid="stStatusWidget"] * { color: #9a3412 !important; }
+
+        /* ---------- Make st.spinner() an unmissable "Running…" banner ----------
+           Streamlit itself mounts this element during the server round-trip (it is native, not a
+           pseudo-element and not a component iframe), so it is guaranteed to render regardless of
+           any containing-block / focus quirk on the deployment. We blow it up into a centered,
+           high-contrast card so students cannot miss that the line is computing. If an ancestor
+           ever traps the fixed position, it still renders large and bold inline near the button. */
+        [data-testid="stSpinner"] {
+            position: fixed !important; top: 42%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2147483001 !important;
+            background: #ffffff !important; border: 2px solid #ea580c !important;
+            border-radius: 16px !important; padding: 20px 28px !important;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.33) !important; max-width: 82vw;
+        }
+        [data-testid="stSpinner"] p,
+        [data-testid="stSpinner"] > div > div:last-child {
+            font-weight: 800 !important; color: #9a3412 !important;
+            font-size: 1.12rem !important; line-height: 1.35 !important;
+        }
+        [data-testid="stSpinner"] i, [data-testid="stSpinner"] svg {
+            width: 1.6rem !important; height: 1.6rem !important;
+            border-width: 3px !important; color: #ea580c !important;
+        }
 
         /* ---------- Metrics & pills ---------- */
         div[data-testid="stMetric"] {
@@ -6638,7 +6627,6 @@ _scroll_to_top_on_nav()
 
 # Instant client-side "Working…" overlay on every action-button click (shows during the server
 # round-trip, clears when the result arrives). This is the main "something is happening" cue.
-_render_busy_overlay()
 
 st.markdown(
     """

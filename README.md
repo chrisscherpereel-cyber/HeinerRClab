@@ -1,10 +1,5 @@
 # Decision making under uncertainty: an agent-based laboratory
 
-> This repository also hosts a second, unrelated teaching simulation, *Juicetification: Capacity Crush*
-> (Theory of Constraints). Its documentation is [`README_Juicetification.md`](README_Juicetification.md);
-> its code is `juicetification.py`, `juice_director.py`, `student_store.py`, `manifest.py` and `figures/`.
-> Nothing below applies to it.
-
 A Streamlit agent-based simulation laboratory that compares nine theories of when a decision maker should adapt
 and when it should stick to a rule: Heiner's reliability condition, neoclassical optimization, real options, cobweb
 theory and adaptive expectations, simple heuristics (bias–variance), satisficing, reinforcement learning, and

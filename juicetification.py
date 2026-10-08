@@ -1838,7 +1838,7 @@ def eoq_annual_demand(caps, sides, hours):
     'D' in the EOQ formula. Order size doesn't change throughput, so this is stable."""
     state = random.getstate()
     random.seed(20260629)
-    r = run_simulation(caps, sides, 0, hours, 1.0, order_size=4000)
+    r = run_simulation(caps, sides, 0, hours, 1.0, order_size=4000, track_flow=False)
     random.setstate(state)
     return r["total_output"]
 
@@ -1875,7 +1875,7 @@ def compute_eoq_scan(caps, sides, hours, reliability, order_cost, margin, qs=Non
     state = random.getstate()
     for Q in qs:
         random.seed(20260629)
-        r = run_simulation(caps, sides, 0, hours, reliability, order_size=Q)
+        r = run_simulation(caps, sides, 0, hours, reliability, order_size=Q, track_flow=False)
         avg_raw = sum(r["raw_series"]) / len(r["raw_series"]) if r["raw_series"] else 0.0
         orders = math.ceil(Dr / Q) if Q > 0 else 0
         ordering = orders * order_cost
@@ -2521,6 +2521,68 @@ def _scroll_to_top_on_nav():
                 setTimeout(function () {{ panel.style.boxShadow = ''; }}, 950);
               }} catch (e) {{}} }}
             }}
+          }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _render_busy_overlay():
+    """A full-screen "Working…" overlay that appears the INSTANT any action button is clicked —
+    entirely client-side, so it shows during the network round-trip and the server queue, before
+    any Python runs (which is exactly the gap where the app feels unresponsive on Streamlit Cloud).
+    It clears itself as soon as the rerun finishes (this script re-runs every rerun and hides it),
+    with a 25-second safety timeout so it can never get stuck."""
+    tok = st.session_state.get("_busy_tok", 0) + 1
+    st.session_state["_busy_tok"] = tok
+    components.html(
+        f"""
+        <script>
+          (function () {{
+            var T = {tok};                      /* changes every rerun -> this script re-runs */
+            var W = window.parent, doc = W.document;
+            var ov = doc.getElementById('jcc-busy-overlay');
+            if (!ov) {{
+              var css = doc.createElement('style');
+              css.textContent =
+                '#jcc-busy-overlay{{position:fixed;inset:0;z-index:2147483647;display:none;'
+                + 'align-items:center;justify-content:center;background:rgba(31,42,68,0.42);'
+                + 'backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);}}'
+                + '#jcc-busy-overlay .bx{{background:#fff;border:2px solid #ea580c;border-radius:16px;'
+                + 'padding:20px 28px;box-shadow:0 18px 50px rgba(0,0,0,0.33);display:flex;'
+                + 'align-items:center;gap:16px;font-family:Inter,-apple-system,Segoe UI,sans-serif;max-width:80vw;}}'
+                + '#jcc-busy-overlay .sp{{width:34px;height:34px;border:4px solid #fde3c8;'
+                + 'border-top-color:#ea580c;border-radius:50%;animation:jccsp .8s linear infinite;flex:none;}}'
+                + '#jcc-busy-overlay .tx{{font-size:1.05rem;font-weight:800;color:#9a3412;line-height:1.3;}}'
+                + '#jcc-busy-overlay .tx small{{display:block;font-weight:600;color:#b45309;font-size:0.8rem;margin-top:2px;}}'
+                + '@keyframes jccsp{{to{{transform:rotate(360deg);}}}}';
+              doc.head.appendChild(css);
+              ov = doc.createElement('div');
+              ov.id = 'jcc-busy-overlay';
+              ov.innerHTML = '<div class="bx"><div class="sp"></div><div class="tx">Working…'
+                + '<small>Running on the server — please wait</small></div></div>';
+              doc.body.appendChild(ov);
+              var show = function () {{
+                ov.style.display = 'flex';
+                clearTimeout(W.__jccBusyT);
+                W.__jccBusyT = setTimeout(function () {{ ov.style.display = 'none'; }}, 25000);
+              }};
+              /* Show on any Streamlit action button, EXCEPT the tiny dice/faces steppers (used
+                 constantly while configuring — their reruns are instant and need no overlay). */
+              doc.addEventListener('click', function (e) {{
+                var b = e.target.closest('button');
+                if (!b) return;
+                if (b.closest('.st-key-ops_card')) return;
+                if (b.closest('[data-testid="stButton"], [data-testid="stFormSubmitButton"], '
+                              + '[data-testid="stDownloadButton"]')) {{
+                  show();
+                }}
+              }}, true);
+            }}
+            /* This block runs after every completed rerun -> the result is on screen -> hide it. */
+            ov.style.display = 'none';
+            clearTimeout(W.__jccBusyT);
           }})();
         </script>
         """,
@@ -6570,6 +6632,10 @@ with st.sidebar:
 # to the top once. No-op on ordinary reruns (typing, running a step).
 _scroll_to_top_on_nav()
 
+# Instant client-side "Working…" overlay on every action-button click (shows during the server
+# round-trip, clears when the result arrives). This is the main "something is happening" cue.
+_render_busy_overlay()
+
 st.markdown(
     """
     <div class="hero">
@@ -6762,6 +6828,9 @@ if run_clicked and not errs:
             sim_hours,
             SUPPLY_REL,
             wip_limits,
+            # Flow-time token tracking is ~40% of the run's cost and is only displayed in the
+            # flow labs / Sandbox — skip it elsewhere to lighten each run on the shared CPU.
+            track_flow=SHOW_FLOWTIME,
             demand_dice=dd, demand_faces=df,
             order_size=int(st.session_state["fin_order_size"]),
             reorder_point=_rop, scrap=_scrap,
@@ -6826,6 +6895,12 @@ if run_clicked and not errs:
                 frame_ph.html(build_live_dashboard(fr, full))
                 time.sleep(delay)
             frame_ph.empty()          # clear the animation; final dashboard renders below
+    # The per-day animation frames are only used for the playback above. Once that's done they're
+    # dead weight in session_state, so drop them before storing — meaningfully less memory per
+    # student, which matters when ~30 sessions share one Cloud container. (The static dashboard
+    # below reads op_detail / series / dataframes, never frames.)
+    if full:
+        full["frames"] = []
     st.session_state["sim_results"] = full
     st.session_state["run_counter"] = st.session_state.get("run_counter", 0) + 1
     results = full

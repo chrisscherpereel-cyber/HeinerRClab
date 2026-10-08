@@ -2528,66 +2528,70 @@ def _scroll_to_top_on_nav():
     )
 
 
+_BUSY_OVERLAY_HTML = """
+<script>
+(function () {
+  try {
+    var W = window.parent, D = W.document;
+    if (W.__jccBusyInstalled) { return; }   /* install the logic in the PARENT page exactly once */
+    W.__jccBusyInstalled = true;
+    /* Inject a <script> INTO the parent document so the click-listener and observer live in the
+       parent's own JS context — they then survive this component iframe being reused or remounted
+       (the previous version attached the listener from inside the iframe, so a remount killed it). */
+    var boot = D.createElement('script');
+    boot.textContent =
+      "(function(){"
+      + "var D=document, ov=D.getElementById('jcc-busy'); if(ov){return;}"
+      + "var st=D.createElement('style'); st.textContent="
+      + "'#jcc-busy{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;'"
+      + "+'justify-content:center;background:rgba(31,42,68,0.45);backdrop-filter:blur(1.5px);'"
+      + "+'-webkit-backdrop-filter:blur(1.5px);}'"
+      + "+'#jcc-busy .bx{background:#fff;border:2px solid #ea580c;border-radius:16px;padding:20px 30px;'"
+      + "+'box-shadow:0 18px 50px rgba(0,0,0,.33);display:flex;align-items:center;gap:16px;'"
+      + "+'font-family:Inter,-apple-system,Segoe UI,sans-serif;max-width:82vw;}'"
+      + "+'#jcc-busy .sp{width:36px;height:36px;border:4px solid #fde3c8;border-top-color:#ea580c;'"
+      + "+'border-radius:50%;animation:jccsp .8s linear infinite;flex:none;}'"
+      + "+'#jcc-busy .tx{font-size:1.1rem;font-weight:800;color:#9a3412;line-height:1.3;}'"
+      + "+'#jcc-busy .tx small{display:block;font-weight:600;color:#b45309;font-size:.82rem;margin-top:2px;}'"
+      + "+'@keyframes jccsp{to{transform:rotate(360deg);}}';"
+      + "D.head.appendChild(st);"
+      + "ov=D.createElement('div'); ov.id='jcc-busy';"
+      + "ov.innerHTML='<div class=\\\"bx\\\"><div class=\\\"sp\\\"></div><div class=\\\"tx\\\">Working\\u2026"
+      + "<small>Running on the server \\u2014 please wait</small></div></div>';"
+      + "D.body.appendChild(ov);"
+      + "var shownAt=0, maxT=null, dbT=null;"
+      + "function hide(){ ov.style.display='none'; clearTimeout(maxT); }"
+      + "function show(){ ov.style.display='flex'; shownAt=Date.now(); clearTimeout(maxT);"
+      + " maxT=setTimeout(hide, 25000); }"
+      /* Hide when the page finishes re-rendering (DOM settles), but keep it up at least 400ms so
+         a fast run doesn't just flash. */
+      + "var obs=new MutationObserver(function(){ if(ov.style.display!=='flex'){return;}"
+      + " clearTimeout(dbT); dbT=setTimeout(function(){ var el=Date.now()-shownAt;"
+      + " if(el>=400){hide();} else {setTimeout(hide, 400-el);} }, 160); });"
+      + "var root=D.querySelector('[data-testid=\\\"stAppViewContainer\\\"]')||D.body;"
+      + "obs.observe(root,{childList:true,subtree:true});"
+      /* Show the overlay the instant any action button is pressed (skip the tiny dice/faces
+         steppers, whose reruns are instant). Capture phase so we see it before Streamlit does. */
+      + "D.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b){return;}"
+      + " if(b.closest('.st-key-ops_card')){return;}"
+      + " if(b.closest('[data-testid=\\\"stButton\\\"],[data-testid=\\\"stFormSubmitButton\\\"],"
+      + "[data-testid=\\\"stDownloadButton\\\"]')){ show(); } }, true);"
+      + "})();";
+    D.head.appendChild(boot);
+  } catch (e) { /* if the parent document isn't reachable, fail silently */ }
+})();
+</script>
+"""
+
+
 def _render_busy_overlay():
     """A full-screen "Working…" overlay that appears the INSTANT any action button is clicked —
-    entirely client-side, so it shows during the network round-trip and the server queue, before
-    any Python runs (which is exactly the gap where the app feels unresponsive on Streamlit Cloud).
-    It clears itself as soon as the rerun finishes (this script re-runs every rerun and hides it),
-    with a 25-second safety timeout so it can never get stuck."""
-    tok = st.session_state.get("_busy_tok", 0) + 1
-    st.session_state["_busy_tok"] = tok
-    components.html(
-        f"""
-        <script>
-          (function () {{
-            var T = {tok};                      /* changes every rerun -> this script re-runs */
-            var W = window.parent, doc = W.document;
-            var ov = doc.getElementById('jcc-busy-overlay');
-            if (!ov) {{
-              var css = doc.createElement('style');
-              css.textContent =
-                '#jcc-busy-overlay{{position:fixed;inset:0;z-index:2147483647;display:none;'
-                + 'align-items:center;justify-content:center;background:rgba(31,42,68,0.42);'
-                + 'backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);}}'
-                + '#jcc-busy-overlay .bx{{background:#fff;border:2px solid #ea580c;border-radius:16px;'
-                + 'padding:20px 28px;box-shadow:0 18px 50px rgba(0,0,0,0.33);display:flex;'
-                + 'align-items:center;gap:16px;font-family:Inter,-apple-system,Segoe UI,sans-serif;max-width:80vw;}}'
-                + '#jcc-busy-overlay .sp{{width:34px;height:34px;border:4px solid #fde3c8;'
-                + 'border-top-color:#ea580c;border-radius:50%;animation:jccsp .8s linear infinite;flex:none;}}'
-                + '#jcc-busy-overlay .tx{{font-size:1.05rem;font-weight:800;color:#9a3412;line-height:1.3;}}'
-                + '#jcc-busy-overlay .tx small{{display:block;font-weight:600;color:#b45309;font-size:0.8rem;margin-top:2px;}}'
-                + '@keyframes jccsp{{to{{transform:rotate(360deg);}}}}';
-              doc.head.appendChild(css);
-              ov = doc.createElement('div');
-              ov.id = 'jcc-busy-overlay';
-              ov.innerHTML = '<div class="bx"><div class="sp"></div><div class="tx">Working…'
-                + '<small>Running on the server — please wait</small></div></div>';
-              doc.body.appendChild(ov);
-              var show = function () {{
-                ov.style.display = 'flex';
-                clearTimeout(W.__jccBusyT);
-                W.__jccBusyT = setTimeout(function () {{ ov.style.display = 'none'; }}, 25000);
-              }};
-              /* Show on any Streamlit action button, EXCEPT the tiny dice/faces steppers (used
-                 constantly while configuring — their reruns are instant and need no overlay). */
-              doc.addEventListener('click', function (e) {{
-                var b = e.target.closest('button');
-                if (!b) return;
-                if (b.closest('.st-key-ops_card')) return;
-                if (b.closest('[data-testid="stButton"], [data-testid="stFormSubmitButton"], '
-                              + '[data-testid="stDownloadButton"]')) {{
-                  show();
-                }}
-              }}, true);
-            }}
-            /* This block runs after every completed rerun -> the result is on screen -> hide it. */
-            ov.style.display = 'none';
-            clearTimeout(W.__jccBusyT);
-          }})();
-        </script>
-        """,
-        height=0,
-    )
+    entirely client-side, so it shows during the network round-trip and the server queue (the gap
+    where the app feels unresponsive on Streamlit Cloud). The logic is installed into the PARENT
+    page once and hides itself (via a DOM observer) when the rerun's content lands, with a minimum
+    on-screen time so a fast run doesn't just flash, and a 25-second safety timeout. Content is
+    constant so the component iframe is NOT remounted — keeping the installed listener alive."""
+    components.html(_BUSY_OVERLAY_HTML, height=0)
 
 
 def lab_apply_setup(prefix, idx=None, force_reset=False):

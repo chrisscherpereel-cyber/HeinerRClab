@@ -37,7 +37,10 @@ st.markdown(
     "and a cost estimate of the same quality. Model-based agents use the same (possibly outdated) demand model.\n"
     "2. **Two designs per theory, equal budget per design.** Every design's free parameters are tuned with the same "
     "number of candidate settings (Latin-hypercube search, defaults included) on *training* environments, in two "
-    "rounds. Each theory then enters with whichever design scored higher on training data, never on test data.\n"
+    "rounds. Each theory then enters with whichever design scored higher on training data, never on test data. The "
+    "budget is equal in evaluations, not in search density: designs have between one and six free parameters, "
+    "and the reliability-condition designs have the most, so the protocol handicaps the focal theory rather "
+    "than favoring it (see the candidates-per-parameter column in section 4).\n"
     "3. **Held-out, randomly drawn environments.** Test environments come from pre-registered ranges with different "
     "seeds and are never used for tuning or design selection.\n"
     "4. **Several criteria and yardsticks.** Mean profit, downside risk (CVaR 5%), survival against a capital buffer, "
@@ -125,15 +128,23 @@ st.header("4 · Design selection and tuning", divider="gray")
 log = res.tuning_log
 last = log[log["round"] == log["round"].max()].copy()
 last["theory"] = last["theory"].map(THEORY_NAMES)
-st.dataframe(last[["theory", "design_name", "selected", "default_score", "best_score", "gain"]
+last["n_params"] = last["design"].map(lambda d: len(DESIGNS[d].SPACE))
+last["per_param"] = pr.budget / last["n_params"].clip(lower=1)
+st.dataframe(last[["theory", "design_name", "selected", "n_params", "per_param", "default_score", "best_score", "gain"]
                   + [c for c in last if c.startswith("param:")]],
              hide_index=True, width="stretch", column_config={
                  "theory": "Theory", "design_name": "Design", "selected": "Enters the tournament",
+                 "n_params": st.column_config.NumberColumn("Free parameters", format="%d"),
+                 "per_param": st.column_config.NumberColumn("Candidates per parameter", format="%.1f"),
                  "default_score": st.column_config.NumberColumn("Profit, default settings", format="%.0f"),
                  "best_score": st.column_config.NumberColumn("Profit, tuned", format="%.0f"),
                  "gain": st.column_config.NumberColumn("Gain from tuning", format="%+.0f")})
 st.caption(f"Final tuning round, training environments only. Every design evaluated {pr.budget} settings per round; "
-           "each theory enters with its higher-scoring design.")
+           "each theory enters with its higher-scoring design. **The budget is equal in evaluations, not in search "
+           f"density:** with {pr.budget} candidates, a design with six free parameters is searched far less thoroughly "
+           "than one with two. The reliability-condition designs have the most free parameters of any theory, so a "
+           "tournament rank for Heiner is a lower bound on what a better-tuned implementation could reach; the same "
+           "caution applies to every design with many parameters.")
 
 # ------------------------------------------------------------------------------------------------ head to head
 st.header("5 · Head-to-head on several criteria", divider="gray")

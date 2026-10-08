@@ -5,8 +5,12 @@ The market engine (engine.run_batch) with every firm using the same selection po
     always      adopt every recommendation (selection rule Always)
     default     keep last output (rule B, selection rule Never)
     band        inaction band: adopt only changes larger than a threshold (selection rule Large, threshold tuned)
-    gate_gain   Adaptive rule, existing estimated-gain gate (heiner_abm.gates)
-    gate_lcb    Adaptive rule, confidence-sensitive gate
+    gate_gain   Adaptive rule, existing estimated-gain gate (heiner_abm.gates); no free hyperparameters
+    gate_lcb    Adaptive rule, confidence-sensitive gate (confidence and minimum evidence tuned)
+Equal tuning budget: `band` and `gate_lcb` are the only policies with free hyperparameters, and each is given the same
+number of candidate settings (MarketPlan.band_grid, MarketPlan.gate_grid), scored on the same training configurations
+and paths. Before 7 October 2026 only the band was tuned and the gate ran at the AdaptiveParams defaults; set
+MarketPlan.tune_gate = False for that legacy behavior.
 Bayesian change detection and the distributionally robust order are inventory-task policies with no counterpart in
 the market's selection decision; they are not run here (reported as not applicable).
 
@@ -59,6 +63,8 @@ class MarketPlan:
     seed: int = 20261008
     window: int = 5
     band_grid: Tuple[float, ...] = (10.0, 25.0, 50.0)
+    gate_grid: Tuple[Tuple[float, float], ...] = ((0.9, 5.0), (0.8, 3.0), (0.9, 12.0))   # (confidence, min evidence)
+    tune_gate: bool = True                 # False = legacy: the gate is not tuned and uses gate_grid[0]
     lhs_ranges: Tuple[Tuple[str, Tuple[float, float]], ...] = (
         ("delta", (2.0, 30.0)), ("noise", (0.0, 15.0)), ("hazard", (0.002, 0.05)), ("delay", (0.0, 10.0)),
         ("memory", (0.9, 0.995)))
@@ -68,7 +74,10 @@ class MarketPlan:
 QUICK_MARKET = dict(periods=400, paths=3, pilot_paths=2, n_train_configs=2, n_test_configs=5, n_boot=300)
 
 
-def scenario(cfg: MarketConfig, policy: str, seed: int, periods: int, burn: int, window: int, theta: float) -> Scenario:
+def scenario(cfg: MarketConfig, policy: str, seed: int, periods: int, burn: int, window: int, theta: float,
+             gate_hp: Tuple[float, float] = (0.9, 5.0)) -> Scenario:
+    """One market where every firm runs `policy`. theta is the tuned inaction-band threshold (used by `band` only);
+    gate_hp is the tuned (confidence, minimum evidence) of the confidence-sensitive gate (used by `gate_lcb` only)."""
     sel = {"always": "Always", "default": "Never", "band": "Large"}.get(policy, "Adaptive")
     s = Scenario(market=MarketParams(100.0, 10.0, 1500.0, 45.0, 80.0, float(cfg.delta)),
                  firms=linear_flex_firms(4, 0.25, 0.0, "Bertrand", sel, float(theta), 5.0, 0.0, float(cfg.noise)),
@@ -79,12 +88,14 @@ def scenario(cfg: MarketConfig, policy: str, seed: int, periods: int, burn: int,
     ad = s.adaptive
     ad.memory, ad.window, ad.adjust_cost = float(cfg.memory), int(window), float(cfg.cost)
     ad.gate = "lcb" if policy == "gate_lcb" else "gain"
+    ad.confidence, ad.min_evidence = float(gate_hp[0]), float(gate_hp[1])
     return s
 
 
-def net_payoffs(cfg: MarketConfig, policy: str, seeds: Sequence[int], plan: MarketPlan, theta: float) -> np.ndarray:
+def net_payoffs(cfg: MarketConfig, policy: str, seeds: Sequence[int], plan: MarketPlan, theta: float,
+                gate_hp: Tuple[float, float] = (0.9, 5.0)) -> np.ndarray:
     """Mean net payoff per firm and period, one value per path (market)."""
-    scns = [scenario(cfg, policy, sd, plan.periods, plan.burn_in, plan.window, theta) for sd in seeds]
+    scns = [scenario(cfg, policy, sd, plan.periods, plan.burn_in, plan.window, theta, gate_hp) for sd in seeds]
     res = run_batch(scns, horizon=1)
     a = res.acc
     net = (a["sum_profit"] - cfg.cost * a["n_dev"]) / a["n_rec"]
@@ -140,26 +151,36 @@ def _boot(x, n_boot, seed=0):
 
 
 def run_market(plan: MarketPlan, progress=None) -> Dict:
-    # tune the inaction band's threshold on training configurations only
+    """Tuning on training configurations only, with the same budget for the two policies that have hyperparameters:
+    len(plan.band_grid) candidates for the inaction band and len(plan.gate_grid) for the confidence-sensitive gate,
+    each scored on the same training configurations and the same two paths per configuration."""
     train = _lhs(plan, plan.n_train_configs, plan.seed + 1)
-    scores = {th: np.mean([net_payoffs(c, "band", _seeds(plan, 1, j, 2), plan, th).mean()
-                           for j, c in enumerate(train)]) for th in plan.band_grid}
+    tune_on = lambda pol, th, gh: float(np.mean([net_payoffs(c, pol, _seeds(plan, 1, j, 2), plan, th, gh).mean()
+                                                 for j, c in enumerate(train)]))
+    cands = [(float(a), float(b)) for a, b in plan.gate_grid]      # a JSON round trip turns the tuples into lists
+    scores = {float(th): tune_on("band", float(th), cands[0]) for th in plan.band_grid}
     theta = max(scores, key=scores.get)
+    if plan.tune_gate:
+        gate_scores = {g: tune_on("gate_lcb", theta, g) for g in cands}
+        gate_hp = max(gate_scores, key=gate_scores.get)
+    else:
+        gate_scores, gate_hp = {}, cands[0]
     rows = []
     for j, cfg in enumerate(_lhs(plan, plan.n_test_configs, plan.seed + 3)):
         if progress:
             progress(j / plan.n_test_configs, f"Market configuration {j + 1}")
-        pilot = {p: net_payoffs(cfg, p, _seeds(plan, 2, j, plan.pilot_paths), plan, theta).mean()
+        pilot = {p: net_payoffs(cfg, p, _seeds(plan, 2, j, plan.pilot_paths), plan, theta, gate_hp).mean()
                  for p in ("always", "default")}
         best = max(pilot, key=pilot.get)
         r = ratio(cfg, _seeds(plan, 2, j, plan.pilot_paths), plan, theta)
-        test = {p: net_payoffs(cfg, p, _seeds(plan, 3, j, plan.paths), plan, theta) for p in MPOLICIES}
-        row = {**asdict(cfg), **r, "best_fixed": best, "theta": theta}
+        test = {p: net_payoffs(cfg, p, _seeds(plan, 3, j, plan.paths), plan, theta, gate_hp) for p in MPOLICIES}
+        row = {**asdict(cfg), **r, "best_fixed": best, "theta": theta,
+               "gate_confidence": gate_hp[0], "gate_min_evidence": gate_hp[1]}
         for p in MPOLICIES:
             row[f"np_{p}"] = float(test[p].mean())
         for p in ("gate_lcb", "gate_gain", "band"):
             m, lo, hi = _boot(test[p] - test[best], plan.n_boot)
             row[f"adv_{p}"], row[f"adv_{p}_lo"], row[f"adv_{p}_hi"] = m, lo, hi
         rows.append(row)
-    return dict(tests=pd.DataFrame(rows), theta=theta, band_scores=scores, not_applicable=NOT_APPLICABLE,
-                plan=asdict(plan))
+    return dict(tests=pd.DataFrame(rows), theta=theta, band_scores=scores, gate_hp=gate_hp,
+                gate_scores=gate_scores, not_applicable=NOT_APPLICABLE, plan=asdict(plan))

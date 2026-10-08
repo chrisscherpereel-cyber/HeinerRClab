@@ -370,6 +370,16 @@ excludes 0; main run / three replications):
 None of the six hypotheses fixed in the frozen plan was supported in the main run; PR2 was supported in two of the
 three replications.
 
+*What "equal tuning budget" means here.* Every design receives the same **number** of candidate parameter settings
+(`Prereg.budget`, Latin-hypercube, defaults included) on training environments. It is not the same search *density*:
+designs have between one and six free parameters, and the two reliability-condition designs have the most of any
+theory (six and five), so the protocol searches the focal theory's space least thoroughly. The direction of that bias
+is against Heiner, not for it; a tournament rank for the reliability condition should be read as a lower bound on what
+a better-tuned implementation of it could reach, and the same caution applies to every design with many parameters.
+The *Agent tournament* page reports candidates per free parameter next to each design. Making the budget proportional
+to the number of parameters would change `arena.code_digest()` and void every registered tournament number, so this is
+documented rather than changed.
+
 **What the tournament shows** (for these designs, tuning budgets and held-out environments)
 
 * *Model-free beats model-based here.* The top three in every run are designs that need no demand model, and in the
@@ -880,6 +890,16 @@ construct whose measurement and usefulness the study tests, not an established q
   the existing estimated-gain gate, the confidence-sensitive gate, Bayesian change detection (BOCPD) and the
   distributionally robust order. The last two have no counterpart in the market's adoption decision and are reported
   there as not applicable.
+* **Equal tuning budget.** Every policy with free hyperparameters gets the same number of candidate settings (four in
+  the inventory task, three in the market), scored on the same training configurations and paths: the flexible
+  forecast's gain, the band's width, the confidence-sensitive gate's confidence and minimum evidence, change
+  detection's three settings and the robust order's two. Candidate 0 of each is the registered starting value, so the
+  search can only help. *Retain the default* and the *estimated-gain gate* have no free hyperparameters and get none;
+  the ORACLE is a bound, not a competitor. The run's tuning log (one row per policy with the number of candidates
+  evaluated) is shown on the page and exported as `docs/learnability_results/tuning.csv`. Until 6 October 2026 the two
+  gates received no tuning while their four comparators received four candidates each, and the plan's
+  `gate_confidence` / `gate_min_evidence` never reached the gate; `LearnPlan.tune_gate = False` and
+  `MarketPlan.tune_gate = False` restore that behavior.
 * **Data sets.** Disjoint seed blocks for training (all tuning), pilot (R and the better fixed rule) and untouched test
   paths; tests on two process families never used for tuning (switching and drifting means), not only new seeds.
 * **Outcomes.** Primary: net payoff per period (payoff minus the adaptation cost c in every period whose order departs
@@ -890,25 +910,37 @@ construct whose measurement and usefulness the study tests, not an established q
   replicates in the market) and **negative controls** NC1–NC3 (perfect information with costless adaptation; a
   dominated default; a stable environment with abundant feedback), each with its decision rule. Effects are paired
   differences with 95% bootstrap intervals; rank differences are not interpreted as one theory's superiority.
-* **Registration.** Plan `ec9b781e125e289d` is frozen in the repository (`registered.LEARN_PLAN`); the exported
+* **Registration.** Plan `8f43bedc7dae10bc` is frozen in the repository (`registered.LEARN_PLAN`); the exported
   document is [`docs/learnability_registration.md`](docs/learnability_registration.md) and can be downloaded from the
   page. It has **not** been preregistered with an external registry.
 
-### Results under the frozen plan `ec9b781e125e289d`
+### Results under the frozen plan `8f43bedc7dae10bc`
 
-One run of the registered plan on commit `b748da3` (the specification commit), about 11 minutes. Tuned on training
-configurations only: forecast gain 0.1, band b = 0.5, BOCPD (hazard 0.005, prior sd 30, obs sd 25), robust order
-(N = 20, ρ = 0.01); market band threshold 50. Tables: [`docs/learnability_results/`](docs/learnability_results/).
+One run of the registered plan, 7.4 minutes (`python tools/rerun_learnability_study.py` reproduces it; every seed is
+derived from the plan). Tuned on training configurations only, four candidates each: forecast gain 0.1, band b = 0.5,
+confidence-sensitive gate (confidence 0.8, minimum evidence 3), BOCPD (hazard 0.005, prior sd 30, obs sd 25), robust
+order (N = 20, ρ = 0.01); market band threshold 50 and market gate (0.8, 3), three candidates each. Tables:
+[`docs/learnability_results/`](docs/learnability_results/), tuning log in `tuning.csv`.
 
 | | Decision rule | Result | Verdict |
 |---|---|---|---|
-| H1 | slope of the gate's advantage on log10 R, CI below 0 | −1.44 [−2.36, −0.59], 30 jump configurations | supported |
-| H2 | cross-validated R² gain of log10 R over volatility and noise, CI above 0 | +0.23 [−0.46, +0.84] | **not supported** |
-| H3 | H1 slope in the new families (switching, drifting) | −1.75 [−2.79, −1.01], 30 configurations | supported |
-| H4 | H1 slope in the market | −1625 [−2922, −478], 16 configurations | supported |
+| H1 | slope of the gate's advantage on log10 R, CI below 0 | −0.95 [−1.50, −0.44], 30 jump configurations | supported |
+| H2 | cross-validated R² gain of log10 R over volatility and noise, CI above 0 | +0.25 [−0.32, +0.85] | **not supported** |
+| H3 | H1 slope in the new families (switching, drifting) | −1.13 [−1.74, −0.65], 30 configurations | supported |
+| H4 | H1 slope in the market | −1612 [−2777, −513], 16 configurations | supported |
 | NC1 | perfect information, costless adaptation: nothing beats always adapting | every policy − always ≤ −0.16 per period | passed |
-| NC2 | dominated default: gates adapt ≥ 90%, lose ≤ 5% | adaptation 1.000 and 0.995; −31.80 and −32.85 vs −31.78 | passed |
-| NC3 | stable, abundant feedback: R < 1, gate not worse | R = 0.076; gate − default 0.00 [−0.00, +0.00] | passed |
+| NC2 | dominated default: gates adapt ≥ 90%, lose ≤ 5% | adaptation 1.000 and 0.997; −31.80 and −32.48 vs −31.78 | passed |
+| NC3 | stable, abundant feedback: R < 1, gate not worse | R = 0.076; gate − default −0.00 [−0.00, +0.00] | passed |
+
+*Revision note (7 October 2026): the run under the superseded plan `ec9b781e125e289d` **requires replication and is
+not comparable one for one with the table above.** It gave the two reliability gates no tuning budget while their four
+comparators each received four candidates, and the plan's `gate_confidence` / `gate_min_evidence` never reached the
+gate. Under the equal budget the gate chose confidence 0.8 and minimum evidence 3 instead of 0.9 and 5, worth +0.65
+net payoff per period on the training configurations, so the earlier run understated the confidence-sensitive gate.
+Its numbers were: H1 −1.44 [−2.36, −0.59] supported; H2 +0.23 [−0.46, +0.84] not supported; H3 −1.75 [−2.79, −1.01]
+supported; H4 −1625 [−2922, −478] supported; NC1–NC3 passed (NC1 confidence gate − always −1.09, NC2 adaptation 0.995
+and net payoff −32.85). Every verdict is unchanged; the H1 and H3 slopes are flatter and the gate's shortfall in NC1
+and NC2 is smaller, which is what tuning the gate would be expected to do.*
 
 How to read this:
 * **The construct's usefulness is not established.** R ordered the gate's advantage in the inventory task, the new
@@ -916,22 +948,23 @@ How to read this:
   observation noise (H2): the interval is wide and includes zero. In the 30 test configurations log10 R correlates
   with log σ (r = 0.37) and with feedback availability (r = −0.55), so H1 and H3 alone cannot separate R from the
   factors it is built from.
-* **The confidence-sensitive gate rarely paid.** In the inventory task the better fixed rule was always adapting in
-  every configuration; the gate's advantage was below zero with its interval excluding zero in 22 of 30 jump and 29 of
-  30 new-family configurations, and above zero in none. The slope says how *much* it lost, more where R is large; it
-  does not show a region where waiting for evidence wins. Its losses are largest with scarce feedback (avail 0.2:
-  −3.40 [−5.51, −1.26] against always adapting).
+* **The confidence-sensitive gate rarely paid, even when tuned.** In the inventory task the better fixed rule was
+  always adapting in all 30 jump and all 30 new-family configurations; the gate's advantage was below zero with its
+  interval excluding zero in 22 of 30 jump and 28 of 30 new-family configurations, and above zero in 1 of 30 jump and
+  none of the new-family ones. The slope says how *much* it lost, more where R is large; it does not establish a
+  region where waiting for evidence wins. Its losses are largest with scarce feedback (avail 0.2: −2.22
+  [−3.96, −0.43] against always adapting).
 * **The market replication is weak evidence.** Retaining the default was the better fixed rule in 15 of 16 market
-  configurations, per-configuration intervals are wide (only 5 of 16 exclude zero, 4 below and 1 above), and the
-  slope comes from 16 points. It is a direction, not a precise effect.
+  configurations, per-configuration intervals are wide (only 4 of 16 exclude zero, all below), and the slope comes
+  from 16 points. It is a direction, not a precise effect.
 * **Other policies (secondary, not hypotheses).** Against the better fixed rule, Bayesian change detection's
   interval was above zero in 20 of 30 jump configurations and below in 4; the robust order 9 above and 10 below; the
   estimated-gain gate 3 and 7; the inaction band 0 and 11. These are per-configuration counts with intervals, not a
   ranking, and the tuned settings come from one training family; they are not evidence that one theory is superior.
 * **Secondary outcomes** (jump-family test paths, means with 95% intervals; `secondary.csv`): regret per period
-  always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 11.0 [10.2, 11.9], BOCPD 7.3 [6.8, 7.8],
-  robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 63% of periods and miss 14% and 29%
-  of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 21.3 for the gates.
+  always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 10.2 [9.4, 11.0], BOCPD 7.3 [6.8, 7.8],
+  robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 69% of periods and miss 14% and 24%
+  of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 19.8 for the gates.
   Both gates share one learned estimate, so their calibration is identical (slope 0.76 [0.72, 0.79], bias −0.66).
 
 ## NK landscapes: interaction complexity, reliability learning and adaptation

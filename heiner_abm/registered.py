@@ -3,6 +3,16 @@
 These numbers come from the registered runs documented in the README. They are tied to the plan hashes below:
 tests/test_theory_pages.py fails when the code changes the hashes, so the numbers cannot silently go stale.
 
+Revision note (7 October 2026, equal tuning budgets): the learnability study gave four comparator policies a
+four-candidate hyperparameter search on training configurations and the two reliability gates none, and the frozen
+plan's `gate_confidence` / `gate_min_evidence` never reached the gate (the market replication tuned the inaction band
+only). Both studies now tune every policy that has hyperparameters with the same number of candidates
+(`LearnPlan.tune_gate`, `MarketPlan.tune_gate` restore the old behavior). The study code changed, so the plan hash
+changed, ec9b781e125e289d → 8f43bedc7dae10bc, and the whole study was rerun under the new plan; the numbers below and
+in docs/learnability_results/ are from that rerun. The results obtained under ec9b781e125e289d are kept in the README's
+revision notes and REQUIRE REPLICATION: they were produced with an unequal tuning budget and are not comparable
+one-for-one with the new run.
+
 Revision note (6 October 2026): organizational ecology became the ninth theory, with two tournament designs, so
 the tournament's code hash changed and every study built on it was rerun: tournament 9699f86a6a899cf7 →
 110b3146bb072c2c (main run and three replications), mechanism study e9b5cbda8a4c4ab7 → 11a279e507f246e2, rule choice
@@ -26,11 +36,12 @@ CHOICE_PLAN = "f15f62149d08e800"       # endogenous rule choice (Rule choice pag
 TASK_PLAN = "b46c1f64a8250547"         # generalization tasks (Generalization page)
 TRACK_PLAN = "f582721595727105"        # single-firm tracking benchmark (Solvable benchmark page)
 # Human experiment protocol 2.0 (Play the market / Human experiments: analysis). It replaced protocol 1.0
-# ("01f956595e90e5ab") on 8 October 2026, before any data were collected under either; not preregistered externally.
+# ("01f956595e90e5ab") on 7 October 2026, before any data were collected under either; not preregistered externally.
 EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
-# not preregistered with any external registry.
-LEARN_PLAN = "ec9b781e125e289d"
+# not preregistered with any external registry. Re-registered the same day when every policy was given the same tuning
+# budget (see the revision note above); the run under the previous plan "ec9b781e125e289d" requires replication.
+LEARN_PLAN = "8f43bedc7dae10bc"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.

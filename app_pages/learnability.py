@@ -135,10 +135,29 @@ st.subheader("Secondary outcomes (jump-family test paths, means with 95% interva
 sec = L.secondary_table(res.paths, "test", plan.n_boot)
 st.dataframe(sec[["label"] + [c for c in sec.columns if c in L.SECONDARY]].round(3), hide_index=True,
              width="stretch")
-st.caption("Regret against perfect information, downside loss (CVaR 5% of per-period net payoff), calibration of the "
-           "gates' predicted advantage, adaptation rate, missed opportunities and recovery delay; intervals are in the "
-           "download. Small differences in mean payoff or rank are not evidence that one "
-           "theory is superior; read the intervals.")
+st.caption("Gross payoff before any charge, each adaptation charge separately, regret against perfect information, "
+           "downside loss (CVaR 5% of per-period net payoff), the two behavioral rates kept apart (departure from "
+           "the default and adjustment of the order, which are different events whenever the default moves), "
+           "adjustment magnitude, calibration of the gates' predicted advantage, missed opportunities and recovery "
+           "delay; intervals are in the download. Small differences in mean payoff or rank are not evidence that "
+           "one theory is superior; read the intervals.")
+with st.expander("The three adaptation charges, and why they are not interchangeable"):
+    st.markdown(f"""
+- **Default-departure overhead** (`cost`): charged every period the order differs from *that period's default*.
+- **Fixed switching cost** (`switch_cost`): charged every period the order differs from the *previous period's order*.
+- **Magnitude cost** (`magnitude_cost`): charged per unit of |S_t − S_(t−1)|.
+
+These are separate economic frictions, not three settings of one. A policy that holds a constant non-default order
+pays the overhead every period and nothing to switch; one that tracks a moving default pays no overhead but pays for
+every change. The first period has no predecessor, so it carries no switching or magnitude charge. Two orders count
+as different when they differ by more than {L.ACTION_TOL:g}. Setting all three to zero is the zero-cost control, and
+`cost_model = "legacy_departure_only"` restores the single charge used before 9 October 2026.
+
+The other tasks differ, and the difference is a property of the task rather than of the construct: in the **market**
+the default is *keep last output*, so departing from it and changing the order are the same event and only the
+magnitude charge is separately identified; the **NK** task has no default to depart from at all, so its `cost` is a
+magnitude charge per changed component, alongside a distinct fixed `switch_cost`.
+""")
 download(res.tests, "learnability_tests.csv", "Download test configurations (CSV)")
 download(res.new_families, "learnability_new_families.csv", "Download new-family configurations (CSV)")
 download(res.sweeps, "learnability_sweeps.csv", "Download one-factor sweeps (CSV)")

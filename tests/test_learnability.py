@@ -1,7 +1,7 @@
 """Learnability study (heiner_abm.learnability, heiner_abm.learnability_market): shared exogenous paths, information
 timing, missing feedback, the ratio construct's measurement, disjoint data sets, negative-control setups and the frozen
 specification."""
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import numpy as np
 import pytest
@@ -101,7 +101,9 @@ def test_quick_study_runs_end_to_end():
     assert res.plan_hash != registered.LEARN_PLAN                  # quick runs are exploratory
     assert set(res.verdicts["id"]) == {"H1", "H2", "H3"}
     assert set(res.controls["id"]) == {"NC1", "NC2", "NC3"}
-    cols = {"net_payoff", "regret", "cvar5", "adaptation_rate", "missed", "calib_slope", "recovery_delay"}
+    cols = {"net_payoff", "gross_payoff", "cost_departure", "cost_switching", "cost_magnitude", "cost_total",
+            "regret", "cvar5", "departure_rate", "adjustment_rate", "adjustment_magnitude", "missed",
+            "calib_slope", "recovery_delay"}
     assert cols <= set(res.paths.columns)
     assert set(res.paths["policy"]) == set(L.POLICIES)
 
@@ -286,3 +288,147 @@ def test_market_ratio_counts_feedback_by_release_period_within_the_regime():
     import inspect
     doc = inspect.getdoc(LM.ratio)
     assert "released" in doc and "crosses a regime boundary" in doc
+
+
+# ================================================================ cost model (9 October 2026)
+def test_three_cost_components_are_distinct_frictions():
+    """Worked example. A constant non-default order and an order that tracks a moving default must be charged
+    differently: the first pays the departure overhead every period and nothing to switch, the second pays nothing
+    to depart but pays to change. Before the split, one indicator drove both the charge and the reported rate, so
+    these two paths were indistinguishable."""
+    cfg = L.Config(cost=1.0, switch_cost=5.0, magnitude_cost=0.1)
+    S_D = np.array([10.0, 20.0, 30.0, 40.0])          # a default that moves every period
+    constant = np.full(4, 10.0)                        # never changes; departs from the default after period 0
+    tracking = S_D.copy()                              # never departs; changes every period
+
+    k_const = L.cost_components(cfg, constant, S_D)
+    k_track = L.cost_components(cfg, tracking, S_D)
+
+    # constant: departs in 3 of 4 periods, never switches
+    assert k_const["departs"].tolist() == [False, True, True, True]
+    assert not k_const["changes"].any()
+    assert k_const["departure"].sum() == pytest.approx(3.0)
+    assert k_const["switching"].sum() == 0.0 and k_const["magnitude"].sum() == 0.0
+    assert k_const["total"].sum() == pytest.approx(3.0)
+
+    # tracking: never departs, switches in 3 of 4 periods, moves 10 units each time
+    assert not k_track["departs"].any()
+    assert k_track["changes"].tolist() == [False, True, True, True]
+    assert k_track["departure"].sum() == 0.0
+    assert k_track["switching"].sum() == pytest.approx(15.0)          # 3 switches x 5
+    assert k_track["magnitude"].sum() == pytest.approx(3.0)           # 30 units x 0.1
+    assert k_track["total"].sum() == pytest.approx(18.0)
+
+    # the two paths are charged differently, which is the whole point
+    assert k_const["total"].sum() != k_track["total"].sum()
+
+
+def test_first_period_carries_no_switching_or_magnitude_charge():
+    cfg = L.Config(cost=0.0, switch_cost=7.0, magnitude_cost=1.0)
+    k = L.cost_components(cfg, np.array([100.0, 100.0]), np.array([0.0, 0.0]))
+    assert k["switching"][0] == 0.0 and k["magnitude"][0] == 0.0 and k["step"][0] == 0.0
+
+
+def test_action_tolerance_is_one_constant_for_every_comparison():
+    cfg = L.Config(cost=1.0, switch_cost=1.0, magnitude_cost=0.0)
+    tiny = L.ACTION_TOL / 10
+    S_D = np.array([10.0, 10.0])
+    k = L.cost_components(cfg, np.array([10.0, 10.0 + tiny]), S_D)
+    assert not k["departs"].any() and not k["changes"].any(), "a sub-tolerance move must not be charged"
+    big = L.ACTION_TOL * 10
+    k2 = L.cost_components(cfg, np.array([10.0, 10.0 + big]), S_D)
+    assert k2["departs"][1] and k2["changes"][1]
+
+
+def test_legacy_cost_model_reproduces_the_old_calculation_exactly():
+    """The pre-9-October calculation was the departure overhead alone. The legacy model must reproduce it even when
+    the two new charges are set, and the component model must agree with it when they are zero."""
+    rng = np.random.default_rng(0)
+    S = np.round(rng.normal(100, 20, 200), 0)
+    S_D = np.round(rng.normal(100, 20, 200), 0)
+    legacy_expected = 3.0 * (np.abs(S - S_D) > 1e-9)
+
+    legacy = L.cost_components(L.Config(cost=3.0, switch_cost=99.0, magnitude_cost=99.0,
+                                        cost_model="legacy_departure_only"), S, S_D)
+    np.testing.assert_allclose(legacy["total"], legacy_expected)
+
+    same = L.cost_components(L.Config(cost=3.0, switch_cost=0.0, magnitude_cost=0.0), S, S_D)
+    np.testing.assert_allclose(same["total"], legacy_expected)
+
+
+def test_outcomes_report_each_component_and_the_two_rates_separately():
+    cfg = L.Config(cost=1.0, switch_cost=2.0, magnitude_cost=0.05)
+    p = L.paths(cfg, 300, 5)
+    c = L.candidate_orders(cfg, p, HP["gain"])
+    S, pred, gobs = L.policy_orders("gate_lcb", cfg, p, c, {**HP, "gate": L.GATE_HP0})
+    o = L.outcomes("gate_lcb", cfg, p, c, S, pred, gobs, 50)
+    for key in ("gross_payoff", "cost_departure", "cost_switching", "cost_magnitude", "cost_total", "net_payoff",
+                "departure_rate", "adjustment_rate", "adjustment_magnitude"):
+        assert key in o and np.isfinite(o[key]), key
+    assert o["net_payoff"] == pytest.approx(o["gross_payoff"] - o["cost_total"])
+    assert o["cost_total"] == pytest.approx(o["cost_departure"] + o["cost_switching"] + o["cost_magnitude"])
+    # the two rates measure different things and must not be assumed equal
+    assert o["departure_rate"] != o["adjustment_rate"]
+
+
+def test_zero_cost_control_charges_nothing_and_net_equals_gross():
+    cfg = L.Config(cost=0.0, switch_cost=0.0, magnitude_cost=0.0)
+    assert cfg.zero_cost
+    p = L.paths(cfg, 250, 11)
+    c = L.candidate_orders(cfg, p, HP["gain"])
+    for pol in ("always", "band", "gate_gain", "gate_lcb"):
+        S, pred, gobs = L.policy_orders(pol, cfg, p, c, {**HP, "gate": L.GATE_HP0})
+        o = L.outcomes(pol, cfg, p, c, S, pred, gobs, 50)
+        assert o["cost_total"] == 0.0, pol
+        assert o["net_payoff"] == pytest.approx(o["gross_payoff"]), pol
+
+
+def test_tuning_scores_the_same_objective_it_is_evaluated_on():
+    """`tune` must score the primary outcome, so a policy is never tuned against a different economic objective
+    from the one it is judged by. With switching costs switched on, the score must move with them."""
+    import inspect
+    assert '"net_payoff"' in inspect.getsource(L.tune)
+    base = dict(L.QUICK_LEARN, periods=200, n_train_configs=2, train_paths=1, n_boot=50)
+    plan_free = replace(L.LEARN_PREREG, **base,
+                        baseline=tuple(asdict(L.Config(switch_cost=0.0)).items()))
+    plan_costly = replace(L.LEARN_PREREG, **base,
+                          baseline=tuple(asdict(L.Config(switch_cost=40.0)).items()))
+    cfg_free = L.Config(**dict(plan_free.baseline))
+    cfg_costly = L.Config(**dict(plan_costly.baseline))
+    seeds = [7, 8]
+    free = L.run_config(cfg_free, {**HP, "gate": L.GATE_HP0}, seeds, 200, 50, ("always",))
+    costly = L.run_config(cfg_costly, {**HP, "gate": L.GATE_HP0}, seeds, 200, 50, ("always",))
+    assert costly["net_payoff"].mean() < free["net_payoff"].mean(), "switching charges must reduce net payoff"
+    assert costly["gross_payoff"].mean() == pytest.approx(free["gross_payoff"].mean()), "gross must be unaffected"
+
+
+def test_market_reports_components_and_says_where_two_frictions_coincide():
+    """The market's default is rule B, "keep last output", so departing from the default and changing the output are
+    the same event and the two rates must be equal. That is a property of this task; the inventory task, where the
+    default moves on its own, keeps them apart. The magnitude charge is separately identified in both."""
+    plan = LM.MarketPlan(periods=300, burn_in=50)
+    seeds = LM._seeds(plan, 3, 0, 2)
+    free = LM.payoff_components(LM.MarketConfig(magnitude_cost=0.0), seeds, plan, 25.0, (0.9, 5.0), "gate_lcb")
+    costly = LM.payoff_components(LM.MarketConfig(magnitude_cost=0.5), seeds, plan, 25.0, (0.9, 5.0), "gate_lcb")
+
+    assert free["departure_rate"] == free["adjustment_rate"]            # they coincide here, by construction
+    assert free["cost_magnitude"] == 0.0 and costly["cost_magnitude"] > 0.0
+    assert costly["gross_payoff"] == pytest.approx(free["gross_payoff"])   # a charge must not move the gross payoff
+    assert costly["net_payoff"] < free["net_payoff"]
+    for o in (free, costly):
+        assert o["net_payoff"] == pytest.approx(o["gross_payoff"] - o["cost_total"])
+        assert o["cost_total"] == pytest.approx(o["cost_departure"] + o["cost_switching"] + o["cost_magnitude"])
+    # the market docstring must not imply the frictions are one construct
+    doc = LM.__doc__
+    assert "SAME event" in doc and "not evidence that the two frictions are one construct" in doc
+
+
+def test_inventory_keeps_the_two_rates_apart_where_the_default_moves():
+    """The complement of the market case: with a default that moves on its own, a policy can depart without
+    changing and change without departing, so the two rates genuinely differ."""
+    cfg = L.Config(default="slow", cost=1.0)
+    p = L.paths(cfg, 400, 3)
+    c = L.candidate_orders(cfg, p, HP["gain"])
+    S, pred, gobs = L.policy_orders("gate_lcb", cfg, p, c, {**HP, "gate": L.GATE_HP0})
+    o = L.outcomes("gate_lcb", cfg, p, c, S, pred, gobs, 100)
+    assert o["departure_rate"] != o["adjustment_rate"]

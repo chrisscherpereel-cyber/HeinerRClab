@@ -161,8 +161,20 @@ class Inventory(Environment):
                 options=("slow", "fixed_initial", "biased", "dominated"),
                 help="slow: slow forecast; fixed_initial: best order for the first regime, deteriorates after a "
                      "change; biased: 40 units low; dominated: orders nothing."),
-        Control("cost", "Adaptation cost (per period that departs from the default)", "agents", "float", 1.0, 0.0,
-                20.0, 0.5),
+        Control("cost", "Default-departure overhead (per period the order differs from the default)", "agents",
+                "float", 1.0, 0.0, 20.0, 0.5,
+                help="Charged whenever the order is not the default's. Set all three charges to 0 for a zero-cost "
+                     "control."),
+        Control("switch_cost", "Fixed switching cost (per period the order changes)", "agents", "float", 0.0, 0.0,
+                20.0, 0.5, advanced=True,
+                help="Charged whenever the order differs from the PREVIOUS period's, whatever the default is. A "
+                     "different friction from the departure overhead, not a reparameterization of it."),
+        Control("magnitude_cost", "Magnitude cost (per unit of |ΔS|)", "agents", "float", 0.0, 0.0, 2.0, 0.05,
+                advanced=True, help="Charged in proportion to how far the order moved since the previous period."),
+        Control("cost_model", "Cost model", "agents", "choice", "components",
+                options=("components", "legacy_departure_only"), advanced=True,
+                help="components: all three charges. legacy_departure_only: the departure overhead alone, the "
+                     "calculation used before 9 October 2026; the other two are ignored."),
         Control("memory", "Gates' memory λ", "agents", "float", 0.97, 0.8, 0.999, 0.005, advanced=True),
         Control("band_b", "Inaction band width b (in s.d.)", "agents", "float", 0.5, 0.0, 4.0, 0.25, advanced=True),
         Control("gate_conf", "Confidence gate: confidence", "agents", "float", 0.9, 0.5, 0.995, 0.005, advanced=True,
@@ -198,8 +210,14 @@ class Inventory(Environment):
         Outcome("regret", "Regret against perfect information", False, "performance"),
         Outcome("cvar5", "Downside loss (mean of worst 5% of periods)", True, "performance"),
         Outcome("compute_ms", "Compute time per replication (ms)", None, "performance"),
-        Outcome("adaptation_rate", "Adjustment frequency", None, "behavior"),
-        Outcome("change_size", "Adjustment magnitude (mean |ΔS|)", None, "behavior"),
+        Outcome("gross_payoff", "Gross payoff per period (before charges)", True, "performance"),
+        Outcome("cost_total", "All adaptation charges per period", False, "performance"),
+        Outcome("cost_departure", "Charge: departure from the default", False, "performance"),
+        Outcome("cost_switching", "Charge: fixed switching", False, "performance"),
+        Outcome("cost_magnitude", "Charge: magnitude of the change", False, "performance"),
+        Outcome("departure_rate", "Departure from the default (share of periods)", None, "behavior"),
+        Outcome("adjustment_rate", "Adjustment frequency (share of periods the order changed)", None, "behavior"),
+        Outcome("adjustment_magnitude", "Adjustment magnitude (mean |ΔS|)", None, "behavior"),
         Outcome("recovery_delay", "Recovery delay after a change (periods)", False, "behavior"),
         Outcome("missed", "Missed opportunities (share)", False, "mechanisms"),
         Outcome("calib_bias", "Calibration bias of predicted gain", None, "mechanisms"),
@@ -216,7 +234,10 @@ class Inventory(Environment):
         from .. import learnability as L
         return L.Config(family=params["family"], sigma=float(params["sigma"]), tau=float(params["tau"]),
                         hazard=float(params["hazard"]), avail=float(params["avail"]), memory=float(params["memory"]),
-                        default=params["default"], cost=float(params["cost"]))
+                        default=params["default"], cost=float(params["cost"]),
+                        switch_cost=float(params.get("switch_cost", 0.0)),
+                        magnitude_cost=float(params.get("magnitude_cost", 0.0)),
+                        cost_model=str(params.get("cost_model", "components")))
 
     def _hp(self, params, hp):
         """Hyperparameters for learnability.policy_orders. The "gate" entry must be present: without it the
@@ -270,7 +291,6 @@ class Inventory(Environment):
                 t0 = time.perf_counter()
                 S, pred, gobs = L.policy_orders(pol, cfg, p, c, h)
                 out = L.outcomes(pol, cfg, p, c, S, pred, gobs, burn)
-                out["change_size"] = float(np.abs(np.diff(S[burn:])).mean())
                 out["compute_ms"] = 1000 * (time.perf_counter() - t0)
                 rows.append(dict(policy=pol, replication=r, seed=s, **out))
                 if trace and r == 0:
@@ -286,7 +306,8 @@ class Inventory(Environment):
             "band": lambda t: (f"|target − default| = {abs(c['S_F'][t] - c['S_D'][t]):.1f} "
                                f"{'>' if adapt[t] else '≤'} b·s.d. = {h['band']['b'] * c['sd'][t]:.1f}"),
             "gate_gain": lambda t: ("no evidence in this bin: adapts (optimistic start)" if np.isnan(pred[t]) else
-                                    f"learned gain {pred[t]:.2f} {'≥' if adapt[t] else '<'} cost {cfg.cost:g}"),
+                                    f"learned gain {pred[t]:.2f} {'≥' if adapt[t] else '<'} departure overhead "
+                                    f"{cfg.cost:g}"),
             "gate_lcb": lambda t: ("not enough evidence or lower bound ≤ cost: keeps the default" if not adapt[t] else
                                    "lower confidence bound above the cost"),
             "bocpd": lambda t: "posterior predictive critical fractile (complete policy)",

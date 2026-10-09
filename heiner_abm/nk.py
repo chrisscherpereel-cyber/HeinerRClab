@@ -34,7 +34,8 @@ Landscape (established model)
 Timing and information
     In period t the agent operates its configuration x_t and observes its payoff once (free: it is operating it). It
     may then evaluate one candidate y (one unit of the evaluation budget) and observe F_t(y) + noise. It decides at the
-    end of period t; a switch takes effect in period t + 1 and costs `cost` per changed component (charged in t + 1).
+    end of period t; a switch takes effect in period t + 1 and costs `cost` per changed component plus a fixed
+    `switch_cost` for moving at all (charged in t + 1). The two are separate economic frictions; see NKEnv.
     Agents see only their own noisy observations, their own costs and, for imitation, the observable part of a
     leader's configuration. The true payoffs, the landscape tables, the global maximum and the change times are
     researcher-only quantities used for the outcome measures; agents receive an Observer that exposes nothing else.
@@ -123,7 +124,13 @@ class NKEnv:
     obs_noise: float = 0.02            # observation noise s.d. (payoffs lie in [0, 1])
     hazard: float = 0.0                # probability per period of an unannounced landscape change
     change_frac: float = 0.25          # share of components whose contribution tables are redrawn at a change
-    cost: float = 0.002                # switching cost per changed component
+    # Costs in the shared vocabulary of heiner_abm.learnability (departure overhead / fixed switching / magnitude).
+    # This task has NO default to depart from - a searcher holds a configuration, it does not choose between its own
+    # action and someone else's recommendation - so the departure overhead does not exist here and is not defined.
+    # `cost` is a MAGNITUDE charge: it scales with how many components changed. `switch_cost` adds the distinct
+    # fixed charge for changing at all. They are different frictions, not two settings of one.
+    cost: float = 0.002                # magnitude charge per changed component
+    switch_cost: float = 0.0           # fixed charge for any move, whatever its size
     budget: int = 200                  # evaluation budget (candidate evaluations, verifications included)
     periods: int = 300
     observe: float = 0.5               # imitation: share of the leader's components that are observable
@@ -397,7 +404,8 @@ def simulate(searcher: str, env: NKEnv, obs: Observer, start: int, U: np.ndarray
             y = _propose(searcher, x, t, U, N, hp, obs)
             o_y = obs.observe(y, t, 1)
             used += 1
-            c_move = env.cost * bin(x ^ y).count("1")
+            flips = bin(x ^ y).count("1")
+            c_move = env.cost * flips + (env.switch_cost if flips else 0.0)
             g1 = o_y - o_x - c_move
             sig = g1 / max(np.sqrt(2.0 * v), 1e-9)
             b = int((sig > EDGES).sum())

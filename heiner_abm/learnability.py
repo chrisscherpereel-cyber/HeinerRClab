@@ -19,7 +19,38 @@ Manipulated factors (Config)
     memory    the reliability gates' memory lambda (their effective window is about (1 + lambda) / (1 - lambda))
     default   default quality: 'slow' (slow forecast, gain 0.01), 'fixed_initial' (the best order for the first
               regime, which deteriorates after the first change), 'biased' (40 units too low), 'dominated' (orders 0)
-    cost      adaptation cost c, charged in every period whose order differs from the default's
+    cost      default-departure overhead: charged in every period whose order differs from the default's
+    switch_cost     fixed switching cost: charged in every period whose order differs from the PREVIOUS period's
+    magnitude_cost  charged per unit of |S_t - S_{t-1}|
+    cost_model      "components" (all three above) or "legacy_departure_only" (see below)
+
+Three distinct costs, deliberately not interchangeable
+    Departing from a default, changing your mind, and changing by a lot are different economic frictions and are
+    modeled as three separate charges. They are *not* three parameterizations of one construct, and nothing here
+    assumes they stand for the same thing:
+        departure  c_dep * 1[S_t != S_D,t]        an overhead for not being on the default (for example the cost of
+                                                  running a process that is not the standard one)
+        switching  c_sw  * 1[S_t != S_{t-1}]      a fixed cost of changing the action at all (a setup or changeover)
+        magnitude  c_mag * |S_t - S_{t-1}|        a cost proportional to how far the action moved
+    The distinction matters: an agent that holds a constant non-default order pays the departure overhead every
+    period and nothing for switching or magnitude, while an agent that tracks a moving default pays no departure
+    overhead but pays for every change. Before 9 October 2026 only the departure overhead existed and the same
+    indicator also *defined* the reported adaptation rate, so "how often the policy departed from the default" and
+    "how often the policy actually changed its order" could not be told apart. They are now reported separately as
+    `departure_rate` and `adjustment_rate`. `Config.cost_model = "legacy_departure_only"` restores the old
+    calculation exactly (the two new charges are ignored, whatever they are set to).
+
+Conventions fixed once, so the components are comparable
+    tolerance     two orders count as different when they differ by more than ACTION_TOL (1e-9); the same tolerance
+                  defines departure, switching and the "missed opportunity" accounting
+    first period  period 0 has no previous action, so it is charged no switching and no magnitude cost; it is
+                  charged the departure overhead if its order differs from that period's default
+    burn-in       costs are charged in every period, and the reported means cover the recorded periods t >= burn_in.
+                  The switching and magnitude charges at t = burn_in compare with the order in period burn_in - 1,
+                  which is a real decision, so no recorded period is charged against an undefined predecessor.
+    objective     tuning scores exactly the evaluation objective, `net_payoff` = gross payoff minus all charges that
+                  the configuration switches on, so a policy is never tuned against a different economic objective
+                  from the one it is judged by.
 
 Process families (Config.family): every family starts at mu = 100 and keeps mu in [30, 170]
     jump      with probability `hazard` the mean jumps by N(0, 30^2) (tuning and the main test)
@@ -56,7 +87,11 @@ Equal tuning budget
     `gate_confidence` / `gate_min_evidence` were never read: see LearnPlan.tune_gate for the legacy setting.
 
 Outcomes (per path, recorded periods t >= burn_in)
-    primary     net payoff per period = -(H_OVER (S - d)+ + P_SHORT (d - S)+) - c 1[S != S_D]
+    primary     net payoff per period = gross payoff - departure - switching - magnitude charges, where the gross
+                payoff is -(H_OVER (S - d)+ + P_SHORT (d - S)+). Reported alongside it: gross_payoff, the three
+                charges separately (cost_departure, cost_switching, cost_magnitude, cost_total), the share of
+                periods departing from the default (departure_rate), the share actually changing the order
+                (adjustment_rate) and the mean |S_t - S_{t-1}| (adjustment_magnitude)
     secondary   regret (oracle's gross payoff minus net payoff); downside loss (mean of the worst 5% of periods' net
                 payoff, CVaR 5%); calibration of the gates' predicted advantage (slope and bias against the realized
                 observed gain); adaptation rate (share of periods with S != S_D); missed opportunities (share of
@@ -109,6 +144,10 @@ GATE_HP0 = {"conf": 0.9, "nmin": 5.0}
 # NC3 noninferiority margin (net payoff per period). The control asks whether the confidence-sensitive gate is
 # *no worse than* the better fixed rule by more than this in an easy environment; see negative_controls().
 NC3_MARGIN = 0.25
+# Two orders count as different when they differ by more than this. One tolerance for every comparison:
+# departure from the default, switching from the previous order, and the missed-opportunity accounting.
+ACTION_TOL = 1e-9
+COST_MODELS = ("components", "legacy_departure_only")
 # Policies with free hyperparameters, and the key of their entry in LearnPlan.tuning_grid. Every one of them receives
 # the same number of candidate settings; the rest (default, gate_gain, oracle) have no hyperparameters to tune.
 TUNABLE = {"always": "gain", "band": "band_b", "gate_lcb": "gate", "bocpd": "bocpd", "dro": "dro"}
@@ -123,8 +162,20 @@ class Config:
     avail: float = 1.0
     memory: float = 0.97
     default: str = "fixed_initial"
-    cost: float = 1.0
+    cost: float = 1.0              # default-departure overhead, charged when S_t != S_D,t
+    switch_cost: float = 0.0       # fixed switching cost, charged when S_t != S_{t-1}
+    magnitude_cost: float = 0.0    # charged per unit of |S_t - S_{t-1}|
+    cost_model: str = "components"  # or "legacy_departure_only": the departure overhead alone, as before 9 Oct 2026
     perfect: bool = False          # negative control: the flexible order is the oracle's order
+
+    def __post_init__(self):
+        if self.cost_model not in COST_MODELS:
+            raise ValueError(f"Unknown cost model {self.cost_model!r} (one of {', '.join(COST_MODELS)}).")
+
+    @property
+    def zero_cost(self) -> bool:
+        """True when no charge can apply, whatever the cost model: the zero-cost control."""
+        return not (self.cost or (self.cost_model == "components" and (self.switch_cost or self.magnitude_cost)))
 
 
 # ================================================================================================ environment
@@ -158,7 +209,35 @@ def paths(cfg: Config, T: int, seed: int) -> Dict[str, np.ndarray]:
 
 
 def payoff(S, d):
+    """Gross payoff: the newsvendor payoff before any adaptation charge."""
     return -newsvendor_loss(S, d)
+
+
+def cost_components(cfg: Config, S: np.ndarray, S_D: np.ndarray) -> Dict[str, np.ndarray]:
+    """Per-period charges for a path of orders, as three separate economic frictions.
+
+    departure  cfg.cost           each period the order differs from that period's default
+    switching  cfg.switch_cost    each period the order differs from the previous period's order
+    magnitude  cfg.magnitude_cost per unit of |S_t - S_{t-1}|
+
+    Period 0 has no predecessor, so it carries no switching and no magnitude charge; it does carry the departure
+    overhead if it departs. Under cost_model "legacy_departure_only" only the departure overhead is charged and the
+    other two are ignored however they are set, reproducing the calculation used before 9 October 2026.
+
+    Also returns the two behavioral indicators that used to be the same array: `departs` (differs from the default)
+    and `changes` (differs from the previous order). Conflating them is what made "adaptation rate" ambiguous.
+    """
+    S, S_D = np.asarray(S, float), np.asarray(S_D, float)
+    departs = np.abs(S - S_D) > ACTION_TOL
+    step = np.zeros_like(S)
+    step[1:] = np.abs(S[1:] - S[:-1])                    # period 0 has no previous action
+    changes = step > ACTION_TOL
+    legacy = cfg.cost_model == "legacy_departure_only"
+    dep = cfg.cost * departs
+    sw = np.zeros_like(S) if legacy else cfg.switch_cost * changes
+    mag = np.zeros_like(S) if legacy else cfg.magnitude_cost * step
+    return dict(departs=departs, changes=changes, step=step,
+                departure=dep, switching=sw, magnitude=mag, total=dep + sw + mag)
 
 
 # ================================================================================================ candidate orders
@@ -204,6 +283,10 @@ def gated(cfg: Config, p, c: Dict[str, np.ndarray], gate: str, conf: float = GAT
     for t in range(T):
         differ = S_F[t] != S_D[t]
         if differ:
+            # The gate weighs the learned gain against the DEPARTURE overhead only: it chooses between the
+            # default and the flexible order for this period and does not look ahead to switching or
+            # magnitude charges, which depend on the order it happens to be holding. A stated limitation,
+            # not an equivalence between the three charges.
             tab = gates.gate_table(gate, learned, S, XS, lam=lam, cost=cfg.cost, conf=conf, nmin=nmin)
             b = b_all[t]
             adapt[t] = tab["mode"][b] == gates.ADAPT
@@ -296,19 +379,41 @@ def _recovery_delay(excess: np.ndarray, change: np.ndarray, burn: int, window: i
 
 
 def outcomes(policy: str, cfg: Config, p, c, S, pred, gain_obs, burn: int) -> Dict[str, float]:
+    """Per-path outcomes over the recorded periods t >= burn.
+
+    Reports the gross payoff, each cost component, and the net payoff separately, and keeps the two behavioral
+    rates apart: `departure_rate` (the order differs from the default) and `adjustment_rate` (the order differs
+    from the previous order). `net_payoff` is the primary outcome and is exactly what tuning scores.
+    """
     d, S_D, S_F = p["d"], c["S_D"], c["S_F"]
     oracle = np.maximum(0.0, p["mu"] + Z_FRAC * cfg.sigma)
-    adapt = np.abs(S - S_D) > 1e-9
-    net = payoff(S, d) - cfg.cost * adapt
+    k = cost_components(cfg, S, S_D)
+    gross = payoff(S, d)
+    net = gross - k["total"]
     w = slice(burn, None)
     regret = payoff(oracle, d) - net
     worst = np.sort(net[w])[:max(1, int(0.05 * len(net[w])))]
-    true_gain = payoff(S_F, d) - payoff(S_D, d)
-    out = dict(net_payoff=float(net[w].mean()), regret=float(regret[w].mean()), cvar5=float(worst.mean()),
-               adaptation_rate=float(adapt[w].mean()))
+    out = dict(net_payoff=float(net[w].mean()), gross_payoff=float(gross[w].mean()),
+               cost_departure=float(k["departure"][w].mean()), cost_switching=float(k["switching"][w].mean()),
+               cost_magnitude=float(k["magnitude"][w].mean()), cost_total=float(k["total"][w].mean()),
+               departure_rate=float(k["departs"][w].mean()), adjustment_rate=float(k["changes"][w].mean()),
+               adjustment_magnitude=float(k["step"][w].mean()),
+               regret=float(regret[w].mean()), cvar5=float(worst.mean()))
     if policy in CHOOSERS:
-        opp = (true_gain > cfg.cost)[w]
-        took = (np.abs(S - S_F) < 1e-9)[w]
+        # A missed opportunity is one where adopting the flexible order would have been worth its charges. Both
+        # branches are priced against the order actually held in the previous period, so the switching and
+        # magnitude charges of adopting and of keeping are compared like for like.
+        prev = np.concatenate(([S[0]], S[:-1]))
+        legacy = cfg.cost_model == "legacy_departure_only"
+        sw, mag = (0.0, 0.0) if legacy else (cfg.switch_cost, cfg.magnitude_cost)
+        def _charge(x, departs_from_default):
+            step = np.abs(x - prev)
+            step[0] = 0.0                                  # the first period has no predecessor
+            return (cfg.cost * departs_from_default + sw * (step > ACTION_TOL) + mag * step)
+        net_adopt = payoff(S_F, d) - _charge(S_F, np.abs(S_F - S_D) > ACTION_TOL)
+        net_keep = payoff(S_D, d) - _charge(S_D, np.zeros_like(S_D, dtype=bool))
+        opp = (net_adopt > net_keep)[w]
+        took = (np.abs(S - S_F) < ACTION_TOL)[w]
         out["missed"] = float((~took[opp]).mean()) if opp.any() else np.nan
     else:
         out["missed"] = np.nan
@@ -626,7 +731,8 @@ def negative_controls(plan: LearnPlan, hp) -> pd.DataFrame:
     T, burn = plan.periods, plan.burn_in
     out = []
     # NC1: perfect information, costless adaptation
-    c1 = replace(base, perfect=True, cost=0.0)
+    c1 = replace(base, perfect=True, cost=0.0, switch_cost=0.0, magnitude_cost=0.0)
+    assert c1.zero_cost, "NC1 must charge nothing at all"
     t1 = run_config(c1, hp, _seeds(plan, 4, 1, plan.paths), T, burn)
     diffs = {pol: paired(t1, pol, "always", n_boot=plan.n_boot) for pol in POLICIES if pol not in ("always", "oracle")}
     ok1 = all(not (lo > 0.25) for _, lo, _ in diffs.values())
@@ -636,9 +742,9 @@ def negative_controls(plan: LearnPlan, hp) -> pd.DataFrame:
     c2 = replace(base, default="dominated")
     t2 = run_config(c2, hp, _seeds(plan, 4, 2, plan.paths), T, burn, ("always", "gate_gain", "gate_lcb"))
     m2 = t2.groupby("policy").mean(numeric_only=True)
-    ok2 = all(m2.loc[g, "adaptation_rate"] >= 0.9 and m2.loc[g, "net_payoff"] >= m2.loc["always", "net_payoff"]
+    ok2 = all(m2.loc[g, "departure_rate"] >= 0.9 and m2.loc[g, "net_payoff"] >= m2.loc["always", "net_payoff"]
               - 0.05 * abs(m2.loc["always", "net_payoff"]) for g in ("gate_gain", "gate_lcb"))
-    out.append(("NC2", ok2, "; ".join(f"{POLICY_LABELS[g]}: adaptation {m2.loc[g, 'adaptation_rate']:.3f}, net payoff "
+    out.append(("NC2", ok2, "; ".join(f"{POLICY_LABELS[g]}: departure {m2.loc[g, 'departure_rate']:.3f}, net payoff "
                                       f"{m2.loc[g, 'net_payoff']:.2f} (always {m2.loc['always', 'net_payoff']:.2f})"
                                       for g in ("gate_gain", "gate_lcb"))))
     # NC3: stable and abundant
@@ -745,7 +851,9 @@ def evaluate(tests: pd.DataFrame, newf: pd.DataFrame, market: Optional[Dict], pl
                          for h in plan.hypotheses for v in rows if v[0] == h[0]])
 
 
-SECONDARY = ("regret", "cvar5", "adaptation_rate", "missed", "calib_bias", "calib_slope", "recovery_delay")
+SECONDARY = ("gross_payoff", "cost_departure", "cost_switching", "cost_magnitude", "cost_total",
+             "regret", "cvar5", "departure_rate", "adjustment_rate", "adjustment_magnitude", "missed",
+             "calib_bias", "calib_slope", "recovery_delay")
 
 
 def secondary_table(paths_df: pd.DataFrame, part: str = "test", n_boot: int = 2000) -> pd.DataFrame:

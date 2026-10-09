@@ -1,6 +1,6 @@
 # Registration: when can reliability be learned before the environment changes?
 
-* Plan hash: `6fbc88a80332fc38` (registered in the repository: `6fbc88a80332fc38`)
+* Plan hash: `a98b971b49fe5e3e` (registered in the repository: `a98b971b49fe5e3e`)
 * Status: This specification is frozen in the repository: its hash covers the plan and the study code, and a test fails if either changes without a new registration entry. It has **not** been preregistered with an external registry (for example OSF or AsPredicted). Any external registration must be done separately; until then, do not describe the study as externally preregistered.
 
 ## Question
@@ -21,7 +21,38 @@ Manipulated factors (Config)
     memory    the reliability gates' memory lambda (their effective window is about (1 + lambda) / (1 - lambda))
     default   default quality: 'slow' (slow forecast, gain 0.01), 'fixed_initial' (the best order for the first
               regime, which deteriorates after the first change), 'biased' (40 units too low), 'dominated' (orders 0)
-    cost      adaptation cost c, charged in every period whose order differs from the default's
+    cost      default-departure overhead: charged in every period whose order differs from the default's
+    switch_cost     fixed switching cost: charged in every period whose order differs from the PREVIOUS period's
+    magnitude_cost  charged per unit of |S_t - S_{t-1}|
+    cost_model      "components" (all three above) or "legacy_departure_only" (see below)
+
+Three distinct costs, deliberately not interchangeable
+    Departing from a default, changing your mind, and changing by a lot are different economic frictions and are
+    modeled as three separate charges. They are *not* three parameterizations of one construct, and nothing here
+    assumes they stand for the same thing:
+        departure  c_dep * 1[S_t != S_D,t]        an overhead for not being on the default (for example the cost of
+                                                  running a process that is not the standard one)
+        switching  c_sw  * 1[S_t != S_{t-1}]      a fixed cost of changing the action at all (a setup or changeover)
+        magnitude  c_mag * |S_t - S_{t-1}|        a cost proportional to how far the action moved
+    The distinction matters: an agent that holds a constant non-default order pays the departure overhead every
+    period and nothing for switching or magnitude, while an agent that tracks a moving default pays no departure
+    overhead but pays for every change. Before 9 October 2026 only the departure overhead existed and the same
+    indicator also *defined* the reported adaptation rate, so "how often the policy departed from the default" and
+    "how often the policy actually changed its order" could not be told apart. They are now reported separately as
+    `departure_rate` and `adjustment_rate`. `Config.cost_model = "legacy_departure_only"` restores the old
+    calculation exactly (the two new charges are ignored, whatever they are set to).
+
+Conventions fixed once, so the components are comparable
+    tolerance     two orders count as different when they differ by more than ACTION_TOL (1e-9); the same tolerance
+                  defines departure, switching and the "missed opportunity" accounting
+    first period  period 0 has no previous action, so it is charged no switching and no magnitude cost; it is
+                  charged the departure overhead if its order differs from that period's default
+    burn-in       costs are charged in every period, and the reported means cover the recorded periods t >= burn_in.
+                  The switching and magnitude charges at t = burn_in compare with the order in period burn_in - 1,
+                  which is a real decision, so no recorded period is charged against an undefined predecessor.
+    objective     tuning scores exactly the evaluation objective, `net_payoff` = gross payoff minus all charges that
+                  the configuration switches on, so a policy is never tuned against a different economic objective
+                  from the one it is judged by.
 
 Process families (Config.family): every family starts at mu = 100 and keeps mu in [30, 170]
     jump      with probability `hazard` the mean jumps by N(0, 30^2) (tuning and the main test)
@@ -58,7 +89,11 @@ Equal tuning budget
     `gate_confidence` / `gate_min_evidence` were never read: see LearnPlan.tune_gate for the legacy setting.
 
 Outcomes (per path, recorded periods t >= burn_in)
-    primary     net payoff per period = -(H_OVER (S - d)+ + P_SHORT (d - S)+) - c 1[S != S_D]
+    primary     net payoff per period = gross payoff - departure - switching - magnitude charges, where the gross
+                payoff is -(H_OVER (S - d)+ + P_SHORT (d - S)+). Reported alongside it: gross_payoff, the three
+                charges separately (cost_departure, cost_switching, cost_magnitude, cost_total), the share of
+                periods departing from the default (departure_rate), the share actually changing the order
+                (adjustment_rate) and the mean |S_t - S_{t-1}| (adjustment_magnitude)
     secondary   regret (oracle's gross payoff minus net payoff); downside loss (mean of the worst 5% of periods' net
                 payoff, CVaR 5%); calibration of the gates' predicted advantage (slope and bias against the realized
                 observed gain); adaptation rate (share of periods with S != S_D); missed opportunities (share of
@@ -134,12 +169,24 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
    1.0
   ],
   [
+   "switch_cost",
+   0.0
+  ],
+  [
+   "magnitude_cost",
+   0.0
+  ],
+  [
+   "cost_model",
+   "components"
+  ],
+  [
    "perfect",
    false
   ]
  ],
  "burn_in": 100,
- "code": "2740cea937e1d76cef4266d40dacd32842e1123ba339804c4cb36f0973e95948",
+ "code": "ec6bb2821627c766afaaa005b324fda5c527354096bc99217be2f1df4749883e",
  "gate_confidence": 0.9,
  "gate_min_evidence": 5.0,
  "hypotheses": [

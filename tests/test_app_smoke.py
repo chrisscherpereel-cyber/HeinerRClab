@@ -49,6 +49,15 @@ def _fast(at):
     return at
 
 
+
+def _why(at):
+    """Full detail for a failing page: the message AND the stack trace of every captured exception.
+
+    AppTest swallows exceptions into elements, so reporting only e.value hides where the error came from, which
+    makes an intermittent failure very hard to chase."""
+    return [str(e.value) + '\n' + '\n'.join(e.stack_trace or []) for e in at.exception]
+
+
 @pytest.mark.parametrize("page", PAGES)
 @pytest.mark.parametrize("preset", [{"cfg_horizon": 1}, {"cfg_rule": "Cournot", "cfg_horizon": 3},
                                     {"cfg_selection": "Adaptive", "cfg_horizon": 3, "focal_theory": "options"},
@@ -65,7 +74,7 @@ def test_page_runs(page, preset):
         at.session_state[k] = v
     at.run()
     at.switch_page(page).run()
-    assert not at.exception, [e.value for e in at.exception]
+    assert not at.exception, _why(at)
     # press every run/submit button once
     for i in range(len(at.button)):
         if i >= len(at.button):            # a button may switch to a page with fewer buttons
@@ -74,7 +83,7 @@ def test_page_runs(page, preset):
         if b.label in ("Apply preset", "Reset"):
             continue
         b.click().run()
-        assert not at.exception, (b.label, [e.value for e in at.exception])
+        assert not at.exception, (b.label, _why(at))
     for form_btn in at.get("form_submit_button") if hasattr(at, "get") else []:
         form_btn.click().run()
-        assert not at.exception, [e.value for e in at.exception]
+        assert not at.exception, _why(at)

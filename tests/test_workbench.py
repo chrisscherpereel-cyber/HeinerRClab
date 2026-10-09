@@ -194,12 +194,16 @@ def test_background_run_completes_outside_the_page():
     s = _small(presets.load("noise_simple"), reps=2, periods=150)
     s.design.seed = 4242
     key = execution.start_background(s, "research")
-    for _ in range(240):
+    # A wall-clock budget, not a fixed poll count: the suite runs its tests in parallel worker processes, and a
+    # starved subprocess can take much longer than the run itself needs. 240 polls (120 s) was tight under any load.
+    deadline, p = time.time() + 600, None
+    while time.time() < deadline:
         p = store.progress(key)
         if p and p["status"] != "running":
             break
         time.sleep(0.5)
-    assert p["status"] == "complete", open(os.path.join(store.run_dir(key), "worker.log")).read()
+    assert p is not None, "the background run never reported any progress"
+    assert p["status"] == "complete", (p["status"], open(os.path.join(store.run_dir(key), "worker.log")).read())
     assert store.cached(s, "research").key == key
 
 

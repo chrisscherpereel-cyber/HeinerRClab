@@ -1,2 +1,3 @@
 -r requirements.txt
 pytest>=8
+pytest-xdist>=3      # the suite must not run in one process; see pytest.ini

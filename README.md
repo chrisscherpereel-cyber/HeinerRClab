@@ -92,8 +92,17 @@ Tests (agent/engine equivalence, RC accounting identity, literature-registry int
 
 ```bash
 python -m pip install -r requirements-dev.txt
-python -m pytest -q tests
+python -m pytest -q
 ```
+
+`pytest.ini` runs the suite across worker processes, and that is required rather than optional. The headless page
+tests start about 300 full Streamlit app sessions; run in a single interpreter, the process corrupts its own memory
+after roughly 60–250 of them and then either reports an impossible array shape or dies with a Windows access
+violation, in a different module each time. Measured on 8–9 October 2026: one process failed or crashed in 4 of 7
+runs; the same tests split across processes passed 7 of 7, and the whole suite under `-n auto` passed twice and ran
+about six minutes faster. Capping OpenBLAS threads did not help, so it is not BLAS threading. The underlying fault is
+in the Streamlit/numpy stack rather than in this repository; `pytest.ini` keeps each worker's share small enough to
+avoid it. Forcing one process (`-n 0`) brings the flakiness back.
 
 ## Deploy on Streamlit Community Cloud
 

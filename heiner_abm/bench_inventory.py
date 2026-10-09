@@ -125,9 +125,21 @@ def filter_posterior(y: np.ndarray, grid: np.ndarray, P: np.ndarray, w0: np.ndar
 class BOCPD:
     """Bayesian online change-point detection with a Gaussian segment model of known variance (Adams & MacKay 2007).
 
-    Convention: a change at t means y_t starts a new segment; run length r_t counts the observations of the current
-    segment including y_t. Segment means ~ N(m0, s0^2) independently; y | mean ~ N(mean, sm^2); P(change) = hazard each
-    period. Run lengths above `rmax` are merged into the longest kept one (an approximation; tests use rmax >= T)."""
+    Convention: a change at t means y_t starts a new segment; run length r_t counts the periods of the current
+    segment including t. Segment means ~ N(m0, s0^2) independently; y | mean ~ N(mean, sm^2); P(change) = hazard each
+    period. Run lengths above `rmax` are merged into the longest kept one (an approximation; tests use rmax >= T).
+
+    Calendar time and observation are separate. `self.w` always holds the run-length posterior after the last period
+    the model has been told about. Exactly one hazard transition belongs to each period:
+        update(y)       a period whose demand was observed: hazard transition, then condition on y;
+        advance()       a period whose demand was not observed: the hazard transition alone, marginalizing over the
+                        unseen y, so a change can still have happened and the segment posteriors of continuing runs
+                        are carried forward unchanged;
+        predictive()    the mixture for the *next* period: it applies that period's hazard transition to the stored
+                        posterior without mutating it.
+    Calling advance() for a missing period and then predictive() therefore applies one transition per period and no
+    more. Skipping advance() (the behavior before 8 October 2026) froze the run-length posterior whenever a demand
+    was unobserved, so regime uncertainty stopped accumulating across gaps in the data."""
 
     def __init__(self, hazard: float, m0: float, s0: float, sm: float, rmax: int = 300):
         self.H, self.m0, self.v0, self.v = hazard, m0, s0 ** 2, sm ** 2
@@ -142,6 +154,24 @@ class BOCPD:
             return np.ones(1), np.array([self.m0]), np.array([self.v0 + self.v])
         wts = np.append((1 - self.H) * self.w, self.H)
         return wts, np.append(self.mu, self.m0), np.append(self.var, self.v0) + self.v
+
+    def advance(self):
+        """A period with no observation: apply the hazard transition only (no conditioning).
+
+        A new run starts with probability H and reverts to the segment-mean prior; continuing runs keep their
+        posterior means and variances, because nothing was observed to update them. Before the first observation
+        there is no posterior to propagate and this is a no-op."""
+        if len(self.w) == 0:
+            return
+        self.w = np.append(self.H, (1 - self.H) * self.w)
+        self.mu = np.append(self.m0, self.mu)
+        self.var = np.append(self.v0, self.var)
+        self._truncate()
+
+    def _truncate(self):
+        if len(self.w) > self.rmax:                              # merge the tail into the longest kept run length
+            self.w[self.rmax - 1] += self.w[self.rmax:].sum()
+            self.w, self.mu, self.var = self.w[:self.rmax], self.mu[:self.rmax], self.var[:self.rmax]
 
     def update(self, y: float):
         wts, m, s2 = self.predictive()
@@ -159,9 +189,7 @@ class BOCPD:
         self.mu = np.append(mu_new, mu_c)
         self.var = np.append(1 / prec_new, 1 / prec)
         self.w = new_w / new_w.sum()
-        if len(self.w) > self.rmax:                              # merge the tail into the longest kept run length
-            self.w[self.rmax - 1] += self.w[self.rmax:].sum()
-            self.w, self.mu, self.var = self.w[:self.rmax], self.mu[:self.rmax], self.var[:self.rmax]
+        self._truncate()
 
 
 def gaussian_mixture_quantile(w, m, s2, frac: float = FRACTILE, iters: int = 60) -> float:
@@ -175,11 +203,16 @@ def gaussian_mixture_quantile(w, m, s2, frac: float = FRACTILE, iters: int = 60)
 
 
 def bocpd_orders(y: np.ndarray, hazard: float, s0: float, sm: float, m0: float = MU0, rmax: int = 300) -> np.ndarray:
+    """Orders from the posterior predictive, one per period. A period whose demand is NaN (unobserved) advances
+    calendar time by its hazard transition without conditioning, so regime uncertainty keeps accumulating."""
     model = BOCPD(hazard, m0, s0, sm, rmax)
     S = np.empty(len(y))
     for t in range(len(y)):
         S[t] = max(0.0, gaussian_mixture_quantile(*model.predictive()))
-        model.update(float(y[t]))
+        if np.isnan(y[t]):
+            model.advance()
+        else:
+            model.update(float(y[t]))
     return S
 
 

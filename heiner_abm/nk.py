@@ -228,10 +228,14 @@ def landscape_path(env: NKEnv) -> List[Epoch]:
     r_land, r_change = (np.random.default_rng(s) for s in ss.spawn(2))
     land = make_landscape(env.N, env.K_NK, env.topology, r_land)
     hits = r_change.random(env.periods) < env.hazard
-    m = max(1, int(round(env.change_frac * env.N)))
+    # Components redrawn at a change. change_frac = 0 means no component changes, so the landscape never changes
+    # and no further epoch is created: it is the negative control for environmental change. (Until 8 October 2026
+    # this was max(1, ...), so change_frac = 0 still redrew one component at every hit and the "no change" control
+    # silently changed the landscape.)
+    m = int(round(env.change_frac * env.N))
     epochs = [land]
     starts = [0]
-    for t in np.flatnonzero(hits):
+    for t in (np.flatnonzero(hits) if m > 0 else ()):
         if t == 0:
             continue
         comps = r_change.choice(env.N, m, replace=False)

@@ -1,6 +1,6 @@
 {
- "plan_hash": "8f43bedc7dae10bc",
- "registered_plan_hash": "8f43bedc7dae10bc",
+ "plan_hash": "6fbc88a80332fc38",
+ "registered_plan_hash": "6fbc88a80332fc38",
  "matches_registered_plan": true,
  "hyperparameters": {
   "gain": 0.1,
@@ -26,5 +26,5 @@
   0.8,
   3.0
  ],
- "minutes": 7.4
+ "minutes": 18.4
 }

@@ -106,6 +106,9 @@ CHOOSERS = ("always", "default", "band", "gate_gain", "gate_lcb")   # choose bet
 Z90 = 1.2815515655446004
 # Candidate 0 of the lcb gate: the settings used before the gate was given a tuning budget (7 October 2026).
 GATE_HP0 = {"conf": 0.9, "nmin": 5.0}
+# NC3 noninferiority margin (net payoff per period). The control asks whether the confidence-sensitive gate is
+# *no worse than* the better fixed rule by more than this in an easy environment; see negative_controls().
+NC3_MARGIN = 0.25
 # Policies with free hyperparameters, and the key of their entry in LearnPlan.tuning_grid. Every one of them receives
 # the same number of candidate settings; the rest (default, gate_gain, oracle) have no hyperparameters to tune.
 TUNABLE = {"always": "gain", "band": "band_b", "gate_lcb": "gate", "bocpd": "bocpd", "dro": "dro"}
@@ -214,11 +217,19 @@ def gated(cfg: Config, p, c: Dict[str, np.ndarray], gate: str, conf: float = GAT
 
 
 def bocpd_orders(y: np.ndarray, hazard: float, s0: float, sm: float, rmax: int = 150) -> np.ndarray:
+    """Orders from the Bayesian change-point posterior predictive, one per period.
+
+    Every period advances calendar time by exactly one hazard transition, whether or not its demand was observed:
+    an observed period conditions on the demand (update), an unobserved one marginalizes over it (advance). Before
+    8 October 2026 unobserved periods were skipped entirely, so a run of missing demands left the run-length
+    posterior frozen and the model behaved as if no time, and so no regime risk, had passed."""
     model = BOCPD(hazard, MU0, s0, sm, rmax)
     out = np.empty(len(y))
     for t in range(len(y)):
         out[t] = max(0.0, gaussian_mixture_quantile(*model.predictive()))
-        if not np.isnan(y[t]):
+        if np.isnan(y[t]):
+            model.advance()
+        else:
             model.update(float(y[t]))
     return out
 
@@ -374,8 +385,11 @@ NEGATIVE_CONTROLS = (
      "periods and lose no more than 5% of always adapting's net payoff."),
     ("NC3", "Stable environment with abundant feedback",
      "No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the "
-     "confidence-sensitive gate is at least as good as the better fixed rule. Passes if R < 1 and the gate's advantage "
-     "has a 95% CI upper bound above −0.25 per period."),
+     "confidence-sensitive gate is at least as good as the better fixed rule. Estimand: the gate's mean paired "
+     "advantage over that rule, in net payoff per period. Noninferiority test at a prespecified margin of 0.25 per "
+     "period: passes if R < 1 and the *lower* limit of the 95% bootstrap CI of the advantage exceeds −0.25, so "
+     "that the gate being worse by more than the margin is ruled out. Until 8 October 2026 the rule compared the "
+     "*upper* limit with −0.25, which only fails when the gate is confidently worse and so established nothing."),
 )
 
 
@@ -636,9 +650,11 @@ def negative_controls(plan: LearnPlan, hp) -> pd.DataFrame:
     bf = "always" if pm["always"] >= pm["default"] else "default"
     t3 = run_config(c3, hp, _seeds(plan, 4, 3, plan.paths), T3, burn, ("always", "default", "gate_lcb"))
     m, lo, hi = paired(t3, "gate_lcb", bf, n_boot=plan.n_boot)
-    ok3 = r3["ratio"] < 1 and hi > -0.25
+    # Noninferiority: reject "the gate is worse by more than the margin" when the lower confidence limit clears it.
+    ok3 = bool(r3["ratio"] < 1 and lo > -NC3_MARGIN)
     out.append(("NC3", ok3, f"R = {r3['ratio']:.3g}; confidence gate − {POLICY_LABELS[bf].lower()} {m:+.2f} "
-                            f"[{lo:+.2f}, {hi:+.2f}]"))
+                            f"[{lo:+.2f}, {hi:+.2f}]; noninferiority margin −{NC3_MARGIN:g} "
+                            f"({'lower limit clears it' if lo > -NC3_MARGIN else 'lower limit does not clear it'})"))
     return pd.DataFrame(out, columns=["id", "passed", "result"])
 
 

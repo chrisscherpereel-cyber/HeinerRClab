@@ -3,6 +3,24 @@
 These numbers come from the registered runs documented in the README. They are tied to the plan hashes below:
 tests/test_theory_pages.py fails when the code changes the hashes, so the numbers cannot silently go stale.
 
+Revision note (8 October 2026, five defect repairs): five defects were confirmed against the code and repaired.
+(1) The workbench built its hyperparameters without a "gate" entry, so the confidence-sensitive gate silently used
+learnability.GATE_HP0 and neither its control nor a tuned value reached gated(); the gate is now exposed as controls,
+forwarded, and tuned with the same four candidates as the forecast gain and the band. (2) BOCPD advanced its
+run-length posterior only when a demand was observed, so a gap in the data froze regime uncertainty; calendar time
+and conditioning are now separate (BOCPD.advance()), exactly one hazard transition per period. (3) The NC3 negative
+control passed when the *upper* confidence limit exceeded −0.25, which only fails when the gate is confidently
+much worse; it is now a noninferiority test on the *lower* limit at a prespecified margin (learnability.NC3_MARGIN).
+(4) NK landscape_path redrew max(1, round(frac * N)) components, so change_frac = 0 still changed the landscape;
+zero now means no modification. (5) learnability_market.ratio counted feedback in the regime of the decision rather
+than of its release, crediting a regime with feedback that arrived only after it ended; feedback is now counted by
+release period and decisions whose judgement window crosses a regime boundary are excluded from both the regime mean
+and its count. Repairs (2), (3) and (5) change the learnability study's code, so its plan hash changed,
+8f43bedc7dae10bc → 6fbc88a80332fc38, and the whole study was rerun; the numbers below and in
+docs/learnability_results/ are from that rerun. Results under 8f43bedc7dae10bc are kept in the README's revision
+notes and REQUIRE REPLICATION. Repairs (1) and (4) touch no registered hash: the tournament plan, the mechanism and
+rule-choice plans and all seven finding fingerprints are unchanged.
+
 Revision note (8 October 2026, equal search density in the tournament): every tournament design was tuned with the
 same *number* of candidate settings, but designs carry one to six free parameters, so the same budget searched a
 six-dimensional space six times less thoroughly than a one-dimensional one — and the two reliability-condition
@@ -59,7 +77,7 @@ EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
 # not preregistered with any external registry. Re-registered the same day when every policy was given the same tuning
 # budget (see the revision note above); the run under the previous plan "ec9b781e125e289d" requires replication.
-LEARN_PLAN = "8f43bedc7dae10bc"
+LEARN_PLAN = "6fbc88a80332fc38"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.

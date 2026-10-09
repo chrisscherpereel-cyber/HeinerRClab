@@ -104,25 +104,48 @@ def net_payoffs(cfg: MarketConfig, policy: str, seeds: Sequence[int], plan: Mark
 
 def ratio(cfg: MarketConfig, seeds: Sequence[int], plan: MarketPlan, theta: float) -> Dict[str, float]:
     """Learnability ratio from pilot paths: per firm and demand regime, the researcher's counterfactual gives the
-    regime's mean advantage of adopting (over the judgement window), the gain gate's released feedback gives the noise
-    of what the firm learns from and the number of informative observations."""
+    regime's mean advantage of adopting, and the gain gate's released feedback gives the noise of what the firm
+    learns from and how much of it arrives in time to be used.
+
+    Two accounting rules, both needed for R to mean "can this be learned *before* the environment changes":
+
+    * Feedback counts in the regime in which it was **released**, not the one in which the decision was made. The
+      engine records a decision's gain at the decision period (firm_hist["fb_value"]) and its release period
+      separately (firm_hist["fb_release"]), because a judgement window of W periods plus any observation delay means
+      the firm only learns the gain W - 1 + delay periods after deciding. Counting by decision period credited the
+      regime with feedback that arrived only after it had ended, overstating n_avail and so understating R.
+    * Decisions whose judgement window **crosses a regime boundary** are excluded from both the regime's mean
+      advantage and its feedback count. Their gain mixes two regimes, so it estimates neither one's advantage; it is
+      not evidence about the regime the decision was made in. (Before 8 October 2026 such decisions were counted in
+      the regime they started in.)
+
+    n_avail is therefore the number of clean, within-regime feedback values the firm actually received while that
+    regime was still in force, which is what the construct is about.
+    """
     scns = [scenario(cfg, "gate_gain", sd, plan.periods, plan.burn_in, plan.window, theta) for sd in seeds]
     res = run_batch(scns, record_firm_history=True, horizon=plan.window)
     h = res.firm_hist
+    W = int(plan.window)
+    dec = np.arange(plan.periods)
     regimes, resid = [], []
     for b in range(len(scns)):
         cps = sorted(set([plan.burn_in] + [t for t in np.flatnonzero(res.shifts[b]) if t > plan.burn_in]
                          + [plan.periods]))
         for lo, hi in zip(cps[:-1], cps[1:]):
             for i in range(h["q"].shape[2]):
-                opp = h["opportunity"][b, lo:hi, i]
-                if not opp.any():
+                opp = h["opportunity"][b, :, i].astype(bool)
+                rel = h["fb_release"][b, :, i]                 # period the gain was released (-1 = never)
+                val = h["fb_value"][b, :, i]                   # the gain, stored at the decision period
+                # decisions taken in this regime whose whole judgement window also lies inside it
+                inside = opp & (dec >= lo) & (dec + W - 1 < hi)
+                if not inside.any():
                     continue
-                mu_r = float(h["gain_full"][b, lo:hi, i][opp].mean())
-                g = h["fb_value"][b, lo:hi, i]
-                g = g[np.isfinite(g)]
-                resid.extend(g - mu_r)
-                regimes.append((mu_r, len(g)))
+                mu_r = float(h["gain_full"][b, :, i][inside].mean())
+                got = inside & np.isfinite(val) & (rel >= lo) & (rel < hi)   # and released before the regime ended
+                resid.extend(val[got] - mu_r)
+                regimes.append((mu_r, int(got.sum())))
+    if not regimes:
+        return dict(n_needed=np.nan, n_avail=0.0, ratio=np.nan, log10_ratio=np.nan)
     s = float(np.std(resid, ddof=1)) if len(resid) > 1 else np.nan
     need = np.array([np.clip((Z90 * s / max(abs(m), 1e-9)) ** 2, 1.0, 1e6) for m, _ in regimes])
     avail = np.array([n for _, n in regimes], float)

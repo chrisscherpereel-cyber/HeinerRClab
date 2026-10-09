@@ -165,6 +165,10 @@ class Inventory(Environment):
                 20.0, 0.5),
         Control("memory", "Gates' memory λ", "agents", "float", 0.97, 0.8, 0.999, 0.005, advanced=True),
         Control("band_b", "Inaction band width b (in s.d.)", "agents", "float", 0.5, 0.0, 4.0, 0.25, advanced=True),
+        Control("gate_conf", "Confidence gate: confidence", "agents", "float", 0.9, 0.5, 0.995, 0.005, advanced=True,
+                help="One-sided confidence of the lower bound the confidence-sensitive gate requires."),
+        Control("gate_nmin", "Confidence gate: minimum evidence", "agents", "float", 5.0, 2.0, 50.0, 1.0,
+                advanced=True, help="Effective feedback items a size bin needs before the gate will adapt."),
     )
     not_applicable = {"model": "No demand model: every policy forecasts from observed demand only.",
                       "complexity": "One order per period; no interactions or search budget."}
@@ -203,8 +207,10 @@ class Inventory(Environment):
     )
     primary = "net_payoff"
     seconds_per_unit = 4e-5
-    tuning_note = ("Grid tuning on training seeds: forecast gain (for always adapting) and band width; the other "
-                   "policies keep their documented parameters.")
+    tuning_note = ("Grid tuning on training seeds, four candidates each: the forecast gain (scored on always "
+                   "adapting), the band width, and the confidence-sensitive gate's confidence and minimum evidence. "
+                   "The estimated-gain gate has no free hyperparameters; change detection and the robust order keep "
+                   "their documented parameters.")
 
     def _cfg(self, params):
         from .. import learnability as L
@@ -213,7 +219,13 @@ class Inventory(Environment):
                         default=params["default"], cost=float(params["cost"]))
 
     def _hp(self, params, hp):
-        return {"gain": float(hp.get("gain", params["gain"])), "band": {"b": float(hp.get("band_b", params["band_b"]))},
+        """Hyperparameters for learnability.policy_orders. The "gate" entry must be present: without it the
+        confidence-sensitive gate silently fell back to learnability.GATE_HP0 and neither the control nor any tuned
+        value reached it (fixed 8 October 2026)."""
+        return {"gain": float(hp.get("gain", params["gain"])),
+                "band": {"b": float(hp.get("band_b", params["band_b"]))},
+                "gate": {"conf": float(hp.get("gate_conf", params["gate_conf"])),
+                         "nmin": float(hp.get("gate_nmin", params["gate_nmin"]))},
                 "bocpd": {"hazard": 0.005, "prior_sd": 30.0, "obs_sd": 25.0}, "dro": {"window": 20, "rho": 0.01}}
 
     def tune(self, spec, params, seeds, cancel):
@@ -235,7 +247,13 @@ class Inventory(Environment):
         if cancel():
             return {}
         b = max((0.25, 0.5, 1.0, 2.0), key=lambda b: score("band", {**base, "gain": gain, "band": {"b": b}}))
-        return {"gain": gain, "band_b": b}
+        if cancel():
+            return {"gain": gain, "band_b": b}
+        # Same number of candidates as the two policies above, so the gate is not compared on a smaller budget.
+        gate_grid = ((0.9, 5.0), (0.8, 3.0), (0.9, 12.0), (0.95, 25.0))
+        conf, nmin = max(gate_grid, key=lambda v: score(
+            "gate_lcb", {**base, "gain": gain, "gate": {"conf": v[0], "nmin": v[1]}}))
+        return {"gain": gain, "band_b": b, "gate_conf": conf, "gate_nmin": nmin}
 
     def run_cell(self, spec, params, seeds, hp, cancel, trace):
         from .. import learnability as L

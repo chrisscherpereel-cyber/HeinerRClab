@@ -1,6 +1,6 @@
 # Registration: when can reliability be learned before the environment changes?
 
-* Plan hash: `8f43bedc7dae10bc` (registered in the repository: `8f43bedc7dae10bc`)
+* Plan hash: `6fbc88a80332fc38` (registered in the repository: `6fbc88a80332fc38`)
 * Status: This specification is frozen in the repository: its hash covers the plan and the study code, and a test fails if either changes without a new registration entry. It has **not** been preregistered with an external registry (for example OSF or AsPredicted). Any external registration must be done separately; until then, do not describe the study as externally preregistered.
 
 ## Question
@@ -92,7 +92,7 @@ Net payoff per period (newsvendor payoff minus the adaptation cost c whenever th
 ## Negative controls
 * **NC1 · Perfect information and reversible, costless adaptation.** The flexible order is the oracle's order and c = 0. Expected: no policy beats always adapting. Passes if no policy's paired net-payoff difference over always adapting has a 95% CI lower bound above 0.25 per period.
 * **NC2 · Dominated default.** The default orders nothing. Expected: the gates learn to adapt. Passes if both gates adapt in at least 90% of periods and lose no more than 5% of always adapting's net payoff.
-* **NC3 · Stable environment with abundant feedback.** No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the confidence-sensitive gate is at least as good as the better fixed rule. Passes if R < 1 and the gate's advantage has a 95% CI upper bound above −0.25 per period.
+* **NC3 · Stable environment with abundant feedback.** No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the confidence-sensitive gate is at least as good as the better fixed rule. Estimand: the gate's mean paired advantage over that rule, in net payoff per period. Noninferiority test at a prespecified margin of 0.25 per period: passes if R < 1 and the *lower* limit of the 95% bootstrap CI of the advantage exceeds −0.25, so that the gate being worse by more than the margin is ruled out. Until 8 October 2026 the rule compared the *upper* limit with −0.25, which only fails when the gate is confidently worse and so established nothing.
 
 ## Sets
 Training configurations (jump family) for tuning; independent pilot paths for R and for choosing the better fixed rule; untouched test paths (new seeds) for every reported effect; new process families (switching, drifting) for transfer. Seed blocks are disjoint by construction.
@@ -139,7 +139,7 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
   ]
  ],
  "burn_in": 100,
- "code": "d984038f495b6ade82225a36c8815aabd7411c416043a8a1ff745db83e3e8b7b",
+ "code": "2740cea937e1d76cef4266d40dacd32842e1123ba339804c4cb36f0973e95948",
  "gate_confidence": 0.9,
  "gate_min_evidence": 5.0,
  "hypotheses": [
@@ -219,7 +219,7 @@ Training configurations (jump family) for tuning; independent pilot paths for R 
   [
    "NC3",
    "Stable environment with abundant feedback",
-   "No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the confidence-sensitive gate is at least as good as the better fixed rule. Passes if R < 1 and the gate's advantage has a 95% CI upper bound above \u22120.25 per period."
+   "No regime changes, every demand observed, little noise, 3,000 periods. Expected: R < 1 and the confidence-sensitive gate is at least as good as the better fixed rule. Estimand: the gate's mean paired advantage over that rule, in net payoff per period. Noninferiority test at a prespecified margin of 0.25 per period: passes if R < 1 and the *lower* limit of the 95% bootstrap CI of the advantage exceeds \u22120.25, so that the gate being worse by more than the margin is ruled out. Until 8 October 2026 the rule compared the *upper* limit with \u22120.25, which only fails when the gate is confidently worse and so established nothing."
   ]
  ],
  "new_families": [

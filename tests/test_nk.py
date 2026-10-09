@@ -210,3 +210,37 @@ def test_quick_study_and_summaries():
     assert (s["landscapes"] == 3).all()
     d = nk.paired(runs, "gate_lcb", "gate_none", "payoff", ["K_NK"], 100)
     assert len(d) == 2
+
+
+def test_zero_change_fraction_never_modifies_the_landscape():
+    """Defect (repaired 8 October 2026): the number of components redrawn at a change was max(1, round(frac * N)),
+    so change_frac = 0 still redrew one component at every hazard hit and the no-change control silently changed the
+    landscape."""
+    import numpy as np
+    from heiner_abm.nk import NKEnv, landscape_path
+    for hazard in (0.0, 0.05, 0.5):
+        env = NKEnv(N=8, K_NK=2, hazard=hazard, change_frac=0.0, periods=300, seed=3)
+        epochs = landscape_path(env)
+        assert len(epochs) == 1, f"hazard={hazard}: {len(epochs)} epochs with change_frac=0"
+        assert epochs[0].start == 0
+    # a positive fraction must still change it, so the test above is not vacuous
+    changed = landscape_path(NKEnv(N=8, K_NK=2, hazard=0.05, change_frac=0.25, periods=300, seed=3))
+    assert len(changed) > 1
+    assert not np.array_equal(changed[0].land.tables, changed[-1].land.tables)
+
+
+def test_change_fraction_rounds_to_whole_components():
+    """A fraction that rounds to at least one component must redraw exactly that many, and one that rounds to zero
+    must redraw none."""
+    import numpy as np
+    from heiner_abm.nk import NKEnv, landscape_path
+    N = 8
+    for frac, expected in ((0.0, 0), (0.04, 0), (0.125, 1), (0.5, 4)):
+        env = NKEnv(N=N, K_NK=2, hazard=0.05, change_frac=frac, periods=300, seed=11)
+        eps = landscape_path(env)
+        if expected == 0:
+            assert len(eps) == 1, f"frac={frac} produced {len(eps)} epochs"
+        else:
+            assert len(eps) > 1, f"frac={frac} produced no change"
+            rows = np.any(eps[0].land.tables != eps[1].land.tables, axis=1).sum()
+            assert rows == expected, f"frac={frac}: {rows} components changed, expected {expected}"

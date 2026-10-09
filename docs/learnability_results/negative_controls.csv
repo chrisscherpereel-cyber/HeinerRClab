@@ -1,4 +1,4 @@
 id,passed,result
 NC1,True,"Retain the default − always -51.44 [-67.27, -38.73]; Inaction band − always -0.47 [-0.66, -0.28]; Estimated-gain gate − always -0.16 [-0.32, -0.06]; Confidence-sensitive gate − always -0.70 [-0.98, -0.48]; Bayesian change detection − always -2.21 [-2.49, -1.90]; Distributionally robust − always -3.10 [-3.65, -2.60]"
 NC2,True,"Estimated-gain gate: adaptation 1.000, net payoff -31.80 (always -31.78); Confidence-sensitive gate: adaptation 0.997, net payoff -32.48 (always -31.78)"
-NC3,True,"R = 0.076; confidence gate − retain the default -0.00 [-0.00, +0.00]"
+NC3,True,"R = 0.076; confidence gate − retain the default -0.00 [-0.00, +0.00]; noninferiority margin −0.25 (lower limit clears it)"

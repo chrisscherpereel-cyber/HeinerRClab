@@ -247,3 +247,43 @@ def test_choosing_a_question_loads_it_at_once():
     pick = next(s for s in at.selectbox if s.label == "Guided questions")
     pick.set_value("custom").run()                              # custom keeps the current settings
     assert at.session_state["wb_spec"].environment == "inventory"
+
+
+def test_inventory_workbench_forwards_the_gate_hyperparameters():
+    """Defect (repaired 8 October 2026): the workbench built its hyperparameters without a "gate" entry, so the
+    confidence-sensitive gate silently fell back to learnability.GATE_HP0 and neither the control nor a tuned value
+    reached gated() through policy_orders()."""
+    import numpy as np
+    from heiner_abm import learnability as L
+    from heiner_abm.workbench.environments import Inventory
+
+    env = Inventory()
+    params = {c.key: c.default for c in env.controls}
+    for cand in env.candidates:
+        params.update({c.key: c.default for c in cand.params})
+    assert {"gate_conf", "gate_nmin"} <= set(params), "the gate's parameters are not exposed as controls"
+
+    assert env._hp(params, {})["gate"] == {"conf": params["gate_conf"], "nmin": params["gate_nmin"]}
+    custom = {**params, "gate_conf": 0.75, "gate_nmin": 11.0}
+    assert env._hp(custom, {})["gate"] == {"conf": 0.75, "nmin": 11.0}          # the control reaches the gate
+    assert env._hp(custom, {"gate_conf": 0.95, "gate_nmin": 3.0})["gate"] == {"conf": 0.95, "nmin": 3.0}  # tuned wins
+
+    # and the value actually changes the policy's behavior end to end
+    cfg = env._cfg(params)
+    p = L.paths(cfg, 300, 5)
+    c = L.candidate_orders(cfg, p, params["gain"])
+    loose = L.policy_orders("gate_lcb", cfg, p, c, env._hp({**params, "gate_conf": 0.6, "gate_nmin": 2.0}, {}))[0]
+    strict = L.policy_orders("gate_lcb", cfg, p, c, env._hp({**params, "gate_conf": 0.99, "gate_nmin": 50.0}, {}))[0]
+    assert (loose != c["S_D"]).sum() > (strict != c["S_D"]).sum()
+
+
+def test_inventory_workbench_tunes_the_gate_with_the_same_budget():
+    """The gate must get as many candidate settings as the forecast gain and the band, not zero."""
+    import inspect
+    from heiner_abm.workbench.environments import Inventory
+    src = inspect.getsource(Inventory.tune)
+    assert "gate_lcb" in src and "gate_grid" in src
+    grid = [ln for ln in src.splitlines() if "gate_grid = " in ln][0]
+    assert grid.count("(") - 1 == 4, grid                      # four candidate pairs, as for gain and band_b
+    out = Inventory.tune.__doc__ or ""
+    assert isinstance(Inventory().tuning_note, str) and "four candidates" in Inventory().tuning_note

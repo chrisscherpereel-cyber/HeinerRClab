@@ -952,13 +952,13 @@ construct whose measurement and usefulness the study tests, not an established q
   replicates in the market) and **negative controls** NC1–NC3 (perfect information with costless adaptation; a
   dominated default; a stable environment with abundant feedback), each with its decision rule. Effects are paired
   differences with 95% bootstrap intervals; rank differences are not interpreted as one theory's superiority.
-* **Registration.** Plan `8f43bedc7dae10bc` is frozen in the repository (`registered.LEARN_PLAN`); the exported
+* **Registration.** Plan `6fbc88a80332fc38` is frozen in the repository (`registered.LEARN_PLAN`); the exported
   document is [`docs/learnability_registration.md`](docs/learnability_registration.md) and can be downloaded from the
   page. It has **not** been preregistered with an external registry.
 
-### Results under the frozen plan `8f43bedc7dae10bc`
+### Results under the frozen plan `6fbc88a80332fc38`
 
-One run of the registered plan, 7.4 minutes (`python tools/rerun_learnability_study.py` reproduces it; every seed is
+One run of the registered plan, 18.4 minutes (`python tools/rerun_learnability_study.py` reproduces it; every seed is
 derived from the plan). Tuned on training configurations only, four candidates each: forecast gain 0.1, band b = 0.5,
 confidence-sensitive gate (confidence 0.8, minimum evidence 3), BOCPD (hazard 0.005, prior sd 30, obs sd 25), robust
 order (N = 20, ρ = 0.01); market band threshold 50 and market gate (0.8, 3), three candidates each. Tables:
@@ -969,10 +969,10 @@ order (N = 20, ρ = 0.01); market band threshold 50 and market gate (0.8, 3), th
 | H1 | slope of the gate's advantage on log10 R, CI below 0 | −0.95 [−1.50, −0.44], 30 jump configurations | supported |
 | H2 | cross-validated R² gain of log10 R over volatility and noise, CI above 0 | +0.25 [−0.32, +0.85] | **not supported** |
 | H3 | H1 slope in the new families (switching, drifting) | −1.13 [−1.74, −0.65], 30 configurations | supported |
-| H4 | H1 slope in the market | −1612 [−2777, −513], 16 configurations | supported |
+| H4 | H1 slope in the market | −1722 [−2721, −703], 16 configurations | supported |
 | NC1 | perfect information, costless adaptation: nothing beats always adapting | every policy − always ≤ −0.16 per period | passed |
 | NC2 | dominated default: gates adapt ≥ 90%, lose ≤ 5% | adaptation 1.000 and 0.997; −31.80 and −32.48 vs −31.78 | passed |
-| NC3 | stable, abundant feedback: R < 1, gate not worse | R = 0.076; gate − default −0.00 [−0.00, +0.00] | passed |
+| NC3 | stable, abundant feedback: R < 1, gate noninferior at a margin of 0.25 | R = 0.076; gate − default −0.00 [−0.00, +0.00], lower limit clears −0.25 | passed |
 
 *Revision note (7 October 2026): the run under the superseded plan `ec9b781e125e289d` **requires replication and is
 not comparable one for one with the table above.** It gave the two reliability gates no tuning budget while their four
@@ -983,6 +983,27 @@ Its numbers were: H1 −1.44 [−2.36, −0.59] supported; H2 +0.23 [−0.46, +0
 supported; H4 −1625 [−2922, −478] supported; NC1–NC3 passed (NC1 confidence gate − always −1.09, NC2 adaptation 0.995
 and net payoff −32.85). Every verdict is unchanged; the H1 and H3 slopes are flatter and the gate's shortfall in NC1
 and NC2 is smaller, which is what tuning the gate would be expected to do.*
+
+> **Revision note (8 October 2026, five defect repairs).** Five defects were confirmed against the code and repaired;
+> three of them change this study, so its plan moved from `8f43bedc7dae10bc` to `6fbc88a80332fc38` and it was rerun.
+> **The earlier values require replication.**
+> * *BOCPD froze on missing demands.* The change-point model advanced its run-length posterior only when a demand was
+>   observed, so a gap in the data stopped regime uncertainty accumulating and the model acted as if no time had
+>   passed. Calendar time and conditioning are now separate, exactly one hazard transition per period. This changes
+>   change detection only where demand is unobserved: its tuning score moved from −39.288 to −39.472, its chosen
+>   settings did not, and NC1 (every period observed) is unchanged at −2.21.
+> * *NC3 tested the wrong tail.* It passed when the **upper** confidence limit exceeded −0.25, which fails only when
+>   the gate is confidently much worse, so it established nothing. It is now a noninferiority test on the **lower**
+>   limit at a prespecified margin of 0.25 per period. The control still passes, now on evidence: −0.00 [−0.00, +0.00].
+> * *The market ratio counted feedback too early.* It attributed a decision's feedback to the regime the decision was
+>   made in, even when the judgement window matured only after that regime had ended, so n_avail was overstated and R
+>   understated. Feedback is now counted by **release** period, and decisions whose window crosses a regime boundary
+>   are excluded from both the regime's mean advantage and its count. H4 moved from −1612 [−2777, −513] to
+>   −1722 [−2721, −703] and stays supported; H1, H2 and H3 are unchanged (−0.95, +0.251, −1.13).
+>
+> Two further repairs touch no registered number: the experiment workbench never forwarded the confidence gate's
+> hyperparameters to it (silent fallback to the defaults, and no tuning budget), and the NK landscape redrew one
+> component even at `change_frac = 0`, so the no-change control changed the landscape.
 
 How to read this:
 * **The construct's usefulness is not established.** R ordered the gate's advantage in the inventory task, the new
@@ -1004,7 +1025,7 @@ How to read this:
   estimated-gain gate 3 and 7; the inaction band 0 and 11. These are per-configuration counts with intervals, not a
   ranking, and the tuned settings come from one training family; they are not evidence that one theory is superior.
 * **Secondary outcomes** (jump-family test paths, means with 95% intervals; `secondary.csv`): regret per period
-  always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 10.2 [9.4, 11.0], BOCPD 7.3 [6.8, 7.8],
+  always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 10.2 [9.4, 11.0], BOCPD 7.4 [6.9, 7.9],
   robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 69% of periods and miss 14% and 24%
   of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 19.8 for the gates.
   Both gates share one learned estimate, so their calibration is identical (slope 0.76 [0.72, 0.79], bias −0.66).

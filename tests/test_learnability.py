@@ -173,3 +173,116 @@ def test_market_gate_settings_reach_the_scenario():
     cfg = LM.MarketConfig()
     s = LM.scenario(cfg, "gate_lcb", 1, 200, 20, 5, 25.0, (0.8, 7.0))
     assert (s.adaptive.gate, s.adaptive.confidence, s.adaptive.min_evidence) == ("lcb", 0.8, 7.0)
+
+
+# ================================================================ defect repairs (8 October 2026)
+# Each test below fails on the code as it stood before the repair it names.
+
+def test_bocpd_applies_exactly_one_hazard_transition_per_period():
+    """Calendar time advances once per period. After k unobserved periods the probability that the original run is
+    still unbroken at the next prediction must be (1 - H)^(k+1): no missed and no duplicated transition."""
+    from heiner_abm.bench_inventory import BOCPD
+    H = 0.01
+    for k in (0, 1, 2, 5, 20):
+        m = BOCPD(H, 100.0, 30.0, 25.0, rmax=500)
+        m.update(100.0)
+        for _ in range(k):
+            m.advance()
+        w = m.predictive()[0]
+        assert np.isclose(w.sum(), 1.0)
+        assert np.isclose(w[k], (1 - H) ** (k + 1), rtol=1e-12), f"k={k}"
+
+
+def test_bocpd_zero_hazard_makes_missing_periods_a_no_op():
+    """With no hazard a change cannot happen, so unobserved periods carry no information either way: the predictive
+    distribution over the next demand must be untouched. (The run length still advances with calendar time, which is
+    why this compares the predictive distribution rather than the run-length index.)"""
+    from heiner_abm.bench_inventory import BOCPD
+
+    def moments(m):
+        w, mu, var = m.predictive()
+        mean = float((w * mu).sum())
+        return mean, float((w * (var + mu ** 2)).sum() - mean ** 2)
+
+    a = BOCPD(0.0, 100.0, 30.0, 25.0, rmax=500)
+    b = BOCPD(0.0, 100.0, 30.0, 25.0, rmax=500)
+    for m in (a, b):
+        m.update(123.0)
+    before = moments(a)
+    for _ in range(10):
+        b.advance()
+    np.testing.assert_allclose(moments(b), before, rtol=1e-12)
+    assert np.isclose(b.predictive()[0][10], 1.0)        # all the mass is still on the one unbroken run
+    assert np.isclose(b.predictive()[0].sum(), 1.0)
+
+
+def test_bocpd_consecutive_missing_periods_accumulate_regime_uncertainty():
+    """The defect: with positive hazard a gap in the data left the run-length posterior frozen, so predictive
+    uncertainty did not grow and the model acted as if no time had passed."""
+    from heiner_abm.bench_inventory import BOCPD
+
+    def predictive_sd(k):
+        m = BOCPD(0.05, 100.0, 30.0, 25.0, rmax=500)
+        m.update(100.0)
+        for _ in range(k):
+            m.advance()
+        w, mu, var = m.predictive()
+        return float(np.sqrt((w * (var + mu ** 2)).sum() - (w * mu).sum() ** 2))
+
+    sds = [predictive_sd(k) for k in (0, 1, 3, 10)]
+    assert all(b > a for a, b in zip(sds, sds[1:])), sds
+
+
+def test_bocpd_orders_unchanged_on_a_fully_observed_path_and_react_to_gaps():
+    """A fully observed path must be unaffected by the repair (no advance() is ever reached), while a path with
+    missing demands must now give different orders from one where the gaps are simply skipped."""
+    cfg = L.Config(avail=1.0, hazard=0.02)
+    p = L.paths(cfg, 300, 21)
+    assert not np.isnan(p["y"]).any()
+    full = L.bocpd_orders(p["y"], 0.01, 30.0, 25.0)
+
+    def skipping(y, hazard, s0, sm, rmax=150):           # the pre-repair behavior
+        from heiner_abm.bench_inventory import BOCPD, gaussian_mixture_quantile
+        model = BOCPD(hazard, L.MU0, s0, sm, rmax)
+        out = np.empty(len(y))
+        for t in range(len(y)):
+            out[t] = max(0.0, gaussian_mixture_quantile(*model.predictive()))
+            if not np.isnan(y[t]):
+                model.update(float(y[t]))
+        return out
+
+    np.testing.assert_array_equal(full, skipping(p["y"], 0.01, 30.0, 25.0))
+    gappy = L.paths(L.Config(avail=0.4, hazard=0.02), 300, 21)
+    assert np.isnan(gappy["y"]).any()
+    assert not np.array_equal(L.bocpd_orders(gappy["y"], 0.01, 30.0, 25.0),
+                              skipping(gappy["y"], 0.01, 30.0, 25.0))
+
+
+def test_nc3_is_a_noninferiority_test_on_the_lower_confidence_limit():
+    """The defect: the control passed whenever the *upper* limit exceeded the margin, which only fails when the gate
+    is confidently much worse. The estimand is the gate's advantage; noninferiority needs the lower limit."""
+    import inspect
+    src = inspect.getsource(L.negative_controls)
+    assert "lo > -NC3_MARGIN" in src and "hi > -0.25" not in src
+    assert L.NC3_MARGIN == 0.25
+    # the rule must separate these three cases correctly
+    decide = lambda lo: bool(lo > -L.NC3_MARGIN)
+    assert decide(+0.00) and decide(-0.10)                       # clearly within the margin
+    assert not decide(-0.30) and not decide(-5.0)                # worse than the margin, or far worse
+    spec = next(c for c in L.LEARN_PREREG.negative_controls if c[0] == "NC3")[2]
+    assert "lower" in spec and "margin" in spec
+
+
+def test_market_ratio_counts_feedback_by_release_period_within_the_regime():
+    """The defect: feedback was counted in the regime of the *decision*, so a judgement window that only matured
+    after the regime ended still counted as available within it. With a long observation delay, less feedback can
+    arrive in time, so n_avail must fall and R must rise."""
+    plan = LM.MarketPlan(periods=500, burn_in=50, window=5)
+    seeds = LM._seeds(plan, 2, 0, 2)
+    prompt = LM.ratio(LM.MarketConfig(hazard=0.03, delay=0), seeds, plan, 25.0)
+    delayed = LM.ratio(LM.MarketConfig(hazard=0.03, delay=10), seeds, plan, 25.0)
+    assert delayed["n_avail"] < prompt["n_avail"], (prompt["n_avail"], delayed["n_avail"])
+    assert delayed["ratio"] > prompt["ratio"], (prompt["ratio"], delayed["ratio"])
+    import inspect
+    doc = inspect.getdoc(LM.ratio)
+    assert "released" in doc and "crosses a regime boundary" in doc

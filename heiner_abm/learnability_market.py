@@ -17,7 +17,15 @@ the market's selection decision; they are not run here (reported as not applicab
 Manipulated: cost volatility (delta), perception error (each firm's cost-noise sigma), regime-change frequency
 (structural hazard), feedback availability (observation delay, which postpones every observation and every release of
 feedback), and the gates' memory. Default quality is not manipulated: rule B's quality is endogenous to the market.
-Net payoff per period = market profit minus the adaptation cost c for every adopted recommendation (all policies).
+
+Costs, in the shared vocabulary of heiner_abm.learnability (departure overhead / fixed switching / magnitude)
+    This market's default is rule B, "keep last period's output". Departing from that default and changing the
+    output are therefore the SAME event here, by construction, so the departure overhead and a fixed switching cost
+    cannot be told apart in this task: `cost` is that single per-adoption charge. Only the magnitude charge is
+    separately identified, and `magnitude_cost` adds it, charged per unit of |q_t - q_{t-1}|.
+    This coincidence is a property of this task, not evidence that the two frictions are one construct: in the
+    inventory task, where the default moves on its own, they are distinct and are charged and reported separately.
+    Net payoff per period = market profit - cost * (adoptions) - magnitude_cost * (total |delta q|).
 
 Learnability ratio (independent pilot paths), as in the inventory study: per firm and demand regime, mu_r = the
 researcher's counterfactual mean advantage of adopting over the judgement window (pilot only), s = pooled noise of the
@@ -49,7 +57,8 @@ class MarketConfig:
     hazard: float = 0.01
     delay: int = 0
     memory: float = 0.97
-    cost: float = 20.0
+    cost: float = 20.0             # per adopted recommendation: departure from rule B and switching coincide here
+    magnitude_cost: float = 0.0    # per unit of |q_t - q_{t-1}|
 
 
 @dataclass(frozen=True)
@@ -98,8 +107,26 @@ def net_payoffs(cfg: MarketConfig, policy: str, seeds: Sequence[int], plan: Mark
     scns = [scenario(cfg, policy, sd, plan.periods, plan.burn_in, plan.window, theta, gate_hp) for sd in seeds]
     res = run_batch(scns, horizon=1)
     a = res.acc
-    net = (a["sum_profit"] - cfg.cost * a["n_dev"]) / a["n_rec"]
+    net = (a["sum_profit"] - cfg.cost * a["n_dev"] - cfg.magnitude_cost * a["sum_absdq"]) / a["n_rec"]
     return net.mean(axis=1)
+
+
+def payoff_components(cfg: MarketConfig, seeds: Sequence[int], plan: MarketPlan, theta: float,
+                      gate_hp: Tuple[float, float], policy: str) -> Dict[str, float]:
+    """Gross payoff, each charge and the behavioral rates for one policy, averaged over firms and paths.
+
+    Reported with the same names as the inventory task so the two can be read side by side. `departure_rate` and
+    `adjustment_rate` are equal here because rule B's default is the status quo (see the module docstring)."""
+    scns = [scenario(cfg, policy, sd, plan.periods, plan.burn_in, plan.window, theta, gate_hp) for sd in seeds]
+    a = run_batch(scns, horizon=1).acc
+    n = a["n_rec"]
+    gross = (a["sum_profit"] / n).mean()
+    dep = (cfg.cost * a["n_dev"] / n).mean()
+    mag = (cfg.magnitude_cost * a["sum_absdq"] / n).mean()
+    return dict(gross_payoff=float(gross), cost_departure=float(dep), cost_switching=0.0,
+                cost_magnitude=float(mag), cost_total=float(dep + mag), net_payoff=float(gross - dep - mag),
+                departure_rate=float((a["n_dev"] / n).mean()), adjustment_rate=float((a["n_dev"] / n).mean()),
+                adjustment_magnitude=float((a["sum_absdq"] / n).mean()))
 
 
 def ratio(cfg: MarketConfig, seeds: Sequence[int], plan: MarketPlan, theta: float) -> Dict[str, float]:

@@ -3,6 +3,22 @@
 These numbers come from the registered runs documented in the README. They are tied to the plan hashes below:
 tests/test_theory_pages.py fails when the code changes the hashes, so the numbers cannot silently go stale.
 
+Revision note (9 October 2026, three separate adaptation costs): the inventory study charged one cost, for departing
+from the default, and the same indicator also *defined* the reported adaptation rate, so "departed from the default"
+and "actually changed the order" could not be told apart. Three distinct frictions are now modeled and reported
+separately: a default-departure overhead (Config.cost), a fixed switching cost (Config.switch_cost) and a magnitude
+cost per unit moved (Config.magnitude_cost); `Config.cost_model = "legacy_departure_only"` reproduces the previous
+calculation exactly. Outcomes now report gross payoff, each charge, net payoff, departure_rate, adjustment_rate and
+adjustment_magnitude; tuning scores the same net payoff it is evaluated on. The same vocabulary is applied across
+tasks, with their differences stated rather than glossed: in the market the default is rule B ("keep last output"),
+so departure and switching are the same event there and only the magnitude charge is separately identified
+(MarketConfig.magnitude_cost); in the NK task there is no default to depart from, and its existing `cost` is a
+magnitude charge per changed component, now joined by a distinct NKEnv.switch_cost. These are not three
+parameterizations of one construct. The study code changed, so its plan hash changed, 6fbc88a80332fc38 →
+a98b971b49fe5e3e, and the whole study was rerun; the numbers below and in docs/learnability_results/ are from that
+rerun. Results under 6fbc88a80332fc38 are kept in the README's revision notes and REQUIRE REPLICATION. No other plan
+hash or finding fingerprint is affected.
+
 Revision note (8 October 2026, five defect repairs): five defects were confirmed against the code and repaired.
 (1) The workbench built its hyperparameters without a "gate" entry, so the confidence-sensitive gate silently used
 learnability.GATE_HP0 and neither its control nor a tuned value reached gated(); the gate is now exposed as controls,
@@ -77,7 +93,7 @@ EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
 # not preregistered with any external registry. Re-registered the same day when every policy was given the same tuning
 # budget (see the revision note above); the run under the previous plan "ec9b781e125e289d" requires replication.
-LEARN_PLAN = "6fbc88a80332fc38"
+LEARN_PLAN = "a98b971b49fe5e3e"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.

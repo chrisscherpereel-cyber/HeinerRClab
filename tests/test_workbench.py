@@ -291,3 +291,53 @@ def test_inventory_workbench_tunes_the_gate_with_the_same_budget():
     assert grid.count("(") - 1 == 4, grid                      # four candidate pairs, as for gain and band_b
     out = Inventory.tune.__doc__ or ""
     assert isinstance(Inventory().tuning_note, str) and "four candidates" in Inventory().tuning_note
+
+
+def test_every_preset_asks_for_outcomes_its_environment_reports():
+    """A preset naming an outcome the environment does not report fails validation, and the page then renders no
+    preview button, which surfaces only as a StopIteration far away. Renaming the inventory outcomes on
+    9 October 2026 broke two presets exactly this way."""
+    from heiner_abm.workbench import presets
+    from heiner_abm.workbench.environments import ENVIRONMENTS
+
+    checked = 0
+    for key, preset in presets.PRESETS.items():
+        if preset.spec is None:
+            continue
+        spec = presets.load(key)
+        have = {o.key for o in ENVIRONMENTS[spec.environment].outcomes}
+        missing = [o for o in spec.design.outcomes if o not in have]
+        assert not missing, f"preset {key!r} ({spec.environment}) asks for {missing}, which it does not report"
+        primary = spec.question.primary_outcome
+        assert primary in have, f"preset {key!r} primary outcome {primary!r} is not reported"
+        checked += 1
+    assert checked >= 4
+
+
+def test_inventory_cost_controls_reach_the_config_and_are_exported():
+    """The three charges must be selectable in the workbench and must reach the economics, including a zero-cost
+    control. They are separate frictions, so each must move the right component and only that one."""
+    from heiner_abm import learnability as L
+    from heiner_abm.workbench.environments import Inventory
+
+    env = Inventory()
+    keys = {c.key for c in env.controls}
+    assert {"cost", "switch_cost", "magnitude_cost", "cost_model"} <= keys
+    reported = {o.key for o in env.outcomes}
+    assert {"gross_payoff", "cost_departure", "cost_switching", "cost_magnitude", "cost_total",
+            "departure_rate", "adjustment_rate", "adjustment_magnitude"} <= reported
+
+    params = {c.key: c.default for c in env.controls}
+    for cand in env.candidates:
+        params.update({c.key: c.default for c in cand.params})
+    base = env._cfg({**params, "cost": 0.0, "switch_cost": 0.0, "magnitude_cost": 0.0})
+    assert base.zero_cost
+    assert env._cfg({**params, "switch_cost": 4.0}).switch_cost == 4.0
+    assert env._cfg({**params, "magnitude_cost": 0.3}).magnitude_cost == 0.3
+    assert env._cfg({**params, "cost_model": "legacy_departure_only"}).cost_model == "legacy_departure_only"
+
+    S = np.array([10.0, 10.0, 25.0]); S_D = np.array([10.0, 20.0, 20.0])
+    only_switch = L.cost_components(env._cfg({**params, "cost": 0.0, "switch_cost": 2.0, "magnitude_cost": 0.0}), S, S_D)
+    only_mag = L.cost_components(env._cfg({**params, "cost": 0.0, "switch_cost": 0.0, "magnitude_cost": 1.0}), S, S_D)
+    assert only_switch["switching"].sum() > 0 and only_switch["magnitude"].sum() == 0
+    assert only_mag["magnitude"].sum() > 0 and only_mag["switching"].sum() == 0

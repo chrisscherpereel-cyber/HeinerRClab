@@ -953,21 +953,41 @@ construct whose measurement and usefulness the study tests, not an established q
   `MarketPlan.tune_gate = False` restore that behavior.
 * **Data sets.** Disjoint seed blocks for training (all tuning), pilot (R and the better fixed rule) and untouched test
   paths; tests on two process families never used for tuning (switching and drifting means), not only new seeds.
-* **Outcomes.** Primary: net payoff per period (payoff minus the adaptation cost c in every period whose order departs
-  from the default). Secondary: regret against perfect information, downside loss (CVaR 5%), calibration of the gates'
-  predicted advantage, adaptation rate, missed opportunities and recovery delay after changes.
+* **Costs: three separate frictions, not one.** Departing from a default, changing your mind, and changing by a lot
+  are different economic frictions and are charged separately: a **default-departure overhead** (`cost`, each period
+  the order differs from *that period's* default), a **fixed switching cost** (`switch_cost`, each period the order
+  differs from the *previous* order) and a **magnitude cost** (`magnitude_cost`, per unit of |ΔS|). They are not
+  three settings of one construct. A policy holding a constant non-default order pays the overhead every period and
+  nothing to switch; one tracking a moving default pays no overhead but pays for every change. Conventions are fixed
+  once: orders differ when they differ by more than 1e-9; the first period has no predecessor so carries no switching
+  or magnitude charge; charges apply every period while reported means cover t ≥ burn-in; and tuning scores exactly
+  the net payoff it is evaluated on. `cost_model = "legacy_departure_only"` restores the single charge used before
+  9 October 2026, and setting all three to zero is the zero-cost control. Other tasks differ by construction, which
+  is stated rather than glossed: the **market**'s default is *keep last output*, so departure and switching are the
+  same event there and only the magnitude charge is separately identified (`MarketConfig.magnitude_cost`); the **NK**
+  task has no default to depart from, so its `cost` is a magnitude charge per changed component, now joined by a
+  distinct fixed `NKEnv.switch_cost`.
+* **Outcomes.** Primary: net payoff per period (gross payoff minus whichever charges are switched on). Reported
+  separately: gross payoff, each charge (`cost_departure`, `cost_switching`, `cost_magnitude`, `cost_total`), the
+  **departure rate** (order differs from the default) and the **adjustment rate** (order differs from the previous
+  order) — different events whenever the default moves — the adjustment magnitude, regret against perfect
+  information, downside loss (CVaR 5%), calibration of the gates' predicted advantage, missed opportunities and
+  recovery delay after changes. Until 9 October 2026 one indicator both charged the cost and defined the reported
+  "adaptation rate", so the two behaviors could not be told apart; in the registered run *always adapt* departs from
+  the default in 100% of periods but changes its order in only 60%, and the ORACLE departs in 94% while changing
+  in 1.3%.
 * **Hypotheses** H1–H4 (the advantage of the confidence-sensitive gate over the better fixed rule falls with log R;
   R adds cross-validated explanatory power beyond volatility and noise; the relation transfers to new families; it
   replicates in the market) and **negative controls** NC1–NC3 (perfect information with costless adaptation; a
   dominated default; a stable environment with abundant feedback), each with its decision rule. Effects are paired
   differences with 95% bootstrap intervals; rank differences are not interpreted as one theory's superiority.
-* **Registration.** Plan `6fbc88a80332fc38` is frozen in the repository (`registered.LEARN_PLAN`); the exported
+* **Registration.** Plan `a98b971b49fe5e3e` is frozen in the repository (`registered.LEARN_PLAN`); the exported
   document is [`docs/learnability_registration.md`](docs/learnability_registration.md) and can be downloaded from the
   page. It has **not** been preregistered with an external registry.
 
-### Results under the frozen plan `6fbc88a80332fc38`
+### Results under the frozen plan `a98b971b49fe5e3e`
 
-One run of the registered plan, 18.4 minutes (`python tools/rerun_learnability_study.py` reproduces it; every seed is
+One run of the registered plan, 7.7 minutes (`python tools/rerun_learnability_study.py` reproduces it; every seed is
 derived from the plan). Tuned on training configurations only, four candidates each: forecast gain 0.1, band b = 0.5,
 confidence-sensitive gate (confidence 0.8, minimum evidence 3), BOCPD (hazard 0.005, prior sd 30, obs sd 25), robust
 order (N = 20, ρ = 0.01); market band threshold 50 and market gate (0.8, 3), three candidates each. Tables:
@@ -1014,6 +1034,17 @@ and NC2 is smaller, which is what tuning the gate would be expected to do.*
 > hyperparameters to it (silent fallback to the defaults, and no tuning budget), and the NK landscape redrew one
 > component even at `change_frac = 0`, so the no-change control changed the landscape.
 
+> **Revision note (9 October 2026, three separate adaptation costs).** The study charged one cost, for departing from
+> the default, and the same indicator also defined the reported adaptation rate. The three frictions above are now
+> charged and reported separately, and the two behavioral rates are kept apart. The plan moved from
+> `6fbc88a80332fc38` to `a98b971b49fe5e3e` and the study was rerun. **Because the registered configuration leaves the
+> two new charges at zero, the rerun reproduced every headline number exactly** - H1 -0.95 [-1.50, -0.44],
+> H2 +0.251 [-0.324, +0.846], H3 -1.13 [-1.74, -0.65], H4 -1722 [-2721, -703], NC1-NC3 passed - so this is a
+> definitional and reporting change, not a change of result. What is new is the decomposition: the per-policy gross
+> payoff, each charge and both rates are now in `docs/learnability_results/secondary.csv`. Anything previously
+> described as an "adaptation rate" conflated departure with adjustment and **requires replication** under the new
+> definitions; the net payoff itself is unchanged.
+
 How to read this:
 * **The construct's usefulness is not established.** R ordered the gate's advantage in the inventory task, the new
   families and the market (H1, H3, H4), but it did not add cross-validated explanatory power beyond volatility and
@@ -1035,8 +1066,10 @@ How to read this:
   ranking, and the tuned settings come from one training family; they are not evidence that one theory is superior.
 * **Secondary outcomes** (jump-family test paths, means with 95% intervals; `secondary.csv`): regret per period
   always 9.1 [8.4, 9.9], estimated-gain gate 9.1 [8.4, 9.9], confidence gate 10.2 [9.4, 11.0], BOCPD 7.4 [6.9, 7.9],
-  robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates adapt in 81% and 69% of periods and miss 14% and 24%
-  of opportunities; recovery delay after a change 13.9 periods for always adapting, 17.3 and 19.8 for the gates.
+  robust 8.3 [7.8, 8.9], default 52.5 [48.1, 57.3]; the gates **depart from the default** in 81% and 69% of
+  periods but **actually change the order** in only 50% and 43% (always adapting departs in 100% and changes in
+  60%, the ORACLE departs in 94% and changes in 1.3%), and they miss 14% and 24% of opportunities; recovery
+  delay after a change 13.9 periods for always adapting, 17.3 and 19.8 for the gates.
   Both gates share one learned estimate, so their calibration is identical (slope 0.76 [0.72, 0.79], bias −0.66).
 
 ## NK landscapes: interaction complexity, reliability learning and adaptation

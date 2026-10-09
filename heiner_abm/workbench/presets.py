@@ -59,7 +59,7 @@ _add(Preset(
           environment="inventory", candidate="fast_forecast",
           policies=("always", "default", "band", "gate_gain", "gate_lcb", "bocpd", "oracle"),
           design=Design(replications=10, periods=1000, burn_in=100, treatment=Treatment("hazard", (0.002, 0.01, 0.05)),
-                        outcomes=("regret", "adaptation_rate", "missed", "recovery_delay"))),
+                        outcomes=("regret", "departure_rate", "adjustment_rate", "missed", "recovery_delay"))),
     ("app_pages/learnability.py", "Registered learnability study (frozen plan)")))
 
 _add(Preset(
@@ -73,7 +73,7 @@ _add(Preset(
                             "noise-driven changes."),
           environment="inventory", candidate="fast_forecast", policies=("always", "default", "band", "gate_gain"),
           design=Design(replications=10, periods=1000, burn_in=100, treatment=Treatment("tau", (0.0, 15.0, 35.0)),
-                        outcomes=("adaptation_rate", "change_size", "regret"))),
+                        outcomes=("departure_rate", "adjustment_rate", "adjustment_magnitude", "regret"))),
     ("app_pages/generalisation.py", "Generalization tasks (registered)")))
 
 _add(Preset(

@@ -244,3 +244,30 @@ def test_change_fraction_rounds_to_whole_components():
             assert len(eps) > 1, f"frac={frac} produced no change"
             rows = np.any(eps[0].land.tables != eps[1].land.tables, axis=1).sum()
             assert rows == expected, f"frac={frac}: {rows} components changed, expected {expected}"
+
+
+def test_nk_separates_the_magnitude_and_fixed_switching_charges():
+    """NK has no default to depart from, so only two of the three frictions exist here. `cost` is the magnitude
+    charge (per changed component); `switch_cost` is the distinct fixed charge for moving at all. A move of one
+    component must cost cost + switch_cost, and a move of three must cost 3*cost + switch_cost."""
+    from heiner_abm.nk import NKEnv
+
+    def charge(env, flips):
+        return env.cost * flips + (env.switch_cost if flips else 0.0)
+
+    env = NKEnv(cost=0.01, switch_cost=0.5)
+    assert charge(env, 0) == 0.0                       # standing still is free
+    assert charge(env, 1) == pytest.approx(0.51)
+    assert charge(env, 3) == pytest.approx(0.53)
+    # the two are not interchangeable: same total for one flip, different for three
+    a, b = NKEnv(cost=0.51, switch_cost=0.0), NKEnv(cost=0.01, switch_cost=0.5)
+    assert charge(a, 1) == pytest.approx(charge(b, 1))
+    assert charge(a, 3) != pytest.approx(charge(b, 3))
+
+
+def test_nk_zero_cost_control_charges_nothing():
+    from heiner_abm.nk import NKEnv
+    env = NKEnv(cost=0.0, switch_cost=0.0)
+    assert env.cost == 0.0 and env.switch_cost == 0.0
+    charge = lambda flips: env.cost * flips + (env.switch_cost if flips else 0.0)
+    assert all(charge(f) == 0.0 for f in range(5))

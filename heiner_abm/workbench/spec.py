@@ -50,12 +50,22 @@ class Treatment:
 
 @dataclass
 class Design:
+    """The design, including which random streams serve which purpose.
+
+    Replication counts name a seed namespace each (heiner_abm.workbench.provenance): train_replications draws from
+    `training` and is used for tuning only, `replications` draws from `evaluation` and is what gets reported,
+    pilot_replications draws from `pilot` and never enters a reported result, and validation_replications draws from
+    `validation` to confirm a result on environments it was not estimated on. The four blocks cannot overlap.
+    """
     replications: int = 10                       # independent environments (paths, markets or landscapes) per cell
     periods: int = 600
     burn_in: int = 50
     seed: int = 1
     tuning: str = "none"                         # "none" (documented fixed parameters) or "grid" (training seeds)
     train_replications: int = 3
+    pilot_replications: int = 0                  # 0 = no pilot pass
+    validation_replications: int = 0             # 0 = no validation pass
+    trace_retention: str = "illustrative"        # "summary", "illustrative" or "all" (provenance.RETENTION)
     treatment: Treatment = field(default_factory=Treatment)
     outcomes: Tuple[str, ...] = ()               # secondary outcomes reported beside the primary one
     n_boot: int = 1000

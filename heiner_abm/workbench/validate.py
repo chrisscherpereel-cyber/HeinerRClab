@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import List
 
 from .environments import ENVIRONMENTS
+from .provenance import RETENTION, disjoint
 from .spec import MODES, ExperimentSpec, Issue
 
 RESEARCH_MIN_REPLICATIONS = 8
@@ -62,6 +63,23 @@ def validate(spec: ExperimentSpec) -> List[Issue]:
         add("design", "error", "Tuning must be 'none' or 'grid'.")
     if d.tuning == "grid" and d.train_replications < 1:
         add("design", "error", "Grid tuning needs at least one training replication.")
+    if d.trace_retention not in RETENTION:
+        add("design", "error", f"Decision-log retention must be one of {', '.join(RETENTION)}.")
+    if d.pilot_replications < 0 or d.validation_replications < 0:
+        add("design", "error", "Pilot and validation replications cannot be negative.")
+    if d.validation_replications and d.validation_replications < 2:
+        add("design", "warning", "A validation pass with one replication carries no uncertainty interval.")
+    clash = disjoint(d.seed, {"training": d.train_replications if d.tuning == "grid" else 0,
+                              "pilot": max(0, d.pilot_replications), "evaluation": d.replications,
+                              "validation": max(0, d.validation_replications)})
+    if clash:
+        add("design", "error", "Seed namespaces would overlap: " + clash)
+    if d.trace_retention == "all":
+        levels = max(1, len(d.treatment.levels)) if d.treatment.control else 1
+        rows = d.replications * d.periods * max(1, len(spec.policies)) * levels
+        if rows > 5_000_000:
+            add("design", "warning", f"Keeping every decision log means about {rows:,} rows; consider "
+                                     f"'illustrative' retention.")
     tr = d.treatment
     if tr.control:
         try:

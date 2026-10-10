@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Collection, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from .provenance import NEVER_RELEASED
 
 Cancel = Callable[[], bool]
 
@@ -127,9 +129,26 @@ class Environment:
     def tune(self, spec, params, seeds: Sequence[int], cancel: Cancel) -> Dict[str, Any]:
         return {}
 
+    def cost_definitions(self, spec, params) -> List[Dict[str, Any]]:
+        """The economic charges in force, one entry per distinct friction, for the run manifest.
+
+        Stated separately rather than summed: a departure overhead, a fixed switching cost and a magnitude cost are
+        different frictions, and a reader of a stored run must be able to see which were charged and at what rate.
+        """
+        return []
+
     def run_cell(self, spec, params, seeds: Sequence[int], hp: Dict[str, Any], cancel: Cancel,
-                 trace: bool) -> Tuple[List[Dict[str, Any]], Dict[str, pd.DataFrame]]:
+                 trace: Collection[int], base: int = 0) -> Tuple[List[Dict[str, Any]], Dict[str, List[pd.DataFrame]]]:
+        """Run the replications in `seeds`, keeping a decision log for those whose global replication index
+        (base + position in `seeds`) is in `trace`. Decision logs are returned per policy as a list of frames."""
         raise NotImplementedError
+
+
+def keep_trace(traces: Dict[str, List[pd.DataFrame]], policy: str, replication: int, df: pd.DataFrame) -> None:
+    """Record one replication's decision log, stamped with the replication it belongs to."""
+    df = df.copy()
+    df.insert(0, "replication", int(replication))
+    traces.setdefault(policy, []).append(df)
 
 
 def _num(c: Control, v):
@@ -276,7 +295,25 @@ class Inventory(Environment):
             "gate_lcb", {**base, "gain": gain, "gate": {"conf": v[0], "nmin": v[1]}}))
         return {"gain": gain, "band_b": b, "gate_conf": conf, "gate_nmin": nmin}
 
-    def run_cell(self, spec, params, seeds, hp, cancel, trace):
+    def cost_definitions(self, spec, params):
+        cfg = self._cfg(params)
+        legacy = cfg.cost_model == "legacy_departure_only"
+        return [
+            dict(name="Default-departure overhead", parameter="cost", rate=float(cfg.cost), units="payoff per period",
+                 charged_when="the order differs from that period's default order", in_force=cfg.cost != 0),
+            dict(name="Fixed switching cost", parameter="switch_cost",
+                 rate=0.0 if legacy else float(cfg.switch_cost), units="payoff per period",
+                 charged_when="the order differs from the previous period's order (period 0 has no predecessor)"
+                              + (" - ignored under the legacy cost model" if legacy else ""),
+                 in_force=(not legacy) and cfg.switch_cost != 0),
+            dict(name="Magnitude cost", parameter="magnitude_cost",
+                 rate=0.0 if legacy else float(cfg.magnitude_cost), units="payoff per unit of |change in order|",
+                 charged_when="the order moves, in proportion to how far"
+                              + (" - ignored under the legacy cost model" if legacy else ""),
+                 in_force=(not legacy) and cfg.magnitude_cost != 0),
+        ]
+
+    def run_cell(self, spec, params, seeds, hp, cancel, trace, base=0):
         from .. import learnability as L
         cfg = self._cfg(params)
         h = self._hp(params, hp)
@@ -293,11 +330,12 @@ class Inventory(Environment):
                 out = L.outcomes(pol, cfg, p, c, S, pred, gobs, burn)
                 out["compute_ms"] = 1000 * (time.perf_counter() - t0)
                 rows.append(dict(policy=pol, replication=r, seed=s, **out))
-                if trace and r == 0:
-                    traces[pol] = self._trace(pol, cfg, p, c, S, pred, gobs, h)
+                if (base + r) in trace:
+                    keep_trace(traces, pol, base + r, self._trace(pol, cfg, p, c, S, pred, gobs, h))
         return rows, traces
 
     def _trace(self, pol, cfg, p, c, S, pred, gobs, h):
+        from .. import learnability as L
         T = len(S)
         adapt = np.abs(S - c["S_D"]) > 1e-9
         reason = {
@@ -314,13 +352,22 @@ class Inventory(Environment):
             "dro": lambda t: "worst-case order over recent observations (complete policy)",
             "oracle": lambda t: "true critical fractile (researcher benchmark)",
         }[pol]
+        # Postdecision: what the chosen order actually earned, and what it was charged. Both follow from the order
+        # and the realized demand, so neither is available before the decision.
+        charges = L.cost_components(cfg, S, c["S_D"])
+        seen = np.asarray(p["seen"], bool)
         return pd.DataFrame(dict(
             period=np.arange(T),
-            observed=np.where(p["seen"], p["y"], np.nan),
+            observed=np.where(seen, p["y"], np.nan),
             belief_sd=c["sd"], default_order=c["S_D"], proposed=c["S_F"], chosen=S, acted=adapt,
             predicted_gain=pred if pred is not None else np.nan,
+            realized_payoff=L.payoff(S, p["d"]), realized_cost=charges["total"],
             feedback=gobs if gobs is not None else np.nan,
-            feedback_available=np.where(p["seen"], np.arange(T), -1),
+            # The gain of having departed is formed from the demand of the same period, so it matures at once; it
+            # reaches the agent only in the periods whose demand is observed.
+            feedback_origin=np.where(seen, "own_counterfactual", "none"),
+            feedback_matured_period=np.arange(T),
+            feedback_release_period=np.where(seen, np.arange(T), NEVER_RELEASED),
             reason=[reason(t) for t in range(T)],
             researcher_demand=p["d"], researcher_mean=p["mu"]))
 
@@ -451,7 +498,17 @@ class Market(Environment):
             scores[th] = float(self._net(res, params).mean())
         return {"threshold": max(scores, key=scores.get)}
 
-    def run_cell(self, spec, params, seeds, hp, cancel, trace):
+    def cost_definitions(self, spec, params):
+        return [
+            dict(name="Adjustment cost", parameter="adjust_cost", rate=float(params["adjust_cost"]),
+                 units="profit per period", in_force=float(params["adjust_cost"]) != 0,
+                 charged_when="output differs from the previous period's output. In this market the default IS the "
+                              "previous output, so departing from the default and switching away from the previous "
+                              "action are the same event; the two frictions cannot be separated here. This is a "
+                              "property of the market's default, not evidence that they are one construct."),
+        ]
+
+    def run_cell(self, spec, params, seeds, hp, cancel, trace, base=0):
         from ..engine import run_batch
         rows, traces = [], {}
         for pol in spec.policies:
@@ -473,9 +530,10 @@ class Market(Environment):
                     false_share=float(np.nansum(a["n_dev_npe"][r]) / max(np.nansum(n_dev), 1.0)),
                     missed=float(np.nansum(a["n_pe"][r] - a["n_dev_pe"][r]) / max(np.nansum(a["n_pe"][r]), 1.0)),
                     perception_error=float(np.sqrt((a["sum_cerr2"][r] / n_rec).mean()))))
-            if trace and len(seeds):
-                one = run_batch([scns[0]], record_firm_history=True)
-                traces[pol] = self._trace(one, pol, params, hp)
+            for r in range(len(seeds)):
+                if (base + r) in trace:
+                    one = run_batch([scns[r]], record_firm_history=True)
+                    keep_trace(traces, pol, base + r, self._trace(one, pol, params, hp))
         return rows, traces
 
     def _trace(self, res, pol, params, hp):
@@ -498,14 +556,26 @@ class Market(Environment):
                 pr, bd = h.get("adv_pred", np.full(T, np.nan))[t], h.get("adv_bound", np.full(T, np.nan))[t]
                 reasons.append(f"predicted advantage {pr:.1f}, lower bound {bd:.1f}; "
                                f"{'adopts' if h['deviate'][t] else 'keeps'}")
-        rel = h.get("fb_release", np.full(T, -1))
+        rel = np.asarray(h.get("fb_release", np.full(T, NEVER_RELEASED)), float)
+        released = rel >= 0
+        horizon = int(getattr(res, "horizon", 1) or 1)
+        # The gain of having deviated is only complete once its H-period profit window has closed; it reaches the
+        # agent later still, when the engine validates and releases it (and never, if a change invalidates it first).
+        matured = np.minimum(np.arange(T) + horizon, T - 1)
         return pd.DataFrame(dict(
             period=np.arange(T), observed_price=np.concatenate([[np.nan], res.price[0, :-1]]),
             belief_cost=h.get("c_hat", np.full(T, np.nan)), belief_best_reply=h["best_reply"],
             current_output=q_prev, proposed=h["rec"], acted=h["deviate"], opportunity=h["opportunity"],
             predicted_gain=h.get("adv_pred", np.full(T, np.nan)), lower_bound=h.get("adv_bound", np.full(T, np.nan)),
-            feedback=h.get("fb_value", np.full(T, np.nan)), feedback_available=rel, reason=reasons,
-            researcher_cost=res.cost[0], researcher_gain=h["gain_full"]))
+            feedback=h.get("fb_value", np.full(T, np.nan)),
+            feedback_origin=np.where(released, "own_counterfactual", "none"),
+            feedback_matured_period=matured,
+            feedback_release_period=rel.astype(int), reason=reasons,
+            researcher_cost=res.cost[0], researcher_gain=h["gain_full"],
+            # profit_rule and profit_default are researcher-only by heiner_abm.information.RESEARCHER_ONLY: the firm
+            # never sees both branches of the counterfactual, only the gain the engine releases to it.
+            researcher_profit_rule=h.get("profit_rule", np.full(T, np.nan)),
+            researcher_profit_default=h.get("profit_default", np.full(T, np.nan))))
 
 
 # ================================================================================================ generalization tasks
@@ -555,7 +625,14 @@ class _Task(Environment):
         return TaskEnv(self.task, float(params["noise"]), float(params["hazard"]), float(params["obs_noise"]),
                        float(params["gain"]), int(seed))
 
-    def run_cell(self, spec, params, seeds, hp, cancel, trace):
+    def cost_definitions(self, spec, params):
+        """No charge of any kind. See heiner_abm.tasks: nothing is charged for deviating, so a gain from restriction
+        here comes from the reliability of the flexible rule alone and not from avoided adaptation costs. These tasks
+        are therefore the laboratory's zero-cost control for the cost mechanisms the other environments charge."""
+        return [dict(name="No adaptation cost", parameter=None, rate=0.0, units=None, in_force=False,
+                     charged_when="never: deviating is free in the generalization tasks")]
+
+    def run_cell(self, spec, params, seeds, hp, cancel, trace, base=0):
         from .. import tasks as TK
         T, burn = spec.design.periods, spec.design.burn_in
         rows, traces = [], {}
@@ -576,8 +653,9 @@ class _Task(Environment):
                 rows.append(dict(policy=pol, replication=r, seed=s, payoff=out["payoff"],
                                  deviation_rate=out["deviation_rate"], K=out["K"],
                                  compute_ms=1000 * (time.perf_counter() - t0)))
-                if trace and r == 0:
-                    traces[pol] = task_trace(dec, pol, float(params["band_b"]), table, float(params["rc_memory"]))
+                if (base + r) in trace:
+                    keep_trace(traces, pol, base + r,
+                               task_trace(dec, pol, float(params["band_b"]), table, float(params["rc_memory"])))
         return rows, traces
 
 
@@ -613,9 +691,13 @@ def task_trace(dec, layer, band, table, rc_memory) -> pd.DataFrame:
                           + (f"{lg[b]:.3f}" if lc[b] else "none") + (" (fewer than 5: deviates)" if lc[b] < 5 else ""))
             lc[b] += 1
             lg[b] += (dec["obs_gain"][t] - lg[b]) * max(1 - rc_memory, 1 / lc[b])
+    # The observed gain of the period's decision is formed from the same period's payoffs, so it matures and is
+    # released in the period it was earned: this task has no feedback delay and no missing feedback.
     return pd.DataFrame(dict(period=np.arange(T), signal=dec["sig"], bin=dec["bin"], default_action=dec["d"],
                              proposed=dec["x"], acted=dev & dec["differ"], predicted_gain=learned,
-                             feedback=dec["obs_gain"], feedback_available=np.arange(T), reason=reason,
+                             feedback=dec["obs_gain"], feedback_origin="own_counterfactual",
+                             feedback_matured_period=np.arange(T), feedback_release_period=np.arange(T),
+                             reason=reason,
                              researcher_gain=dec["true_gain"], researcher_optimum=dec["opt"]))
 
 
@@ -714,7 +796,20 @@ class NKLandscape(Environment):
                         budget=int(params["budget"]), periods=int(spec.design.periods), observe=float(params["observe"]),
                         seed=int(seed))
 
-    def run_cell(self, spec, params, seeds, hp, cancel, trace):
+    def cost_definitions(self, spec, params):
+        return [
+            dict(name="Magnitude cost", parameter="cost", rate=float(params["cost"]), units="payoff per flipped bit",
+                 charged_when="a move is accepted, in proportion to the number of bits it changes",
+                 in_force=float(params["cost"]) != 0),
+            dict(name="Fixed switching cost", parameter="switch_cost", rate=float(params.get("switch_cost", 0.0)),
+                 units="payoff per move", charged_when="a move is accepted, whatever its size",
+                 in_force=float(params.get("switch_cost", 0.0)) != 0.0),
+            dict(name="Default-departure overhead", parameter=None, rate=None, units=None, in_force=False,
+                 charged_when="not defined in this environment: an NK searcher has no default configuration to "
+                              "depart from, only a current one to move away from"),
+        ]
+
+    def run_cell(self, spec, params, seeds, hp, cancel, trace, base=0):
         from .. import nk
         hpar = nk.SearchParams(p_jump=float(params["p_jump"]))
         rows, traces = [], {}
@@ -728,13 +823,13 @@ class NKLandscape(Environment):
             for _, row in df.iterrows():
                 d = row.drop(["landscape", "run", "searcher", "benchmark"]).to_dict()
                 rows.append(dict(policy=row["searcher"], replication=r, seed=s, compute_ms=ms, **d))
-            if trace and r == 0:
+            if (base + r) in trace:
                 path = nk.landscape_path(env)
                 st_ = nk.run_streams(env, path, s + 1)
                 obs = nk.Observer(env, path, st_.noise, st_.leader, st_.visible)
                 for pol in spec.policies:
                     xs, costs, log = nk.simulate(pol, env, obs, st_.start, st_.U, hpar)
-                    traces[pol] = self._trace(env, path, xs, log)
+                    keep_trace(traces, pol, base + r, self._trace(env, path, xs, log))
         return rows, traces
 
     def _trace(self, env, path, xs, log):
@@ -751,14 +846,19 @@ class NKLandscape(Environment):
             if d is None:
                 rec.append(dict(period=t, configuration=format(int(xs[t]), f"0{env.N}b"), observed=np.nan,
                                 proposed="", observed_candidate=np.nan, acted=False, predicted_gain=np.nan,
-                                feedback=np.nan, feedback_available=-1, reason="no proposal (budget or aspiration met)",
+                                feedback=np.nan, feedback_origin="none", feedback_matured_period=t,
+                                feedback_release_period=NEVER_RELEASED,
+                                reason="no proposal (budget or aspiration met)",
                                 researcher_payoff=true))
                 continue
             g1 = d["o_y"] - d["o_x"] - d["c"]
             rec.append(dict(period=t, configuration=format(int(d["x"]), f"0{env.N}b"), observed=d["o_x"],
                             proposed=format(int(d["y"]), f"0{env.N}b"), observed_candidate=d["o_y"],
                             acted=bool(d["accept"] and d["y"] != d["x"]), predicted_gain=g1, feedback=d["g2"],
-                            feedback_available=t if np.isfinite(d["g2"]) else -1,
+                            # g2 is a second noisy reading of the move the agent made, taken in the same period.
+                            feedback_origin="own_outcome" if np.isfinite(d["g2"]) else "none",
+                            feedback_matured_period=t,
+                            feedback_release_period=t if np.isfinite(d["g2"]) else NEVER_RELEASED,
                             reason=(f"apparent net gain {g1:+.4f} (strength bin {d['bin']}); "
                                     + ("accepted" if d["accept"] else "rejected")),
                             researcher_payoff=true))

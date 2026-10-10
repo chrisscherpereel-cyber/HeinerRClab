@@ -7,6 +7,7 @@ import streamlit as st
 
 from heiner_abm.workbench import analysis, store
 from heiner_abm.workbench.environments import ENVIRONMENTS
+from heiner_abm.workbench.provenance import FEEDBACK_ORIGINS, researcher_only_columns
 from ui.common import CAT, set_engine, style
 from ui.workbench_ui import ci_chart, config_table, effect_chart, get_spec, outdated_notice
 
@@ -103,9 +104,10 @@ with tabs[4]:
     st.page_link("app_pages/nk.py", label="NK landscapes: interdependence, noise and change sweeps")
 
 with tabs[5]:
-    st.caption("What an agent observed, believed and proposed in one period, why it acted or not, and when feedback "
-               "became available. Columns starting with 'researcher' were never available to the agent. Shown for "
-               "the first replication of each condition.")
+    st.caption("What an agent observed, believed and proposed in one period, why it acted or not, what followed, and "
+               "where its feedback came from, when that outcome matured and when it reached the agent. Columns "
+               "starting with 'researcher' were never available to any agent at any time. How many replications are "
+               "kept is set by 'Decision logs kept' in the design step.")
     if not run.traces:
         st.info("This run holds no decision traces.")
     else:
@@ -114,18 +116,29 @@ with tabs[5]:
         pol = c2.selectbox("Policy", list(run.traces[lvl]), format_func=lambda p: env.policy(p).label,
                            key="res_tr_pol")
         tr = run.traces[lvl][pol]
+        if "replication" in tr and tr["replication"].nunique() > 1:
+            reps = sorted(int(r) for r in tr["replication"].unique())
+            rep = st.selectbox("Replication", reps, key="res_tr_rep",
+                               help="Every replication is kept for this run (decision logs: all).")
+            tr = tr[tr["replication"] == rep].reset_index(drop=True)
         t = st.slider("Period", 0, len(tr) - 1, min(spec.design.burn_in, len(tr) - 1), key="res_tr_t")
         row = tr.iloc[t]
-        groups = {"Observed": ["observed", "observed_price", "observed_candidate", "signal", "configuration"],
-                  "Believed": ["belief_sd", "belief_cost", "belief_best_reply", "predicted_gain", "lower_bound",
-                               "bin"],
-                  "Proposed": ["default_order", "default_action", "current_output", "proposed"],
-                  "Decision": ["acted", "chosen", "opportunity", "reason"],
-                  "Feedback": ["feedback", "feedback_available"]}
+        groups = {"Before deciding": ["observed", "observed_price", "observed_candidate", "signal", "configuration",
+                                      "belief_sd", "belief_cost", "belief_best_reply", "predicted_gain",
+                                      "lower_bound", "bin", "default_order", "default_action", "current_output",
+                                      "proposed", "opportunity"],
+                  "Decision": ["acted", "chosen", "reason"],
+                  "After deciding": ["realized_payoff", "realized_cost"],
+                  "Feedback": ["feedback", "feedback_origin", "feedback_matured_period",
+                               "feedback_release_period"]}
         def _fmt(kk, v):
-            if kk == "feedback_available":
-                return "not released" if v is None or (isinstance(v, (int, float, np.integer)) and v < 0) \
+            if kk in ("feedback_release_period", "feedback_available"):
+                return "never released" if v is None or (isinstance(v, (int, float, np.integer)) and v < 0) \
                     else f"end of period {int(v)}"
+            if kk == "feedback_matured_period":
+                return "—" if v is None else f"end of period {int(v)}"
+            if kk == "feedback_origin":
+                return FEEDBACK_ORIGINS.get(str(v), str(v))
             if v is None or (isinstance(v, (float, np.floating)) and not np.isfinite(v)):
                 return "—"
             if isinstance(v, (float, np.floating)):
@@ -138,7 +151,7 @@ with tabs[5]:
             for kk in keys_:
                 if kk in tr:
                     c.markdown(f"{kk.replace('_', ' ').capitalize()}: **{_fmt(kk, row[kk])}**")
-        res_cols = [c for c in tr.columns if c.startswith("researcher")]
+        res_cols = researcher_only_columns(tr.columns)
         if res_cols:
             st.caption("Researcher-only: " + ", ".join(f"{c.replace('researcher_', '')} = {row[c]:.4g}"
                                                        for c in res_cols if isinstance(row[c], (int, float, np.floating))))
@@ -158,6 +171,31 @@ with tabs[5]:
 
 with tabs[6]:
     st.dataframe(config_table(spec), hide_index=True, width="stretch")
+    man = getattr(run, "manifest", {}) or {}
+    if man:
+        st.markdown("**Manifest** — configuration, policies, tuning, costs, information assumptions, code "
+                    "fingerprint, software versions, seed plan and the decision-log schema.")
+        man_code = man.get("code", {})
+        man_soft = man.get("software", {})
+        man_pkgs = man_soft.get("packages") or {}
+        st.caption(f"Code fingerprint {man_code.get('fingerprint')} over {man_code.get('n_modules')} first-party "
+                   f"modules. Python {man_soft.get('python')}, numpy {man_pkgs.get('numpy')}, "
+                   f"pandas {man_pkgs.get('pandas')} on {man_soft.get('platform')}.")
+        for cost_level, cost_rows in (man.get("costs") or {}).items():
+            charged = [c for c in cost_rows if c.get("in_force")]
+            st.caption(f"Charges in force ({cost_level}): "
+                       + ("; ".join(f"{c['name']} = {c['rate']} ({c['units']})" for c in charged)
+                          if charged else "none - this is a zero-cost control."))
+        st.json(man, expanded=False)
+    for pass_name, pass_df, pass_note in (
+            ("Pilot pass", getattr(run, "pilot", None),
+             "Pilot seeds. Not a reported result: used to size effects and workload."),
+            ("Validation pass", getattr(run, "validation", None),
+             "Validation seeds: the same comparison on environments it was not estimated on.")):
+        if pass_df is not None and len(pass_df):
+            st.markdown(f"**{pass_name}**")
+            st.caption(pass_note)
+            st.dataframe(pass_df, hide_index=True, width="stretch", height=200)
     c1, c2 = st.columns(2)
     c1.markdown("**Provenance**")
     c1.json(run.provenance, expanded=False)

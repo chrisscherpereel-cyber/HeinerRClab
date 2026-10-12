@@ -106,6 +106,11 @@ class AdaptiveParams:
     min_evidence: float = 5.0     # effective feedback items per bin (lcb) or per arm (explore) before deciding (>= 2)
     explore_rate: float = 0.2     # explore: probability that an uncertain decision is a randomized trial
     on_change: str = "forget"     # "forget": exponential memory only; "reset": discard evidence when a change is seen
+    # How evidence ages. Three memory rules, kept as separate variants (heiner_abm.gates.MEMORY_RULES); the
+    # defaults below are the rule that existed before them, so a default scenario is unchanged.
+    memory_rule: str = "per_update"   # "per_update": lambda once per released value, however long the gap;
+    #                                   "calendar": lambda^(periods since this bin last updated)
+    explore_after: float = 0.0        # explore: probability of randomizing even after a bin is decided (0 = never)
     oracle_table: tuple = ()      # oracle_table gate only: per firm, true mean advantage per bin (independent runs)
 
 
@@ -200,6 +205,13 @@ class Scenario:
         if ad.on_change not in ON_CHANGE:
             errs.append(f"Unknown response to environmental change {ad.on_change!r} (choose one of "
                         f"{', '.join(ON_CHANGE)}).")
+        from .gates import MEMORY_RULES
+        if ad.memory_rule not in MEMORY_RULES:
+            errs.append(f"Unknown memory rule {ad.memory_rule!r} (one of {', '.join(MEMORY_RULES)}).")
+        if not 0.0 <= ad.explore_after <= 1.0:
+            errs.append("Continuing exploration must be a probability in [0, 1].")
+        if ad.explore_after and ad.gate != "explore":
+            errs.append("Continuing exploration after a decided bin applies only to the exploration-enabled gate.")
         if ad.gate == "oracle_table":
             nb = len(ad.bin_edges) + 1
             if len(ad.oracle_table) != self.n_firms or any(len(r) != nb for r in ad.oracle_table):

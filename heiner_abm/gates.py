@@ -63,6 +63,16 @@ Assumptions of the uncertainty estimator, and what is not claimed
     No nominal coverage is claimed. Coverage and calibration are measured empirically against the researcher's
     counterfactuals and the oracle benchmark (heiner_abm.gate_study).
 
+Memory variants (separate, and all inert at their defaults)
+    memory_rule     "per_update" (the existing rule) or "calendar". Calendar ageing decays by lambda^(periods since
+                    this bin last updated) instead of once per arrival, so a bin that has heard nothing for fifty
+                    periods is treated as fifty periods stale rather than one arrival stale.
+    on_change       "forget" (the existing rule) or "reset": discard a firm's evidence when it sees a change.
+    explore_after   explore gate only: probability of randomizing even after a bin has been classified decisively,
+                    so a bin whose true advantage has moved can be re-learned. 0 reproduces the existing rule, in
+                    which a decided bin never randomizes again. The draws come from the same exploration stream,
+                    extended by one row, which leaves the existing two rows identical.
+
 Missing outcomes are never zero gains: a bin without evidence has no mean (NaN in the records), only released feedback
 updates the statistics, and keep decisions outside randomized trials produce no evidence for the explore gate.
 """
@@ -79,6 +89,13 @@ GATE_LABELS = {"gain": "Estimated-gain gate (existing)", "lcb": "Confidence-sens
                "explore": "Exploration-enabled gate (proposed extension)",
                "oracle_table": "ORACLE benchmark gate (true bin advantage from independent runs)"}
 ON_CHANGE = ("forget", "reset")
+# How evidence ages, as separate variants. "per_update" is the rule that existed before this choice was offered.
+MEMORY_RULES = ("per_update", "calendar")
+MEMORY_RULE_NOTES = {
+    "per_update": "lambda once per released feedback value, whatever the calendar gap between arrivals.",
+    "calendar": "lambda^(periods since this bin last updated), so evidence ages with the environment rather than "
+                "with the arrival count. Identical to per_update when releases are one period apart.",
+}
 KEEP, ADAPT, UNCERTAIN = 0, 1, 2
 N_STATS = 4                                     # S0, S1, S2, W2
 
@@ -149,11 +166,15 @@ def gate_table(gate: str, learned: np.ndarray, S: np.ndarray, XS: np.ndarray, la
 
 
 def exploration_draws(seed: int, periods: int, n_firms: int) -> np.ndarray:
-    """Separate stream (6th child of the scenario seed) for the explore gate's randomized trials, shape (2, periods,
-    n_firms): [0] < explore_rate makes an uncertain decision a trial, [1] < 1/2 adopts in a trial. Enabling it leaves
-    every other stream intact."""
+    """Separate stream (6th child of the scenario seed) for the explore gate's randomized trials, shape (3, periods,
+    n_firms): [0] < explore_rate makes an UNCERTAIN decision a trial, [1] < 1/2 adopts in a trial, [2] <
+    explore_after makes a DECIDED bin a trial as well. Enabling it leaves every other stream intact.
+
+    The third row was added after the first two. numpy fills in C order, so the first 2 * periods * n_firms draws
+    are unchanged and a scenario that does not use continuing exploration behaves exactly as before; a test pins
+    that."""
     ss = np.random.SeedSequence(seed).spawn(6)[5]
-    return np.random.default_rng(ss).random((2, periods, n_firms))
+    return np.random.default_rng(ss).random((3, periods, n_firms))
 
 
 def change_signal(scn, belief_p_max: np.ndarray, belief_slope: np.ndarray, shift: np.ndarray) -> np.ndarray:

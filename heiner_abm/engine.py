@@ -98,11 +98,15 @@ class _Kernel:
     def clearing_firm(self, Qf, pm, sl):
         return np.maximum(self.m["p_min"][..., None], pm[..., None] - sl[..., None] * Qf)
 
-    def decide(self, q, R, P, F, flex, mode, c_obs, c_now, eps, pmb, slb, sel=None, trial_adopt=False):
+    def decide(self, q, R, P, F, flex, mode, c_obs, c_now, eps, pmb, slb, sel=None, trial_adopt=False,
+               trial_uncertain=True, trial_decided=False):
         """Decisions from observations (agents.Industry.observe): q own current output, R rivals' observed output and
         P observed price per firm, c_obs the observed cost per market, (pmb, slb) the demand curve firms may use.
         mode (..., N, bins): the Adaptive gate's keep / adopt / uncertain per size bin (heiner_abm.gates);
-        trial_adopt: an uncertain decision is a randomized trial that adopts (explore gate)."""
+        trial_adopt: if this decision is a randomized trial, the trial adopts (explore gate).
+        trial_uncertain: an UNCERTAIN bin is a randomized trial (the existing rule).
+        trial_decided: a bin already classified decisively is a randomized trial anyway (continuing exploration;
+        False, the default, reproduces the rule in which a decided bin never randomizes again)."""
         m, f = self.m, self.f
         c_hat = c_obs[..., None] + f["kappa"] * (c_now - c_obs)[..., None] + f["sigma"] * eps
         s = slb[..., None]
@@ -119,7 +123,11 @@ class _Kernel:
         md = np.take_along_axis(mode, bins[..., None], axis=-1)[..., 0]
         sel = f["sel"] if sel is None else sel
         thr = f["threshold"]
-        adapt = opp & ((md == gates.ADAPT) | ((md == gates.UNCERTAIN) & trial_adopt))
+        # A decision is a randomized trial when its bin is uncertain and the uncertain draw fired, or when the
+        # bin is decided and continuing exploration fired. In a trial the action comes from the draw; otherwise
+        # from the classification. With trial_decided False this is exactly the previous rule.
+        is_trial = np.where(md == gates.UNCERTAIN, trial_uncertain, trial_decided)
+        adapt = opp & np.where(is_trial, trial_adopt, md == gates.ADAPT)
         dev = np.select([sel == 0, sel == 1, sel == 2, sel == 3, sel == 4],
                         [True, False, change < thr, change > thr, adapt])
         return rec, dev.astype(bool), opp, bins, c_hat, best, md
@@ -143,6 +151,8 @@ def _stack(scns: Sequence[Scenario]):
         confidence=m(lambda s: s.adaptive.confidence), min_evidence=m(lambda s: s.adaptive.min_evidence),
         explore_rate=m(lambda s: s.adaptive.explore_rate),
         reset=m(lambda s: float(s.adaptive.on_change == "reset")).astype(bool),
+        calendar=m(lambda s: float(s.adaptive.memory_rule == "calendar")).astype(bool),
+        explore_after=m(lambda s: s.adaptive.explore_after),
         flex=f(lambda s, fs: fs.flex), threshold=f(lambda s, fs: fs.threshold),
         margin=f(lambda s, fs: fs.desired_margin), kappa=f(lambda s, fs: fs.foresight),
         sigma=f(lambda s, fs: fs.noise),
@@ -271,6 +281,7 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     nb = len(edges) + 1
     learned = np.zeros((B, N, nb))
     ST = np.zeros((B, N, gates.N_STATS, nb))                  # estimated / oracle feedback statistics (gates.update)
+    LAST = np.zeros((B, N, nb))                               # period each bin last absorbed a value (calendar rule)
     XST = np.zeros((B, N, 2, gates.N_STATS, nb))              # explore gate: trials, arm 0 keep / arm 1 adopt
     TAB = np.zeros((B, N, nb))                                # ORACLE benchmark table (oracle_table gate only)
     for b, s in enumerate(scns):
@@ -279,12 +290,15 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
     g3 = lambda key, rows: a[key][rows][:, None, None]
     gate_rows = {gates.GATES[c]: np.flatnonzero(a["gate"] == c) for c in np.unique(a["gate"])}
     # exploration draws (separate stream) and the firms' observed change signal, per market
-    XD = np.ones((B, 2, T, N))
+    XD = np.ones((B, 3, T, N))
     for b, s in enumerate(scns):
         if s.adaptive.gate == "explore":
             XD[b] = gates.exploration_draws(s.seed, T, N)
-    TRIAL = XD[:, 0] < a["explore_rate"][:, None, None]                     # (B, T, N): an uncertain decision is a trial
-    TADOPT = TRIAL & (XD[:, 1] < 0.5)                                         # ... that adopts
+    TRIAL = XD[:, 0] < a["explore_rate"][:, None, None]                     # (B, T, N): an uncertain bin is a trial
+    # Continuing exploration: a bin already classified decisively is randomized anyway with this probability, from
+    # the third row of the same stream. 0 (the default) reproduces the rule in which a decided bin never randomizes.
+    TRIAL_DEC = XD[:, 2] < a["explore_after"][:, None, None]
+    TADOPT = XD[:, 1] < 0.5                                                   # a trial adopts
     window = np.zeros((B, N))
     keep_path = evo_on or record_firm_history
     flex_path = np.zeros((B, T if keep_path else 0, N))
@@ -344,8 +358,12 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
             P_obs, Q_obs = P_obs + NZ[bB, 0, so], Q_obs + NZ[bB, 1, so]
         R_obs = Q_obs - st["q"][bB, so].astype(float)
         rec, dev, opp, bins, c_hat, best, md = K1.decide(q, R_obs, P_obs, F, flex, mode, cost[bB, so], c_now,
-                                                         EPS[:, t, :], PMB[:, t], SLB[:, t], trial_adopt=TADOPT[:, t])
-        explored = opp & (md == gates.UNCERTAIN) & TRIAL[:, t] & (a["sel"] == SEL_CODES["Adaptive"])
+                                                         EPS[:, t, :], PMB[:, t], SLB[:, t],
+                                                         trial_adopt=TADOPT[:, t], trial_uncertain=TRIAL[:, t],
+                                                         trial_decided=TRIAL_DEC[:, t])
+        # evidence comes from randomized trials only, whether the bin was uncertain or decided
+        explored = opp & np.where(md == gates.UNCERTAIN, TRIAL[:, t], TRIAL_DEC[:, t]) \
+            & (a["sel"] == SEL_CODES["Adaptive"])
         new_q = np.where(dev, rec, q)
         alt = np.where(dev, q, rec)
         Qn = new_q.sum(1)
@@ -397,7 +415,8 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
                     oP, oQ = oP + NZ[bB, 0, fo][:, None, :], oQ + NZ[bB, 1, fo][:, None, :]
                 r2, d2, *_ = KF.decide(fq, oQ - oq, oP, fF, fflex, fmode, col(cost[bB, fo]), cn,
                                        EPS[:, tt, None, :], col(PMB[:, tt]), col(SLB[:, tt]), sel=fork_sel,
-                                       trial_adopt=TADOPT[:, tt, None, :])
+                                       trial_adopt=TADOPT[:, tt, None, :], trial_uncertain=TRIAL[:, tt, None, :],
+                                       trial_decided=TRIAL_DEC[:, tt, None, :])
                 fq = np.where(d2, r2, fq)
                 fQ = fq.sum(-1)
                 fP = KF.clearing(fQ, col(PM[:, tt]), col(SL[:, tt]))
@@ -459,6 +478,12 @@ def run_batch(scenarios: Sequence[Scenario], record_firm_history: bool = False, 
         for item in due:
             r, ok, bi = item["rows"], item["valid"], item["bins"]
             m_r = mem[r]
+            if a["calendar"][r].any():
+                # age by calendar time for the markets that asked for it: lambda^(periods since this bin last
+                # updated), at least one period, so a bin heard from rarely is treated as stale rather than fresh
+                gap = np.maximum(t - LAST[r[:, None], n_idx, bi], 1.0)
+                m_r = np.where(a["calendar"][r][:, None], m_r ** gap, m_r)
+            LAST[r[:, None], n_idx, bi] = np.where(ok, float(t), LAST[r[:, None], n_idx, bi])
             if item["kind"] == "chosen":
                 cur4 = XST[r[:, None], n_idx, item["arm"], :, bi]
                 XST[r[:, None], n_idx, item["arm"], :, bi] = np.where(ok[..., None],

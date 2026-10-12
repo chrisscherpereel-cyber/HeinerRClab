@@ -756,3 +756,93 @@ def run_validation(plan: ValidationPlan, base: Scenario, gates: Optional[Sequenc
         calibration=pd.concat(curves, ignore_index=True) if curves else pd.DataFrame(),
         summary=pd.DataFrame(rows), variants=variants,
         settings=experiment_spec(plan, base), not_run=not_run)
+
+
+# ================================================================================================ policy level
+# The variants above are compared as estimators on recorded streams: the same evidence replayed through different
+# memory rules. That isolates the estimator but cannot show how a different rule changes the states the firm later
+# visits, because the stream is held fixed. These run each variant as a LIVE policy instead, so its decisions feed
+# back into the market it then faces, and score it on outcomes and against A* at its own decision states.
+POLICY_VARIANTS: Dict[str, Dict[str, Any]] = {
+    "per_update_forgetting": dict(settings={}, gate="lcb",
+                                  note="The existing rule: lambda once per released value."),
+    "calendar_aging": dict(settings={"memory_rule": "calendar"}, gate="lcb",
+                           note="lambda^(periods since this bin last updated)."),
+    "change_reset": dict(settings={"on_change": "reset"}, gate="lcb",
+                         note="Discard a bin's evidence when the firm sees a change."),
+    "explore_continuing": dict(settings={"explore_after": 0.1}, gate="explore",
+                               note="Randomize with probability 0.1 even after a bin is decided. Runs on the "
+                                    "exploration-enabled gate, the only gate that randomizes at all, so it is "
+                                    "compared with that gate's own baseline rather than with the others."),
+    "explore_baseline": dict(settings={}, gate="explore",
+                             note="The exploration-enabled gate without continuing exploration: the baseline for "
+                                  "the variant above."),
+}
+
+
+def run_policy_comparison(plan: ValidationPlan, base: Scenario, regime: str = "missing",
+                          variants: Optional[Sequence[str]] = None, progress=None) -> pd.DataFrame:
+    """Run each memory variant as a live policy and score it on outcomes and against A* at its own states.
+
+    Every variant sees the same environments (the same seeds), so the comparison is paired. Each is scored at the
+    states IT visits, which is the point: a rule that adapts less often faces a different distribution of
+    decisions, and that is exactly what the estimator-level comparison cannot see.
+    """
+    from .engine import run_batch
+    from .gate_study import gate_scenario
+    from .information import UnsupportedInformation
+    note = progress or (lambda f, m: None)
+    names = list(variants or POLICY_VARIANTS)
+    reg_base = regime_scenario(base, regime)
+    reg_base.periods, reg_base.burn_in = plan.periods, plan.burn_in
+    rows = []
+    for k, name in enumerate(names):
+        spec = POLICY_VARIANTS[name]
+        note(k / max(len(names), 1), f"policy: {name}")
+        scns = [gate_scenario(reg_base, spec["gate"], plan.seed0 + j, **spec["settings"])
+                for j in range(plan.markets)]
+        try:
+            res = run_batch(scns, record_firm_history=True, horizon=reg_base.adaptive.window)
+        except UnsupportedInformation as err:
+            rows.append(dict(variant=name, gate=spec["gate"], note=spec["note"], not_run=str(err)))
+            continue
+        h = res.firm_hist
+        burn = res.burn_in
+        adaptive = np.array([[f.selection == "Adaptive" for f in s.firms] for s in scns], bool)
+        sel = adaptive[:, None, :] & np.ones((1, res.price.shape[1], 1), bool)
+        rec = np.zeros_like(sel)
+        rec[:, burn:, :] = sel[:, burn:, :]
+        opp = np.asarray(h["opportunity"], bool) & rec
+        dev = np.asarray(h["deviate"], bool) & rec
+        explored = np.asarray(h.get("explored", np.zeros_like(dev)), bool) & rec
+        c = float(reg_base.adaptive.adjust_cost)
+        profit = np.asarray(h["profit_rule"], float) if "profit_rule" in h else None
+        # net payoff per period: market profit less the charge for each adaptation (gate_study's convention)
+        per_period = (np.asarray(res.price)[:, burn:, None] - np.asarray(res.cost)[:, burn:, None]) * \
+            np.asarray(h["q"], float)[:, burn:, :]
+        net = per_period.mean(axis=(1,)) - c * dev[:, burn:, :].mean(axis=1)
+
+        st = sample_decision_states(res, scns, plan.states_per_cell, seed=plan.state_seed)
+        cal, cov, err = {}, {}, {}
+        if not st.empty:
+            st = continuation_advantage(st, reg_base, plan.continuation)
+            cal, _ = calibration(st, reg_base)
+            cov = coverage(st, reg_base)
+            err = decision_errors(st)
+        rows.append(dict(
+            variant=name, gate=spec["gate"], note=spec["note"],
+            net_payoff=float(np.nanmean(net[adaptive])),
+            adaptation_rate=float(dev[opp].mean()) if opp.any() else np.nan,
+            opportunities_per_period=float(opp[:, burn:, :].mean()),
+            trial_share=float(explored[opp].mean()) if opp.any() else 0.0,
+            evidence=float(np.nanmean(np.asarray(h["adv_neff"], float)[rec])),
+            states=int(len(st)),
+            bias=cal.get("bias", np.nan), slope=cal.get("slope", np.nan),
+            coverage_nominal=cov.get("nominal", np.nan), coverage_empirical=cov.get("empirical", np.nan),
+            false_adaptation_rate=err.get("false_adaptation_rate", np.nan),
+            missed_adaptation_rate=err.get("missed_adaptation_rate", np.nan),
+            cost_of_false_adaptation=err.get("cost_of_false_adaptation", np.nan),
+            cost_of_missed_adaptation=err.get("cost_of_missed_adaptation", np.nan),
+            regret_total=err.get("regret_total", np.nan)))
+    note(1.0, "done")
+    return pd.DataFrame(rows)

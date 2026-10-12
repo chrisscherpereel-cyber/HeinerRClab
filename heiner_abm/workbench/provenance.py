@@ -241,7 +241,24 @@ DECISION_LOG_ROLES: Dict[str, str] = {
     # what it was later told, and when
     "feedback": "feedback", "feedback_origin": "feedback", "feedback_matured_period": "feedback",
     "feedback_release_period": "feedback",
+    # identifiers used by the tournament, rule-choice and market-lab traces (heiner_abm.traces)
+    "market": "index", "slot": "index", "design": "index", "firm": "index", "flex": "index", "recorded": "index",
+    "changed": "action", "opportunity": "predecision",
+    # the release time of a reliability-condition agent's h-period judgement of the decision in this row
+    "rc_judgement_used_period": "feedback",
 }
+
+# Role prefixes. heiner_abm.traces names its columns obs_price_prev, pred_target, action_output and so on, one
+# column per quantity an agent saw or produced, which is too open a set to list. A name carrying one of these
+# prefixes takes that role; anything else is still reported as unclassified, so a typo does not slip through as a
+# silently accepted column.
+ROLE_PREFIXES: Tuple[Tuple[str, str], ...] = (
+    ("researcher_", "researcher_only"),
+    ("obs_", "predecision"),
+    ("pred_", "predecision"),
+    ("action_", "action"),
+    ("feedback_", "feedback"),
+)
 ROLES: Tuple[str, ...] = ("index", "predecision", "action", "postdecision", "feedback", "researcher_only")
 ROLE_NOTES: Dict[str, str] = {
     "index": "Identifies the decision; not information.",
@@ -266,10 +283,17 @@ NEVER_RELEASED = -1
 
 
 def role_of(column: str) -> str:
-    """The role of a decision-log column. Unknown columns are 'unclassified', which the tests reject."""
-    if column.startswith(RESEARCHER_PREFIX):
-        return "researcher_only"
-    return DECISION_LOG_ROLES.get(column, "unclassified")
+    """The role of a decision-log column. Unknown columns are 'unclassified', which the tests reject.
+
+    An explicit entry in DECISION_LOG_ROLES wins; otherwise one of the declared ROLE_PREFIXES decides. Nothing else
+    is classified.
+    """
+    if column in DECISION_LOG_ROLES:
+        return DECISION_LOG_ROLES[column]
+    for prefix, role in ROLE_PREFIXES:
+        if column.startswith(prefix):
+            return role
+    return "unclassified"
 
 
 def decision_log_schema(columns: Iterable[str]) -> Dict[str, Any]:

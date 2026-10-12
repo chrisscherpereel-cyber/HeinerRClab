@@ -893,7 +893,8 @@ class NKLandscape(Environment):
             if (base + r) in trace:
                 path = nk.landscape_path(env)
                 st_ = nk.run_streams(env, path, s + 1)
-                obs = nk.Observer(env, path, st_.noise, st_.leader, st_.visible)
+                obs = nk.Observer(env, path, st_.noise, st_.leader, st_.visible,
+                                  verify_noise=st_.verify)
                 for pol in spec.policies:
                     xs, costs, log = nk.simulate(pol, env, obs, st_.start, st_.U, hpar)
                     keep_trace(traces, pol, base + r, self._trace(env, path, xs, log))

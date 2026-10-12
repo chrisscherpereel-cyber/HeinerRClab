@@ -100,9 +100,11 @@ ENUM_MAX = 16                      # enumerate every configuration (exact benchm
 EDGES = np.array([0.5, 1.0, 2.0, 4.0])
 N_BINS = len(EDGES) + 1
 TOPOLOGIES = ("adjacent", "random", "block")
-SEARCHERS = ("hill", "stochastic", "satisfice", "imitate", "gate_none", "gate_gain", "gate_lcb")
+SEARCHERS = ("hill", "stochastic", "satisfice", "imitate", "gate_none", "gate_gain", "gate_lcb", "verify")
+MAX_VERIFY = 8                     # verification pairs a searcher may buy per decision
 GATED = ("gate_none", "gate_gain", "gate_lcb")
-LABELS = {"hill": "Local hill climbing", "stochastic": "Broader stochastic search", "satisfice": "Satisficing",
+LABELS = {"verify": "Resample and accept (verifies before moving)",
+          "hill": "Local hill climbing", "stochastic": "Broader stochastic search", "satisfice": "Satisficing",
           "imitate": "Imitation (partial observability)", "gate_none": "Ungated (same proposals and budget)",
           "gate_gain": "Reliability-gated: estimated gain", "gate_lcb": "Reliability-gated: confidence-sensitive"}
 METRICS = {"payoff": "Attained payoff per period", "regret": "Regret per period", "evaluations": "Evaluations used",
@@ -148,6 +150,8 @@ class SearchParams:
     min_evidence: float = 5.0          # gate_lcb: minimum effective observations
     noise_rate: float = 0.05           # agents' running estimate of their observation noise
     noise_prior: float = 0.01          # its starting value (s.d.)
+    verify_reps: int = 1               # resample-and-accept: verification pairs bought before deciding (>= 1)
+    verify_margin: float = 0.0         # ... and the verified advantage it requires on top of the move cost
 
 
 # ================================================================================================ landscape
@@ -286,8 +290,9 @@ class Observer:
     3 re-observation of the incumbent for verification. Noise draws are fixed per (period, slot), shared by searchers."""
 
     def __init__(self, env: NKEnv, path: List[Epoch], noise: np.ndarray, leader_seen: Optional[np.ndarray] = None,
-                 visible: Optional[np.ndarray] = None):
+                 visible: Optional[np.ndarray] = None, verify_noise: Optional[np.ndarray] = None):
         self._env, self._path, self._noise = env, path, noise
+        self._verify = verify_noise
         self._ep = np.zeros(env.periods, dtype=np.int64)
         for k, e in enumerate(path):
             self._ep[e.start:] = k
@@ -295,6 +300,20 @@ class Observer:
 
     def observe(self, x: int, t: int, slot: int) -> float:
         return true_payoff(self._path[self._ep[t]], x) + self._env.obs_noise * self._noise[t, slot]
+
+    def verify(self, x: int, t: int, rep: int, side: int) -> float:
+        """A fresh verification reading of configuration x: an independent draw, not a re-use of the evaluation.
+
+        `rep` indexes the verification pair and `side` is 0 for the candidate and 1 for the incumbent. Drawing the
+        pair in the same period means the two readings share the landscape but not their noise, so differencing
+        them removes nothing and the verified advantage is a genuinely independent measurement of the same
+        quantity the first evaluation estimated.
+        """
+        if self._verify is None:
+            raise ValueError("this run has no verification draws; build the Observer with verify_noise")
+        if not 0 <= rep < MAX_VERIFY:
+            raise ValueError(f"verification pair {rep} outside the {MAX_VERIFY} available")
+        return true_payoff(self._path[self._ep[t]], x) + self._env.obs_noise * self._verify[t, 2 * rep + side]
 
     def leader(self, t: int) -> Dict[int, int]:
         """Observable components of the leader's configuration at the end of period t: {component: value}."""
@@ -320,6 +339,7 @@ def _is_peak(ep: Epoch, x: int) -> bool:
 class RunStreams:
     start: int
     noise: np.ndarray                  # (T, 4) standard normal
+    verify: np.ndarray                 # (T, 2 * MAX_VERIFY) standard normal, resample-and-accept only
     U: np.ndarray                      # (T, 2N + 2) uniforms for proposals and acceptance
     leader: np.ndarray                 # leader's configuration at the end of each period
     visible: np.ndarray                # leader components observable to the imitator
@@ -328,10 +348,13 @@ class RunStreams:
 def run_streams(env: NKEnv, path: List[Epoch], run_seed: int) -> RunStreams:
     """Starting configuration, noise and proposal draws for one run, plus the leader's path (seeded by run_seed)."""
     ss = np.random.SeedSequence([env.seed, run_seed, 2])
-    r_start, r_noise, r_prop, r_lead = (np.random.default_rng(s) for s in ss.spawn(4))
+    # a fifth child for verification draws. Children are deterministic by index, so spawning one more leaves the
+    # first four streams byte-identical and no existing searcher moves.
+    r_start, r_noise, r_prop, r_lead, r_ver = (np.random.default_rng(s) for s in ss.spawn(5))
     T, N = env.periods, env.N
     start = int(r_start.integers(0, 2 ** N))
     noise = r_noise.standard_normal((T, 4))
+    verify = r_ver.standard_normal((T, 2 * MAX_VERIFY))
     U = r_prop.random((T, 2 * N + 2))
     ep = np.zeros(T, dtype=np.int64)
     for k, e in enumerate(path):
@@ -347,7 +370,7 @@ def run_streams(env: NKEnv, path: List[Epoch], run_seed: int) -> RunStreams:
             x = int(nb[j])
         lead[t] = x
     visible = np.sort(r_lead.permutation(N)[:int(round(env.observe * N))])
-    return RunStreams(start, noise, U, lead, visible)
+    return RunStreams(start, noise, verify, U, lead, visible)
 
 
 def _flip_set(U_row: np.ndarray, N: int, d: int) -> List[int]:
@@ -399,8 +422,11 @@ def simulate(searcher: str, env: NKEnv, obs: Observer, start: int, U: np.ndarray
             want = o_x < A
         else:
             want = True
-        width = 2 if searcher in GATED else 1
-        if want and used + 1 <= budget and (searcher not in GATED or used + width <= budget):
+        # evaluations this decision could cost: the candidate, plus a verification pair for the gates (released
+        # after the decision) or one per verification for resample-and-accept (consulted before it)
+        width = 2 if searcher in GATED else (1 + max(int(hp.verify_reps), 1) if searcher == "verify" else 1)
+        if want and used + 1 <= budget and (searcher not in GATED and searcher != "verify"
+                                            or used + width <= budget):
             y = _propose(searcher, x, t, U, N, hp, obs)
             o_y = obs.observe(y, t, 1)
             used += 1
@@ -416,6 +442,21 @@ def simulate(searcher: str, env: NKEnv, obs: Observer, start: int, U: np.ndarray
                 accept = g1 > 0 or (temp > 0 and U[t, N] < np.exp(g1 / temp))
             elif searcher == "satisfice":
                 accept = o_y - c_move >= A
+            elif searcher == "verify":
+                # Resample and accept. An apparent improvement is re-measured before the move is made: each
+                # verification pair reads the candidate and the incumbent again, independently, and the decision
+                # is taken on the average of the first evaluation and the verifications. Verification is bought
+                # with the same evaluation budget as search, so it trades breadth for reliability rather than
+                # being free. The existing gated searchers also verify, but only AFTER deciding, to feed what
+                # they learn for later decisions; here the reading informs the move it is about.
+                reps = max(int(hp.verify_reps), 1)
+                diffs = [o_y - o_x]
+                for r in range(reps):
+                    diffs.append(obs.verify(y, t, r, 0) - obs.verify(x, t, r, 1))
+                used += reps
+                g_bar = float(np.mean(diffs)) - c_move
+                accept = g_bar > hp.verify_margin
+                entry_verified = g_bar
             else:
                 apparent = g1 > 0
                 if not apparent:
@@ -428,6 +469,9 @@ def simulate(searcher: str, env: NKEnv, obs: Observer, start: int, U: np.ndarray
                                            lam, 0.0, hp.confidence, hp.min_evidence)
                     accept = bool(tab["mode"][b] == gates.ADAPT)
             entry = dict(t=t, x=x, y=y, o_x=o_x, o_y=o_y, c=c_move, bin=b, accept=bool(accept), g2=np.nan)
+            if searcher == "verify":
+                entry["verified_gain"] = entry_verified
+                entry["verifications"] = max(int(hp.verify_reps), 1)
             if searcher in GATED and g1 > 0:                   # verification, released after the decision
                 g2 = obs.observe(y, t, 2) - obs.observe(x, t, 3) - c_move
                 used += 1
@@ -488,6 +532,11 @@ def evaluate_run(env: NKEnv, path: List[Epoch], xs: np.ndarray, costs: np.ndarra
                 recovered_share=float(np.mean(recovered)) if recovered else np.nan, changes=float(len(path) - 1))
 
 
+def _observer(env: NKEnv, path, st) -> Observer:
+    """The Observer for one run, including the verification draws resample-and-accept needs."""
+    return Observer(env, path, st.noise, st.leader, st.visible, verify_noise=st.verify)
+
+
 def run_landscape(env: NKEnv, run_seeds: Sequence[int], hp: SearchParams = SearchParams(),
                   searchers: Sequence[str] = SEARCHERS) -> pd.DataFrame:
     """Every searcher from every starting configuration on one landscape path (common random numbers)."""
@@ -495,7 +544,7 @@ def run_landscape(env: NKEnv, run_seeds: Sequence[int], hp: SearchParams = Searc
     sims = []
     for rs in run_seeds:
         st = run_streams(env, path, rs)
-        obs = Observer(env, path, st.noise, st.leader, st.visible)
+        obs = _observer(env, path, st)
         for s in searchers:
             rec = {}
             xs, costs, log = simulate(s, env, obs, st.start, st.U, hp, rec)

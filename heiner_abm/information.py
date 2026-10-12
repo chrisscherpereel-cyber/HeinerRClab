@@ -361,6 +361,9 @@ AGENTS: List[Needs] = [
        uses="noisy payoffs of its configuration and candidates; its aspiration level"),
     _a("nk_imitate", "NK: imitation (partial observability)", "nk", feedback=("chosen",), rivals_visible=True,
        uses="the observable components of a leader's configuration; noisy payoffs of its own candidates"),
+    _a("nk_verify", "NK: resample and accept (verifies before moving)", "nk", feedback=("chosen",),
+       uses="noisy payoffs of its configuration and of a candidate, plus independent verification readings "
+       "of both bought from the same evaluation budget"),
     _a("nk_gate_none", "NK: ungated search (same proposals and budget as the gates)", "nk", feedback=("chosen",),
        uses="noisy payoffs of its configuration and candidates"),
     _a("nk_gate_gain", "NK: reliability-gated search, estimated gain", "nk", feedback=("chosen",),

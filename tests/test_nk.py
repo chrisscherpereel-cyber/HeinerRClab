@@ -90,7 +90,8 @@ def test_benchmark_exact_for_small_and_best_known_for_large():
 def _streams(env, seed=1):
     path = nk.landscape_path(env)
     st = nk.run_streams(env, path, seed)
-    return path, st, nk.Observer(env, path, st.noise, st.leader, st.visible)
+    # built as production builds it, verification draws included, so every searcher can be exercised here
+    return path, st, nk.Observer(env, path, st.noise, st.leader, st.visible, verify_noise=st.verify)
 
 
 def test_gates_get_identical_proposals_and_budgets():
@@ -120,6 +121,11 @@ class _Recorder(nk.Observer):
         self.seen[(x, t, slot)] = v
         return v
 
+    def verify(self, x, t, rep, side):
+        v = self.inner.verify(x, t, rep, side)
+        self.seen[("verify", x, t, rep, side)] = v
+        return v
+
     def leader(self, t):
         v = self.inner.leader(t)
         self.seen[("leader", t)] = v
@@ -134,6 +140,9 @@ class _Replay(nk.Observer):
 
     def observe(self, x, t, slot):
         return self.seen[(x, t, slot)]
+
+    def verify(self, x, t, rep, side):
+        return self.seen[("verify", x, t, rep, side)]
 
     def leader(self, t):
         return self.seen[("leader", t)]
@@ -159,7 +168,7 @@ def test_no_lookahead(searcher):
     noise2[K + 1:] += 3.0
     path2 = path + [nk.Epoch(K + 1, nk.Landscape(path[0].land.nbr, np.random.default_rng(0).random(
         path[0].land.tables.shape)), None, 1.0, False)]
-    obs2 = nk.Observer(env, path2, noise2, st.leader, st.visible)
+    obs2 = nk.Observer(env, path2, noise2, st.leader, st.visible, verify_noise=st.verify)
     a = nk.simulate(searcher, env, obs, st.start, st.U, nk.SearchParams())[0]
     b = nk.simulate(searcher, env, obs2, st.start, st.U, nk.SearchParams())[0]
     np.testing.assert_array_equal(a[:K + 2], b[:K + 2])     # the configuration in K + 1 is decided at the end of K
@@ -173,7 +182,7 @@ def test_verification_is_released_after_the_decision(searcher):
     K = next(d["t"] for d in a_log if np.isfinite(d["g2"]))
     noise2 = st.noise.copy()
     noise2[K, 2:] += 5.0                                    # change only period K's verification draws
-    obs2 = nk.Observer(env, path, noise2, st.leader, st.visible)
+    obs2 = nk.Observer(env, path, noise2, st.leader, st.visible, verify_noise=st.verify)
     b_log = nk.simulate(searcher, env, obs2, st.start, st.U, nk.SearchParams())[2]
     da = next(d for d in a_log if d["t"] == K)
     db = next(d for d in b_log if d["t"] == K)
@@ -185,7 +194,7 @@ def test_imitation_sees_only_observable_components():
     path, st, obs = _streams(env)
     hidden = sum(1 << i for i in range(env.N) if i not in set(st.visible.tolist()))
     assert len(st.visible) == 4
-    obs2 = nk.Observer(env, path, st.noise, st.leader ^ hidden, st.visible)
+    obs2 = nk.Observer(env, path, st.noise, st.leader ^ hidden, st.visible, verify_noise=st.verify)
     a = nk.simulate("imitate", env, obs, st.start, st.U, nk.SearchParams())[0]
     b = nk.simulate("imitate", env, obs2, st.start, st.U, nk.SearchParams())[0]
     np.testing.assert_array_equal(a, b)
@@ -271,3 +280,131 @@ def test_nk_zero_cost_control_charges_nothing():
     assert env.cost == 0.0 and env.switch_cost == 0.0
     charge = lambda flips: env.cost * flips + (env.switch_cost if flips else 0.0)
     assert all(charge(f) == 0.0 for f in range(5))
+
+
+# ================================================================ E. resample and accept
+class TestResampleAndAccept:
+    """Stage E: a searcher that re-measures a candidate BEFORE moving, paying for the readings out of its budget."""
+
+    ENV = nk.NKEnv(N=12, K_NK=4, periods=250, obs_noise=0.08, seed=5)
+
+    def _run(self, hp=None, searcher="verify", env=None):
+        env = env or self.ENV
+        path = nk.landscape_path(env)
+        st = nk.run_streams(env, path, 1)
+        obs = nk.Observer(env, path, st.noise, st.leader, st.visible, verify_noise=st.verify)
+        rec = {}
+        xs, costs, log = nk.simulate(searcher, env, obs, st.start, st.U, hp or nk.SearchParams(), record=rec)
+        return xs, costs, log, rec
+
+    # ------------------------------------------------------------ verification informs the decision
+    def test_it_verifies_before_deciding_not_afterwards(self):
+        """The existing gated searchers also take a verification reading, but only after the decision, to feed
+        what they learn for later. Here the reading is in the decision it is about."""
+        _, _, log, _ = self._run()
+        proposals = [e for e in log if "verified_gain" in e]
+        assert proposals, "no decision recorded a verified gain"
+        for e in proposals:
+            assert e["accept"] == bool(e["verified_gain"] > 0.0), "the move did not follow the verified gain"
+
+    def test_the_first_evaluation_alone_would_sometimes_decide_differently(self):
+        """If verification never changed a decision it would be an expensive no-op."""
+        _, _, log, _ = self._run()
+        flipped = [e for e in log if "verified_gain" in e
+                   and (e["o_y"] - e["o_x"] - e["c"] > 0) != (e["verified_gain"] > 0)]
+        assert flipped, "verification never overturned the first reading, so it bought nothing"
+
+    def test_more_verification_brings_the_decision_variable_closer_to_the_truth(self):
+        """The point of resampling: the quantity being thresholded should sit nearer the true advantage.
+
+        Measured against the researcher's true payoffs, which no agent sees. An earlier version of this test
+        measured the spread of the CORRECTION to the first reading instead, which grows with the number of
+        readings by construction and says nothing about accuracy.
+        """
+        env = self.ENV
+        path = nk.landscape_path(env)
+        ep = np.zeros(env.periods, dtype=int)
+        for k, e in enumerate(path):
+            ep[e.start:] = k
+
+        def rmse(reps):
+            _, _, log, _ = self._run(nk.SearchParams(verify_reps=reps))
+            err = [e["verified_gain"] - (nk.true_payoff(path[ep[e["t"]]], e["y"])
+                                         - nk.true_payoff(path[ep[e["t"]]], e["x"]) - e["c"])
+                   for e in log if "verified_gain" in e]
+            return float(np.sqrt(np.mean(np.square(err))))
+
+        one, many = rmse(1), rmse(8)
+        assert many < one, f"more verification did not improve the estimate: {one:.4f} -> {many:.4f}"
+
+    # ------------------------------------------------------------ verification is paid for
+    def test_verification_is_bought_from_the_same_budget_as_search(self):
+        """Readings are not free: each pair costs an evaluation, so verifying more means proposing less."""
+        used, proposals = [], []
+        for reps in (1, 4):
+            _, _, log, rec = self._run(nk.SearchParams(verify_reps=reps))
+            used.append(rec["used"])
+            proposals.append(len(log))
+        assert used[0] <= self.ENV.budget and used[1] <= self.ENV.budget
+        assert proposals[1] < proposals[0], "verifying four times as hard did not reduce the number of proposals"
+
+    def test_the_budget_is_never_exceeded(self):
+        for reps in (1, 2, 8):
+            _, _, _, rec = self._run(nk.SearchParams(verify_reps=reps))
+            assert rec["used"] <= self.ENV.budget, (reps, rec["used"], self.ENV.budget)
+
+    def test_a_demanded_margin_makes_it_move_less(self):
+        moves = []
+        for margin in (0.0, 0.5):
+            _, _, log, _ = self._run(nk.SearchParams(verify_margin=margin))
+            moves.append(sum(1 for e in log if e["accept"]))
+        assert moves[1] < moves[0], f"requiring a bigger verified gain did not reduce moves: {moves}"
+
+    # ------------------------------------------------------------ the readings are real observations
+    def test_a_verification_reading_is_independent_and_not_a_reused_evaluation(self):
+        env = self.ENV
+        path = nk.landscape_path(env)
+        st = nk.run_streams(env, path, 1)
+        o = nk.Observer(env, path, st.noise, st.leader, st.visible, verify_noise=st.verify)
+        x = int(st.start)
+        first = o.observe(x, 10, 1)
+        pairs = [o.verify(x, 10, r, 0) for r in range(4)]
+        assert len({round(v, 12) for v in pairs + [first]}) == 5, "verification reused an existing draw"
+        truth = nk.true_payoff(path[0], x)
+        assert abs(float(np.mean(pairs)) - truth) < abs(first - truth) + 5 * env.obs_noise
+
+    def test_a_reading_beyond_the_available_pairs_is_refused(self):
+        env = self.ENV
+        path = nk.landscape_path(env)
+        st = nk.run_streams(env, path, 1)
+        o = nk.Observer(env, path, st.noise, st.leader, st.visible, verify_noise=st.verify)
+        with pytest.raises(ValueError):
+            o.verify(int(st.start), 0, nk.MAX_VERIFY, 0)
+
+    def test_an_observer_without_verification_draws_says_so(self):
+        env = self.ENV
+        path = nk.landscape_path(env)
+        st = nk.run_streams(env, path, 1)
+        o = nk.Observer(env, path, st.noise, st.leader, st.visible)
+        with pytest.raises(ValueError):
+            o.verify(int(st.start), 0, 0, 0)
+
+    # ------------------------------------------------------------ nothing that already existed moved
+    def test_adding_a_fifth_random_stream_left_the_first_four_untouched(self):
+        """Children of a SeedSequence are deterministic by index, which is why verification draws could be added
+        without moving any existing searcher. Checked directly rather than relied upon."""
+        ss = lambda: np.random.SeedSequence([5, 1, 2])
+        four = [np.random.default_rng(s).standard_normal(6) for s in ss().spawn(4)]
+        five = [np.random.default_rng(s).standard_normal(6) for s in ss().spawn(5)]
+        assert all(np.array_equal(a, b) for a, b in zip(four, five[:4]))
+
+    def test_it_is_registered_and_labelled_like_the_other_searchers(self):
+        from heiner_abm.information import AGENT_BY_KEY
+        assert "verify" in nk.SEARCHERS and "verify" in nk.LABELS
+        assert ("nk", "nk_verify") in AGENT_BY_KEY or "nk_verify" in {k for _, k in AGENT_BY_KEY}
+
+    def test_it_runs_in_the_landscape_comparison_with_every_other_searcher(self):
+        df = nk.run_landscape(self.ENV, [1, 2], nk.SearchParams(), tuple(nk.SEARCHERS))
+        assert set(df["searcher"]) == set(nk.SEARCHERS)
+        row = df[df["searcher"] == "verify"]
+        assert np.isfinite(row["payoff"]).all() and (row["evaluations"] <= self.ENV.budget).all()

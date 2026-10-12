@@ -61,7 +61,7 @@ problem in this market.
 ## 4. Results
 
 Six markets, 400 periods, 200 sampled decision states per cell, 64 continuations per state.
-Plan `0abb8bb9d36d628a`. Full tables in `docs/gate_validation_results/`.
+Plan `139c10aef80b3d60` — the hash of the committed defaults, recorded in `docs/gate_validation_results/spec.json`, which is the authority for it. Full tables in the same folder.
 
 ### Coverage: the 90% bound covers 45–62%
 

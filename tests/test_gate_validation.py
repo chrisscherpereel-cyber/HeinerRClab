@@ -344,3 +344,25 @@ def test_a_small_validation_runs_end_to_end():
     assert not out.calibration.empty and len(out.variants) == len(V.VARIANTS)
     assert {"cov_nominal", "cov_empirical", "false_adaptation_rate", "cost_of_false_adaptation"} <= set(
         out.summary.columns)
+
+
+# ============================================================================== the committed results
+def test_the_committed_results_were_produced_by_the_committed_plan():
+    """The plan hash exists so a reported number identifies the run behind it. A stale hash in the documentation
+    defeats that, so the recorded hash is checked against the defaults rather than trusted.
+
+    Regression: docs/gate_validation.md once quoted a hash captured before `variant_regime` was added to the plan.
+    """
+    import json
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    spec_path = os.path.join(here, "docs", "gate_validation_results", "spec.json")
+    if not os.path.exists(spec_path):
+        pytest.skip("no committed validation results in this checkout")
+    with open(spec_path) as fh:
+        spec = json.load(fh)
+    assert spec["plan_hash"] == V.ValidationPlan().digest, (
+        "the committed results were produced by a different plan than the current defaults: rerun "
+        "tools/run_gate_validation.py, or say in the documentation which plan produced them")
+    doc = open(os.path.join(here, "docs", "gate_validation.md"), encoding="utf-8").read()
+    assert spec["plan_hash"] in doc, "the note quotes a plan hash that is not the one the results were run under"

@@ -5,10 +5,17 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from heiner_abm import gate_validation as GV
 from heiner_abm.gate_study import ORACLE_SEED_BASE, compare_gates, gate_scenario
 from heiner_abm.gates import GATE_LABELS, GATES
 from heiner_abm.information import AGENT_BY_KEY, adaptive_key
 from ui.common import CAT, base_scenario, download, evidence_note, from_json, set_engine, style, to_json
+
+
+@st.cache_data(show_spinner=False)
+def _validation(plan, scn):
+    return GV.run_validation(plan, scn)
+
 
 st.title("Reliability gates under uncertainty")
 evidence_note("simulation")
@@ -210,3 +217,112 @@ with st.expander("ORACLE table (researcher only)"):
 
 download(S, "reliability_gates_summary.csv", "Download summary (CSV)")
 download(study.markets, "reliability_gates_markets.csv", "Download per-market results (CSV)")
+
+
+# ================================================================================================ validation
+st.header("Validation: is the prediction any good?", divider="gray")
+st.markdown(
+    "Everything above compares the gates on **outcomes**. This section asks the prior question: the gates report a "
+    "predicted advantage, and the confidence-sensitive gate a lower bound on it. Predictions of *what*, and how "
+    "good? Three quantities are easy to conflate (`heiner_abm.gate_validation.ESTIMANDS`):")
+st.markdown(
+    "1. **Observed-feedback advantage** - what a gate actually learns from: its own estimated counterfactual on its "
+    "*believed* demand curve, with the firm's own misspecification in it.\n"
+    "2. **Realized advantage** - the researcher's ex-post fork on the one shock path that occurred. True demand, "
+    "but a single draw, so it carries that path's continuation noise.\n"
+    "3. **Conditional expected true net advantage A\\*** - E[discounted net advantage | state at the decision], "
+    "estimated from independent continuations and net of the adaptation charge. **This is what a prediction is "
+    "for, and what the plots below judge it against.**")
+st.caption("Continuations are researcher-only and cannot reach an agent: they draw from a seed block above the "
+           "ORACLE benchmark's, run outside any agent's feedback queue, and are held to it by tests that a rerun "
+           "of the same market after a validation is bit-identical (tests/test_gate_validation.py).")
+
+with st.expander("Continuation policy, horizon, and what is not claimed", expanded=False):
+    st.markdown(
+        "**Policy** `rivals_hold`: " + GV.CONTINUATION_POLICIES["rivals_hold"] + " This is deliberately the "
+        "assumption the firm's own counterfactual makes, so A\\* is the expectation of the quantity the gate is "
+        "trying to estimate, not of a different game. It is *not* the engine's `default` continuation, in which "
+        "rivals re-decide.\n\n"
+        "**Horizon** the judgement window W, discounted. **Draws** independent cost paths per state, shared "
+        "between the two arms (common random numbers), so the difference is far less noisy than either arm.\n\n"
+        "**Not claimed:** the bound is *not* asserted to have nominal coverage. Overlapping judgement windows, "
+        "drift, optional stopping and misspecification each break a condition it would need. The number below is "
+        "**measured**, with an interval of its own, so a gap from the nominal level is a finding and not a "
+        "contradiction of a claim nobody made.")
+
+gv_cols = st.columns(4)
+gv_regime = gv_cols[0].selectbox("Feedback regime", list(GV.FEEDBACK_REGIMES), index=1, key="gv_regime")
+gv_gate = gv_cols[1].selectbox("Gate", ["gain", "lcb"], index=1, key="gv_gate", format_func=GATE_LABELS.get)
+gv_states = int(gv_cols[2].number_input("Decision states", 40, 600, 150, 10, key="gv_states"))
+gv_draws = int(gv_cols[3].number_input("Continuations per state", 4, 256, 32, 4, key="gv_draws"))
+st.caption(GV.FEEDBACK_REGIMES[gv_regime]["note"])
+
+if st.button("Run validation", key="gv_run"):
+    st.session_state["gv_done"] = True
+if st.session_state.get("gv_done"):
+    gv_plan = GV.ValidationPlan(markets=4, periods=400, burn_in=50, states_per_cell=gv_states,
+                                gates=(gv_gate,), regimes=(gv_regime,),
+                                continuation=GV.ContinuationSpec(draws=gv_draws))
+    with st.spinner("Sampling decision states and running independent continuations..."):
+        val = _validation(gv_plan, base)
+    for gv_key, gv_why in val.not_run.items():
+        st.info(f"**{gv_key}** did not run here: {gv_why}", icon="ℹ️")
+if st.session_state.get("gv_done") and not val.summary.empty:
+    gv_row = val.summary.iloc[0]
+    v1, v2, v3, v4 = st.columns(4)
+    v1.metric("Bias of the prediction", f"{gv_row['cal_bias']:+.1f}",
+              help="Mean predicted net advantage minus A*. Positive = optimistic about adapting.")
+    v2.metric("Calibration slope", f"{gv_row['cal_slope']:.2f}",
+              help="1.00 is calibrated in the regression sense. It does not imply the bound has coverage.")
+    v3.metric("Bound coverage (measured)", f"{gv_row['cov_empirical']:.0%}",
+              delta=f"{gv_row['cov_empirical'] - gv_row['cov_nominal']:+.0%} vs nominal",
+              help="Share of decisions whose lower bound lies at or below A*. No nominal coverage is claimed.")
+    v4.metric("Regret per decision", f"{gv_row['regret_total']:.1f}",
+              help="Payoff given up by adapting when A* <= 0, plus payoff forgone by keeping when A* > 0.")
+
+    gv_curve = val.calibration
+    gv_fig = go.Figure()
+    gv_lo = float(min(gv_curve["pred_mean"].min(), gv_curve["truth_mean"].min()))
+    gv_hi = float(max(gv_curve["pred_mean"].max(), gv_curve["truth_mean"].max()))
+    gv_fig.add_trace(go.Scatter(x=[gv_lo, gv_hi], y=[gv_lo, gv_hi], mode="lines", name="perfect calibration",
+                                line=dict(color="#888888", dash="dot")))
+    gv_fig.add_trace(go.Scatter(x=gv_curve["pred_mean"], y=gv_curve["truth_mean"], mode="markers+lines",
+                                name="observed", marker=dict(color=CAT[0], size=9),
+                                error_y=dict(type="data", array=gv_curve["truth_se"], visible=True)))
+    gv_fig.update_xaxes(title="Predicted net advantage (decile mean)")
+    gv_fig.update_yaxes(title="A*: conditional expected net advantage")
+    st.plotly_chart(style(gv_fig, 380, "Calibration against the conditional expectation"))
+    st.caption("Points above the dotted line: the gate understates the advantage. Below it: the gate is "
+               "optimistic. Bars are the standard error of A* within the decile.")
+
+    gv_e1, gv_e2 = st.columns(2)
+    gv_err = go.Figure([go.Bar(x=["False adaptation", "Missed adaptation"],
+                               y=[gv_row["false_adaptation_rate"], gv_row["missed_adaptation_rate"]],
+                               marker_color=[CAT[3], CAT[1]])])
+    gv_err.update_yaxes(title="Share of sampled decisions", tickformat=".0%")
+    gv_e1.plotly_chart(style(gv_err, 300, "Both error types"))
+    gv_cost = go.Figure([go.Bar(x=["Adapted when A* <= 0", "Kept when A* > 0"],
+                                y=[gv_row["cost_of_false_adaptation"], gv_row["cost_of_missed_adaptation"]],
+                                marker_color=[CAT[3], CAT[1]])])
+    gv_cost.update_yaxes(title="Payoff per sampled decision")
+    gv_e2.plotly_chart(style(gv_cost, 300, "What each error costs"))
+
+    st.markdown("**Memory variants**, compared as estimators on the same recorded evidence streams.")
+    st.caption("Separate variants, never combined in one estimator. Scored one step ahead against the next "
+               "released value in the same bin, which is an observable rather than a counterfactual. This "
+               "isolates the estimator; it does not capture how a different rule would change the states the "
+               "firm later visits.")
+    gv_vt = val.variants.copy()
+    if gv_vt.empty:
+        st.caption("The memory variants need a feedback treatment that releases counterfactual judgements.")
+    else:
+        gv_vt.insert(1, "What it changes", [GV.VARIANT_NOTES[v] for v in gv_vt["variant"]])
+        st.dataframe(gv_vt[["variant", "What it changes", "bias", "rmse", "coverage_vs_next_value",
+                            "decided_share", "exploration_propensity", "exploration_cost"]].round(3),
+                     hide_index=True, width="stretch")
+
+    with st.expander("Reproducible experiment specification"):
+        st.json(val.settings, expanded=False)
+    download(val.summary, "gate_validation_summary.csv", "Download validation summary (CSV)")
+    download(val.states, "gate_validation_states.csv", "Download sampled states with A* (CSV)")
+    download(val.variants, "gate_validation_variants.csv", "Download variant comparison (CSV)")

@@ -259,3 +259,144 @@ class TestBayesianStateSpace:
         assert "tuned on training environments" in f.assumptions
         assert "never told" in f.assumptions
         assert f.compute.strip() and f.sources
+
+
+# ================================================================ B. Thompson sampling for a switching bandit
+class TestThompsonSampling:
+    """Stage B: the action space and the observable feedback are the claims; both are tested directly."""
+
+    ENV = tasks.TaskEnv("learning", 1.0, 0.02, 0.5, 0.1, 3)
+    T = 400
+    SW = dict(window=50, reward_sd=1.0, prior_sd=1.0)
+    DISC = dict(one_minus_gamma=0.02, reward_sd=1.0, prior_sd=1.0)
+
+    # ------------------------------------------------------------ the action space
+    @pytest.mark.parametrize("family,cfg", [("ts_sw", SW), ("ts_disc", DISC)])
+    def test_exactly_one_arm_is_chosen_in_every_period(self, family, cfg):
+        a = BB.actions(self.ENV, family, cfg, self.T)
+        assert a.shape == (self.T,)
+        assert set(np.unique(a)) <= set(range(BB.ARMS))
+        assert a.dtype.kind in "iu"
+
+    # ------------------------------------------------------------ the observable feedback
+    @pytest.mark.parametrize("family,cfg", [("ts_sw", SW), ("ts_disc", DISC)])
+    def test_only_the_chosen_option_is_observed(self, family, cfg):
+        """The decisive test of the information restriction: corrupt the payoff of the option NOT chosen in every
+        period. An agent restricted to chosen-action feedback cannot notice."""
+        _, _, obs = BB._stream(self.ENV, self.T)
+        draws = BB.posterior_draws(self.ENV, self.T)
+        run = (lambda o: BB.ts_sw_actions(o, int(cfg["window"]), cfg["reward_sd"], cfg["prior_sd"], draws)) \
+            if family == "ts_sw" else \
+            (lambda o: BB.ts_disc_actions(o, 1.0 - cfg["one_minus_gamma"], cfg["reward_sd"], cfg["prior_sd"], draws))
+        base = run(obs.copy())
+        poisoned = obs.copy().astype(float)
+        for t, at in enumerate(base):
+            poisoned[t, 1 - int(at)] += 1000.0          # the branch it did not take
+        assert np.array_equal(run(poisoned), base), "the agent reacted to a payoff it never saw"
+
+    def test_it_is_not_told_the_regime_or_the_switch_times(self):
+        """Its only inputs are the observation array, its tuned configuration and its own draws."""
+        import inspect
+        for fn in (BB.ts_sw_actions, BB.ts_disc_actions):
+            args = set(inspect.signature(fn).parameters)
+            assert not ({"state", "env", "regime", "switch"} & args), args
+
+    # ------------------------------------------------------------ the posterior
+    def test_the_posterior_is_the_gaussian_conjugate_update(self):
+        s, n = np.array([4.0, 0.0]), np.array([8.0, 0.0])
+        rsd, psd = 2.0, 3.0
+        draw = BB._ts_posterior_draw(s, n, rsd, psd, np.zeros(2))
+        prec = 1.0 / psd ** 2 + n / rsd ** 2
+        assert draw == pytest.approx((s / rsd ** 2) / prec)
+        assert draw[1] == pytest.approx(0.0), "an arm with no evidence must sit at the prior mean"
+
+    def test_uncertainty_falls_as_evidence_accumulates(self):
+        rsd, psd = 1.0, 2.0
+        spread = []
+        for n in (0.0, 5.0, 100.0):
+            lo = BB._ts_posterior_draw(np.zeros(2), np.full(2, n), rsd, psd, np.full(2, -1.0))
+            hi = BB._ts_posterior_draw(np.zeros(2), np.full(2, n), rsd, psd, np.full(2, +1.0))
+            spread.append(float(hi[0] - lo[0]))
+        assert spread[0] > spread[1] > spread[2]
+
+    # ------------------------------------------------------------ forgetting
+    def test_a_window_longer_than_the_horizon_never_forgets(self):
+        _, _, obs = BB._stream(self.ENV, 120)
+        draws = BB.posterior_draws(self.ENV, 120)
+        long_window = BB.ts_sw_actions(obs, 10_000, 1.0, 1.0, draws)
+        no_discount = BB.ts_disc_actions(obs, 1.0, 1.0, 1.0, draws)
+        assert np.array_equal(long_window, no_discount), "with no forgetting the two variants must coincide"
+
+    @pytest.mark.parametrize("family", ["ts_sw", "ts_disc"])
+    def test_forgetting_faster_tracks_a_switch_faster(self, family):
+        """A sharp switch at the midpoint: the quicker-forgetting setting must follow it sooner."""
+        T = 400
+        obs = np.zeros((T, 2))
+        obs[:T // 2, 0], obs[:T // 2, 1] = 1.0, -1.0
+        obs[T // 2:, 0], obs[T // 2:, 1] = -1.0, 1.0
+        draws = BB.posterior_draws(self.ENV, T)
+        if family == "ts_sw":
+            quick = BB.ts_sw_actions(obs, 20, 1.0, 1.0, draws)
+            slow = BB.ts_sw_actions(obs, 400, 1.0, 1.0, draws)
+        else:
+            quick = BB.ts_disc_actions(obs, 0.9, 1.0, 1.0, draws)
+            slow = BB.ts_disc_actions(obs, 1.0, 1.0, 1.0, draws)
+        after = slice(T // 2, T)
+        assert quick[after].mean() > slow[after].mean(), "the quicker setting did not follow the switch sooner"
+
+    # ------------------------------------------------------------ parameters are estimated, not given
+    def test_the_working_parameters_are_tuned_and_not_the_environment_noise(self):
+        a = BB.actions(self.ENV, "ts_sw", dict(self.SW, reward_sd=0.2), self.T)
+        b = BB.actions(self.ENV, "ts_sw", dict(self.SW, reward_sd=8.0), self.T)
+        assert not np.array_equal(a, b), "the working reward s.d. had no effect, so it is not being used"
+        f = BB.FAMILIES["ts_sw"]
+        assert {"reward_sd", "prior_sd", "window"} == set(f.space)
+        assert "not told" in f.assumptions and f.role == "competitor"
+
+    def test_the_discounted_family_labels_its_adaptation_rather_than_borrowing_authority(self):
+        f = BB.FAMILIES["ts_disc"]
+        assert "adaptation" in f.assumptions and "not a result" in f.assumptions
+        assert "thompson1933" in f.sources and "trovo2020" not in f.sources
+
+    def test_the_sliding_window_family_cites_the_paper_it_implements(self):
+        assert "trovo2020" in BB.FAMILIES["ts_sw"].sources
+        for key in ("thompson1933", "agrawal2013", "trovo2020"):
+            assert key in REFERENCES, f"{key} is cited but not in the registry"
+
+    # ------------------------------------------------------------ streams and reproducibility
+    def test_thompson_draws_come_from_their_own_stream(self):
+        ts = BB.posterior_draws(self.ENV, 50)
+        eps = BB.exploration_draws(self.ENV, 50)
+        assert ts.shape == (BB.ARMS, 50)
+        assert not np.allclose(ts[:, :min(len(ts[0]), len(eps[0]))], eps[:, :50])
+
+    @pytest.mark.parametrize("family,cfg", [("ts_sw", SW), ("ts_disc", DISC)])
+    def test_a_run_reproduces(self, family, cfg):
+        assert np.array_equal(BB.actions(self.ENV, family, cfg, self.T),
+                              BB.actions(self.ENV, family, cfg, self.T))
+
+    @pytest.mark.parametrize("family,cfg", [("ts_sw", SW), ("ts_disc", DISC)])
+    def test_it_scores_below_the_oracle_that_is_told_the_regime(self, family, cfg):
+        """The only cross-family ordering that holds without tuning. A ranking against the other competitors is a
+        question for the tuning protocol, which gives every family the same training opportunities; asserting one
+        here at hand-picked settings would be the comparison that protocol exists to prevent."""
+        ts = BB.run_agent(self.ENV, family, cfg, 600, 50)["payoff"]
+        oracle = BB.run_agent(self.ENV, "oracle", {}, 600, 50)["payoff"]
+        assert np.isfinite(ts) and ts < oracle
+
+    @pytest.mark.parametrize("family", ["ts_sw", "ts_disc"])
+    def test_forgetting_pays_on_these_switching_environments(self, family):
+        """A within-family comparison at matched settings, averaged over environments: forgetting against not
+        forgetting, which is the property the variant exists for and needs no cross-family tuning."""
+        quick, never = [], []
+        for seed in range(6):
+            env = tasks.TaskEnv("learning", 1.0, 0.02, 0.5, 0.1, seed + 1)
+            if family == "ts_sw":
+                a = dict(window=40, reward_sd=1.0, prior_sd=1.0)
+                b = dict(window=100_000, reward_sd=1.0, prior_sd=1.0)
+            else:
+                a = dict(one_minus_gamma=0.05, reward_sd=1.0, prior_sd=1.0)
+                b = dict(one_minus_gamma=1e-9, reward_sd=1.0, prior_sd=1.0)
+            quick.append(BB.run_agent(env, family, a, 600, 50)["payoff"])
+            never.append(BB.run_agent(env, family, b, 600, 50)["payoff"])
+        assert np.mean(quick) > np.mean(never), f"{family}: {np.mean(quick):.4f} vs {np.mean(never):.4f}"

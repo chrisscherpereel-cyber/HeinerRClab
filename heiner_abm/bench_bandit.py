@@ -104,6 +104,73 @@ def d_ucb_actions(obs: np.ndarray, gamma: float, c: float) -> np.ndarray:
     return a
 
 
+# ---------------------------------------------------------------------------------------- Thompson sampling
+# Action space: exactly one of the ARMS options per period, for the same periods as every other agent here.
+# Observable feedback: obs[t, a_t] alone, the noisy payoff of the option actually chosen. No counterfactual, no
+# payoff for the option not chosen, and no knowledge of the regime or of when it switches.
+#
+# Model: a Gaussian reward with unknown mean and a working reward s.d. `reward_sd`, under a N(0, prior_sd^2) prior
+# per arm. The posterior of arm i after effective count n_i and effective sum s_i is Gaussian with
+#     precision  1 / prior_sd^2 + n_i / reward_sd^2,     mean  (s_i / reward_sd^2) / precision
+# and the agent plays argmax of one independent draw per arm (Thompson 1933; the Gaussian version analysed by
+# Agrawal & Goyal 2013). reward_sd is a tuned working value, NOT the environment's noise: the agent is not told
+# the generating parameters, and the posterior it uses is therefore its own, not the correct one.
+#
+# Nonstationarity is handled two ways, kept as separate families rather than combined:
+#   ts_sw    sliding window: only the last `window` periods count (Trovo, Paladino, Restelli & Gatti 2020).
+#   ts_disc  discounting: the sufficient statistics decay by `gamma` each period. This laboratory's adaptation of
+#            the discount device Garivier & Moulines (2011) use for UCB to the Bayesian update; it is not taken
+#            from a refereed source, and is labelled an adaptation rather than attributed to one.
+def _ts_posterior_draw(s: np.ndarray, n: np.ndarray, reward_sd: float, prior_sd: float,
+                       u: np.ndarray) -> np.ndarray:
+    """One standard-normal draw per arm, mapped through each arm's Gaussian posterior."""
+    prec = 1.0 / (prior_sd * prior_sd) + n / (reward_sd * reward_sd)
+    mean = (s / (reward_sd * reward_sd)) / prec
+    return mean + u / np.sqrt(prec)
+
+
+def ts_sw_actions(obs: np.ndarray, window: int, reward_sd: float, prior_sd: float,
+                  draws: np.ndarray) -> np.ndarray:
+    """Sliding-window Thompson sampling: the posterior uses only the last `window` periods."""
+    T = len(obs)
+    a = np.zeros(T, int)
+    win: deque = deque()
+    n, s = np.zeros(ARMS), np.zeros(ARMS)
+    for t in range(T):
+        a[t] = _argmax(_ts_posterior_draw(s, n, reward_sd, prior_sd, draws[:, t]))
+        r = obs[t, a[t]]                                        # chosen-action feedback only
+        win.append((a[t], r))
+        n[a[t]] += 1.0
+        s[a[t]] += r
+        if len(win) > window:
+            i, ri = win.popleft()
+            n[i] -= 1.0
+            s[i] -= ri
+    return a
+
+
+def ts_disc_actions(obs: np.ndarray, gamma: float, reward_sd: float, prior_sd: float,
+                    draws: np.ndarray) -> np.ndarray:
+    """Discounted Thompson sampling: the sufficient statistics decay by gamma each period."""
+    T = len(obs)
+    a = np.zeros(T, int)
+    n, s = np.zeros(ARMS), np.zeros(ARMS)
+    for t in range(T):
+        a[t] = _argmax(_ts_posterior_draw(s, n, reward_sd, prior_sd, draws[:, t]))
+        r = obs[t, a[t]]
+        n *= gamma
+        s *= gamma
+        n[a[t]] += 1.0
+        s[a[t]] += r
+    return a
+
+
+def posterior_draws(env: TaskEnv, T: int) -> np.ndarray:
+    """Thompson sampling's own random stream, shape (ARMS, T). Separate from the epsilon-greedy stream, so adding
+    these families leaves every other agent's draws untouched."""
+    return np.random.default_rng([env.seed, 20231]).standard_normal((ARMS, T))
+
+
 def eps_greedy_actions(obs: np.ndarray, eps: float, alpha: float, draws: np.ndarray) -> np.ndarray:
     T = len(obs)
     a = np.zeros(T, int)
@@ -126,6 +193,12 @@ def actions(env: TaskEnv, family: str, cfg: Dict[str, float], T: int) -> np.ndar
         return sw_ucb_actions(obs, int(cfg["window"]), cfg["c"])
     if family == "d_ucb":
         return d_ucb_actions(obs, 1.0 - cfg["one_minus_gamma"], cfg["c"])
+    if family == "ts_sw":
+        return ts_sw_actions(obs, int(cfg["window"]), float(cfg["reward_sd"]), float(cfg["prior_sd"]),
+                             posterior_draws(env, T))
+    if family == "ts_disc":
+        return ts_disc_actions(obs, 1.0 - float(cfg["one_minus_gamma"]), float(cfg["reward_sd"]),
+                               float(cfg["prior_sd"]), posterior_draws(env, T))
     if family == "eps_greedy":
         return eps_greedy_actions(obs, cfg["eps"], cfg["alpha"], exploration_draws(env, T))
     if family == "oracle":
@@ -158,6 +231,22 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
            {"one_minus_gamma": Param(0.0005, 0.2, log=True), "c": Param(0.01, 5.0, log=True)},
            "Payoffs piecewise stationary; past plays lose weight geometrically.", "O(K) per period.",
            ("garivier2011",), "Chosen-action payoff"),
+    Family("ts_sw", "Sliding-window Thompson sampling", "competitor",
+           {"window": Param(5, 500, log=True, integer=True), "reward_sd": Param(0.1, 10.0, log=True),
+            "prior_sd": Param(0.1, 10.0, log=True)},
+           "Payoffs piecewise stationary; only the last W periods are relevant. Gaussian reward with a working "
+           "reward s.d. and a zero-mean Gaussian prior, both TUNED: the agent is not told the environment's noise, "
+           "so its posterior is its own and not the correct one.",
+           "O(K) per period for K arms, O(W) memory; one normal draw per arm per period.",
+           ("thompson1933", "agrawal2013", "trovo2020"), "Chosen-action payoff"),
+    Family("ts_disc", "Discounted Thompson sampling", "competitor",
+           {"one_minus_gamma": Param(1e-4, 0.3, log=True), "reward_sd": Param(0.1, 10.0, log=True),
+            "prior_sd": Param(0.1, 10.0, log=True)},
+           "As the sliding window, but older evidence decays geometrically instead of leaving a window. The "
+           "discount device is this laboratory's adaptation of discounted UCB to the Bayesian update, not a result "
+           "borrowed from a refereed source.",
+           "O(K) per period, O(K) memory; one normal draw per arm per period.",
+           ("thompson1933", "agrawal2013", "garivier2011"), "Chosen-action payoff"),
     Family("eps_greedy", "ε-greedy, constant step size", "competitor",
            {"eps": Param(0.001, 0.3, log=True), "alpha": Param(0.01, 0.8, log=True)},
            "Recent payoffs matter more (constant step size); exploration at a fixed rate.", "O(K) per period.",

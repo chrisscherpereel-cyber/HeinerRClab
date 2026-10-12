@@ -3,7 +3,7 @@
 `heiner_abm/gate_study.py` compares the gates on outcomes. This note is about the prior question: the gates report
 a predicted advantage, and the confidence-sensitive gate a lower bound on it — predictions of *what*, and how good?
 
-Module: `heiner_abm/gate_validation.py`. Tests: `tests/test_gate_validation.py` (41 cases).
+Module: `heiner_abm/gate_validation.py`. Tests: `tests/test_gate_validation.py` (56 cases).
 Run it: `python tools/run_gate_validation.py`. Results below: `docs/gate_validation_results/`
 (`summary.csv`, `calibration.csv`, `variants.csv`; the per-state table `states.csv` is written locally by the tool and not committed, being large and fully regenerable).
 
@@ -119,9 +119,47 @@ Change-detection reset has the lowest error but classifies far less often and ex
 Continuing exploration leaves the estimates untouched by construction — it changes only the propensity and what
 that propensity costs, both logged.
 
-**Limitation, stated plainly.** This is an estimator-level comparison. It does not capture how a different memory
-rule would change the states the firm later visits; a policy-level comparison would require changing `gates.py`
-and `engine.py`, which are fingerprinted by four registered findings and would mark them for replication.
+This is an **estimator-level** comparison: the same evidence replayed through different memory rules. It cannot
+show how a rule changes the states the firm later visits, because the stream is held fixed. Section 4b runs the
+same four rules as live policies, and the ranking does not survive.
+
+### 4b. The same variants as live policies
+
+Each variant now drives the gate inside the market, so its decisions feed back into the states it then faces.
+`run_policy_comparison`; results in `docs/gate_validation_results/policy_variants.csv`.
+
+| Variant | gate | net payoff | adaptation rate | evidence | coverage | false | missed | regret |
+|---|---|---|---|---|---|---|---|---|
+| per-update forgetting (existing) | lcb | 1371 | 0.533 | 44.7 | 0.538 | 0.245 | 0.275 | 1755 |
+| calendar-time aging | lcb | 1306 | 0.443 | 24.5 | 0.578 | 0.135 | 0.295 | **1580** |
+| change-detection reset | lcb | **724** | 0.230 | 6.8 | 0.505 | 0.095 | 0.560 | **4233** |
+| continuing exploration (p = 0.1) | explore | **1973** | 0.139 | 5.4 | **0.921** | 0.035 | 0.650 | 4257 |
+| exploration baseline | explore | 1925 | 0.157 | 5.1 | **0.862** | 0.045 | 0.610 | 3856 |
+
+Net payoff is **paired and comparable**: every variant sees the same seeds. The state-level columns are not a
+common set — each policy is scored at the states *it* visits, which is the whole point of running them live, but
+it means those columns describe how well a rule is calibrated where it actually ends up, not on a shared sample.
+
+**The estimator-level ranking does not survive.** Change-detection reset had the *lowest* one-step-ahead error of
+the four as an estimator; as a policy it is the worst by a wide margin — net payoff 724 against 1371, regret 4233
+against 1755. Resetting on every detected change leaves it with almost no evidence (6.8 effective items against
+44.7), so it adapts in 23% of opportunities and misses **56%** of the beneficial ones. A rule can track a fixed
+stream well and still starve itself of the stream when it is allowed to choose.
+
+**Calendar-time aging survives both levels**, and is the only variant that does. It roughly halves false
+adaptations (0.135 against 0.245) and has the lowest regret of the counterfactual gates, at a modest cost in net
+payoff (1306 against 1371). It is the one change here worth considering on the evidence.
+
+**The strongest result is about randomization, not memory.** The exploration-enabled gate's bound covers 86–92%
+against a nominal 90%, while the counterfactual gates sit at 50–58% in the same regime. Its evidence comes from
+randomized trials, which are unbiased for the advantage; the counterfactual gates' evidence is formed on a
+believed demand curve and is not. This only appears at policy level, because a gate has to run live to generate
+trials at all. It comes at a price: the exploration gate adapts rarely (14–16% of opportunities) and misses most
+beneficial adaptations, yet still earns the highest net payoff of any variant here.
+
+**What this does not establish.** One market, one regime, one parameterization, and no tuning of the variants
+against each other — the comparison is between rules at their stated settings, not between tuned policies on an
+equal budget. Nothing here is a registered finding.
 
 ## 5. Leakage
 
@@ -148,5 +186,9 @@ python tools/run_gate_validation.py --draws 128 --states 400
 regime definitions, the variant notes, the scenario, and the three disjoint seed blocks. The plan is hashed, so a
 reported number identifies the run behind it.
 
-No registered fingerprint or plan hash depends on this module; verified after the change, all seven finding
-fingerprints and all four plan hashes are unchanged and `REPLICATION_REQUIRED` is empty.
+No registered fingerprint or plan hash depends on **this module**. The policy-level variants in section 4b did
+change `gates.py`, `params.py` and `engine.py`, which six findings and the learnability plan fingerprint. Every
+default reproduces the previous rule exactly: that was checked first on a 28-case battery of output hashes, then
+by rerunning every affected finding in full, and every number reproduced exactly. The fingerprints and
+`LEARN_PLAN` were re-registered on that evidence, with a revision note in `heiner_abm/registered.py`, and
+`REPLICATION_REQUIRED` stayed empty because the computation did not change.

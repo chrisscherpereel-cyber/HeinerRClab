@@ -810,10 +810,21 @@ Three findings from the registered-size run (6 markets, 400 periods, 200 states 
   proposed extension in this market, and it is reported as one.
 
 The four memory rules — the existing per-update forgetting, calendar-time aging, change-detection resets, and a
-configurable probability of continuing to explore after a decisive classification — are compared as separate
-variants on the same recorded evidence streams, with exploration propensities and costs logged. Calendar-time
-aging improves on the existing rule on every axis measured at a small extra exploration cost; the reset has the
-lowest error but classifies far less often and explores three times as much.
+configurable probability of continuing to explore after a decisive classification — are compared twice: as
+separate **estimators** on the same recorded evidence streams, and as live **policies** driving the gate inside
+the market, with exploration propensities and costs logged throughout.
+
+**The two levels disagree, which is the reason for running both.** Change-detection reset has the lowest
+one-step-ahead error of the four as an estimator; as a policy it is the worst by a wide margin (net payoff 724
+against the existing rule's 1371, and it misses 56% of beneficial adaptations), because resetting on every
+detected change starves it of evidence — 6.8 effective items against 44.7. Calendar-time aging is the only
+variant that survives both levels: it roughly halves false adaptations and has the lowest regret of the
+counterfactual gates, at a modest cost in net payoff.
+
+The sharpest result is about randomization rather than memory: the exploration-enabled gate's bound covers 86–92%
+against a nominal 90%, where the counterfactual gates sit at 50–58% in the same regime. Its evidence comes from
+randomized trials, which are unbiased for the advantage; evidence formed on a believed demand curve is not. That
+only shows at policy level, because a gate has to run live to generate trials at all.
 
 > Researcher-only, and held to it by tests: continuations draw from a seed block above the ORACLE benchmark's,
 > run outside any agent's feedback queue, and are checked by running a market, running a full validation, and

@@ -366,3 +366,82 @@ def test_the_committed_results_were_produced_by_the_committed_plan():
         "tools/run_gate_validation.py, or say in the documentation which plan produced them")
     doc = open(os.path.join(here, "docs", "gate_validation.md"), encoding="utf-8").read()
     assert spec["plan_hash"] in doc, "the note quotes a plan hash that is not the one the results were run under"
+
+
+# ============================================================================== policy-level variants
+def test_the_memory_variants_are_inert_at_their_defaults():
+    """Every new setting must reproduce the rule that existed before it. A default scenario is unchanged, which is
+    why no registered number moved when these were added."""
+    from heiner_abm.params import AdaptiveParams
+    from heiner_abm.gates import MEMORY_RULES
+    d = AdaptiveParams()
+    assert d.memory_rule == "per_update" and d.memory_rule in MEMORY_RULES
+    assert d.explore_after == 0.0
+    assert d.on_change == "forget"
+
+
+def test_a_third_exploration_row_leaves_the_first_two_untouched():
+    """The continuing-exploration draws were appended to an existing stream. numpy fills in C order, so the draws
+    the previous two rows produce must be unchanged - otherwise every explore-gate result would have moved."""
+    from heiner_abm.gates import exploration_draws
+    import numpy as np
+    full = exploration_draws(7, 40, 3)
+    assert full.shape == (3, 40, 3)
+    two = np.random.default_rng(np.random.SeedSequence(7).spawn(6)[5]).random((2, 40, 3))
+    assert np.array_equal(full[:2], two)
+
+
+@pytest.mark.parametrize("bad", [dict(memory_rule="osmosis"), dict(explore_after=1.5),
+                                 dict(explore_after=-0.1)])
+def test_an_undefined_memory_setting_is_refused(bad):
+    scn = _base()
+    for k, v in bad.items():
+        setattr(scn.adaptive, k, v)
+    assert scn.validate(), f"{bad} was accepted"
+
+
+def test_continuing_exploration_belongs_to_the_gate_that_randomizes():
+    scn = _base()
+    scn.adaptive.gate, scn.adaptive.explore_after = "lcb", 0.2
+    assert any("exploration" in e for e in scn.validate())
+
+
+@pytest.mark.parametrize("variant", sorted(V.POLICY_VARIANTS))
+def test_every_policy_variant_is_documented_and_names_its_gate(variant):
+    spec = V.POLICY_VARIANTS[variant]
+    assert spec["note"].strip() and spec["gate"] in ("lcb", "explore", "gain")
+    assert isinstance(spec["settings"], dict)
+
+
+def test_calendar_ageing_changes_the_policy_it_drives():
+    """Policy level, not estimator level: the rule must actually change what the firm does."""
+    from heiner_abm.engine import run_batch
+    import numpy as np
+    scn = _base(regime="missing")
+    a = run_batch([gate_scenario(scn, "lcb", 1)], record_firm_history=True, horizon=scn.adaptive.window)
+    b = run_batch([gate_scenario(scn, "lcb", 1, memory_rule="calendar")], record_firm_history=True,
+                  horizon=scn.adaptive.window)
+    assert not np.array_equal(a.firm_hist["deviate"], b.firm_hist["deviate"])
+    # ageing by calendar time discards more, so it holds less evidence
+    assert np.nanmean(b.firm_hist["adv_neff"]) < np.nanmean(a.firm_hist["adv_neff"])
+
+
+def test_continuing_exploration_raises_the_trial_rate():
+    from heiner_abm.engine import run_batch
+    import numpy as np
+    scn = _base(regime="missing")
+    rates = []
+    for p in (0.0, 0.3):
+        r = run_batch([gate_scenario(scn, "explore", 1, explore_after=p)], record_firm_history=True,
+                      horizon=scn.adaptive.window)
+        rates.append(float(np.asarray(r.firm_hist["explored"], bool)[:, scn.burn_in:].mean()))
+    assert rates[1] > rates[0], f"continuing exploration did not add trials: {rates}"
+
+
+def test_a_policy_comparison_runs_and_is_paired():
+    plan = V.ValidationPlan(markets=2, periods=240, burn_in=40, states_per_cell=30,
+                            continuation=V.ContinuationSpec(draws=8))
+    out = V.run_policy_comparison(plan, _base(), regime="missing")
+    assert len(out) == len(V.POLICY_VARIANTS)
+    assert {"net_payoff", "adaptation_rate", "regret_total", "coverage_empirical"} <= set(out.columns)
+    assert out["variant"].is_unique

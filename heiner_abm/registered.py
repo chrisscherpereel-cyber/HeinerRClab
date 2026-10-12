@@ -93,7 +93,7 @@ EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
 # not preregistered with any external registry. Re-registered the same day when every policy was given the same tuning
 # budget (see the revision note above); the run under the previous plan "ec9b781e125e289d" requires replication.
-LEARN_PLAN = "a98b971b49fe5e3e"
+LEARN_PLAN = "9260337adfac96c2"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.
@@ -373,6 +373,22 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   committed code against the code of commit 2bcff32 (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42,
 #   horse_race, presets; signature tests at the Full scale; field patterns at the page defaults): every output was
 #   byte-identical. Re-fingerprinted and removed from REPLICATION_REQUIRED.
+# * 12 October 2026, memory variants of the selection gates as live policies (gates.py: MEMORY_RULES and a third
+#   exploration-draw row; params.py: AdaptiveParams.memory_rule and explore_after with validation; engine.py:
+#   calendar-time ageing of the evidence statistics, and a randomized trial on a bin already classified decisively).
+#   Every default is the rule that existed before the choice was offered: memory_rule "per_update", explore_after 0,
+#   on_change "forget". The third exploration row was appended to the existing stream, and numpy fills in C order, so
+#   the first two rows draw exactly as before (pinned by a test). Checked before any rerun on a 28-case battery
+#   covering all three gates, both on_change settings, both window lengths, regime shifts on and off and three
+#   memory values: every output hash identical. Then rerun in full - directional B1, B3, C1, C42 (all 36 records),
+#   horse_race (every AUC, the encompassing table and the gain), presets and preset_adaptive, the eight signature
+#   tests at the Full scale (verdict and detail string), the six field patterns at the page defaults, and the
+#   learnability study (H1 -0.95 [-1.50, -0.44], H2 +0.251 [-0.324, +0.846], H3 -1.13 [-1.74, -0.65], H4 -1721.7
+#   [-2721.4, -703.4], NC1-NC3 passed, the same tuning choices) - and every number reproduced exactly. The six
+#   market findings were re-fingerprinted and the learnability plan re-registered (a98b971b49fe5e3e ->
+#   9260337adfac96c2) on that evidence, not to quiet a test; nothing was added to REPLICATION_REQUIRED, because the
+#   computation did not change. Results reported under the variants themselves are NOT registered findings: see
+#   heiner_abm.gate_validation and docs/gate_validation.md.
 # * 6 October 2026, params.py: the validation rule rejecting an adjustment cost together with evolution was removed
 #   (no computation changed). Rerun on commit 1f96ca1 as above: every output byte-identical. Re-fingerprinted.
 # * 6 October 2026, organizational ecology as the ninth theory (arena.py: two designs and selection rules; theories.py:
@@ -408,12 +424,12 @@ FINDING_SOURCES: Dict[str, Tuple[str, Tuple[str, ...]]] = {
 }
 
 FINDING_FINGERPRINTS: Dict[str, str] = {
-    "directional": "b77ae980f52f8e79",
-    "horse_race": "94b4811784863c0a",
-    "presets": "94b4811784863c0a",
-    "preset_adaptive": "94b4811784863c0a",
-    "special": "1ca69a156d8a3b3a",
-    "patterns": "899d4e263e8e7c5e",
+    "directional": "5205e3e74cc779a8",
+    "horse_race": "36cacc818304eab5",
+    "presets": "36cacc818304eab5",
+    "preset_adaptive": "36cacc818304eab5",
+    "special": "9a6f6c5e258d9d49",
+    "patterns": "f0496209ffea1f67",
     "calibration": "854400653fe42159",
 }
 

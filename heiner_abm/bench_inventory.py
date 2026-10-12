@@ -493,7 +493,12 @@ class InventoryPlan:
         return asdict(self)
 
 
-QUICK_INVENTORY = dict(periods=400, burn_in=50, n_train=3, n_val=3, n_test=5, budgets=(1, 2, 4), reps=2)
+# A quick check is meant to be quick, and it is now spread over more families: the inventory suite gained
+# a Bayesian state space with estimated parameters and a moment-ambiguity robust order, the bandit suite
+# gained two Thompson variants and two change-detecting ones. The periods were cut to keep an orientation
+# run at roughly its previous cost; the Full scale, which is what any reported comparison uses, is
+# unchanged.
+QUICK_INVENTORY = dict(periods=250, burn_in=40, n_train=3, n_val=3, n_test=4, budgets=(1, 2, 4), reps=2)
 
 
 def run_inventory(plan: InventoryPlan, progress=None) -> Dict:

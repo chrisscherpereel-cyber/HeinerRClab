@@ -342,6 +342,9 @@ AGENTS: List[Needs] = [
        uses="the last N observed demands; ambiguity size calibrated on training environments"),
     _a("inv_bocpd", "Inventory: Bayesian change detection (misspecified)", "bench_inventory", feedback=("full",),
        uses="observed demands; its own (misspecified) change-point model"),
+    _a("inv_bayes_est", "Inventory: Bayesian state space, estimated parameters", "bench_inventory",
+       feedback=("full",), uses="observed demands only; its hazard, latent variation and measurement error are "
+       "tuned on training environments"),
     _a("inv_bayes_true", "Inventory: Bayes, correctly specified (benchmark)", "bench_inventory", feedback=("oracle",),
        oracle=True, uses="observed demands and the TRUE generating model and parameters"),
     _a("inv_oracle", "Inventory: ORACLE (knows the mean demand)", "bench_inventory", feedback=("oracle",), oracle=True,

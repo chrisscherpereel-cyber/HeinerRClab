@@ -150,3 +150,112 @@ def test_every_family_is_registered_documented_and_sourced():
 def test_checks_table():
     df = run_checks()
     assert df["passed"].all() and len(df) == len(CHECKS)
+
+
+def _env(hazard=0.01, noise=20.0, obs_noise=10.0, gain=0.1, seed=4):
+    """One inventory environment for the stage-A tests."""
+    return tasks.TaskEnv("inventory", noise, hazard, obs_noise, gain, seed)
+
+
+# ================================================================ A. Bayesian state space, estimated parameters
+class TestBayesianStateSpace:
+    """Stage A: latent demand variation and measurement error kept apart, parameters estimated, gaps handled."""
+
+    H, SIG, TAU = 0.01, 20.0, 10.0
+
+    def test_the_estimated_model_is_a_competitor_and_the_correct_one_is_not(self):
+        fam = BI.FAMILIES
+        assert fam["bayes_est"].role == "competitor"
+        assert fam["bayes_true"].role == "benchmark"
+        assert set(fam["bayes_est"].space) == {"hazard", "sigma", "tau"}
+        assert fam["bayes_true"].space == {}, "a benchmark given the true parameters has nothing to tune"
+
+    def test_the_estimated_model_is_never_handed_a_true_parameter(self):
+        """The dispatch reads its parameters from the configuration; the benchmark reads them from the environment.
+        Running it with a configuration far from the truth must change its orders."""
+        env = _env(hazard=self.H, noise=self.SIG, obs_noise=self.TAU)
+        truth = dict(hazard=self.H, sigma=self.SIG, tau=self.TAU)
+        wrong = dict(hazard=0.15, sigma=5.0, tau=50.0)
+        a = BI.orders(env, "bayes_est", truth, 200)
+        b = BI.orders(env, "bayes_est", wrong, 200)
+        assert not np.allclose(a, b), "the configuration had no effect, so it is not the source of the parameters"
+
+    def test_with_the_true_parameters_it_reproduces_the_correctly_specified_benchmark(self):
+        env = _env(hazard=self.H, noise=self.SIG, obs_noise=self.TAU)
+        est = BI.orders(env, "bayes_est", dict(hazard=self.H, sigma=self.SIG, tau=self.TAU), 200)
+        true = BI.orders(env, "bayes_true", {}, 200)
+        assert np.array_equal(est, true), "the same filter must give the same orders from the same parameters"
+
+    # ------------------------------------------------------------ separating the two sources of variation
+    def test_the_order_uses_latent_variation_only_and_never_measurement_error(self):
+        """With nothing observed the posterior cannot depend on tau, so neither can the order. Any leak of
+        measurement error into the fractile margin shows up here as a difference."""
+        y = np.full(40, np.nan)
+        base = BI.state_space_orders(y, self.H, self.SIG, 1.0)
+        for tau in (0.0, 5.0, 25.0, 100.0):
+            assert np.array_equal(BI.state_space_orders(y, self.H, self.SIG, tau), base)
+
+    def test_moving_variation_from_demand_to_measurement_lowers_the_order(self):
+        """Hold the total observation noise fixed and shift it from demand to the instrument. The agent is exposed
+        to less real variation, so it should hold less stock, not the same."""
+        rng = np.random.default_rng(3)
+        y = 100.0 + rng.normal(0, 25.0, 300)
+        total = 25.0
+        margins = []
+        for sigma in (24.0, 18.0, 10.0):
+            tau = float(np.sqrt(max(total ** 2 - sigma ** 2, 1e-6)))
+            S, means = BI.state_space_orders(y, self.H, sigma, tau, return_post=True)
+            margins.append(float(np.mean(S[50:] - means[50:])))
+        assert margins[0] > margins[1] > margins[2], f"margin did not fall with latent variation: {margins}"
+
+    # ------------------------------------------------------------ missing observations
+    def test_a_missing_observation_advances_the_state_without_updating_it(self):
+        grid = np.arange(BI.MU_LO, BI.MU_HI + 1e-9, 1.0)
+        P = BI.grid_transition(grid, self.H)
+        _, means = BI.state_space_orders(np.array([105.0]), self.H, self.SIG, self.TAU, return_post=True)
+        w = np.zeros(len(grid))
+        w[np.argmin(np.abs(grid - BI.MU0))] = 1.0
+        pred = w @ P
+        post = pred * BI.obs_likelihood(105.0, grid, self.SIG, self.TAU)
+        assert means[0] == pytest.approx(float(post @ grid / post.sum()))
+        # now the same period unobserved: the mean must be the prediction, not the update
+        _, gap = BI.state_space_orders(np.array([np.nan]), self.H, self.SIG, self.TAU, return_post=True)
+        assert gap[0] == pytest.approx(float(pred @ grid))
+
+    def test_a_gap_is_not_read_as_an_average_observation(self):
+        y = np.array([100.0, 160.0, 160.0, np.nan, np.nan, 160.0])
+        imputed = np.where(np.isnan(y), 100.0, y)
+        a = BI.state_space_orders(y, self.H, self.SIG, self.TAU)
+        b = BI.state_space_orders(imputed, self.H, self.SIG, self.TAU)
+        assert not np.allclose(a, b), "filling a gap with the prior mean gave the same answer as leaving it empty"
+
+    @pytest.mark.parametrize("pattern", ["none", "alternate", "run", "all"])
+    def test_every_pattern_of_missingness_is_handled(self, pattern):
+        rng = np.random.default_rng(11)
+        y = 100.0 + rng.normal(0, 20.0, 60)
+        if pattern == "alternate":
+            y[::2] = np.nan
+        elif pattern == "run":
+            y[10:40] = np.nan
+        elif pattern == "all":
+            y[:] = np.nan
+        S, means = BI.state_space_orders(y, self.H, self.SIG, self.TAU, return_post=True)
+        assert np.isfinite(S).all() and np.isfinite(means).all()
+        assert (S >= 0).all()
+
+    def test_observing_more_cannot_be_worse_than_observing_nothing(self):
+        """A sanity check on the filter as a whole: tracking a shifted mean from data must beat ignoring the data."""
+        rng = np.random.default_rng(5)
+        mu = np.where(np.arange(240) < 120, 90.0, 150.0)
+        d = np.maximum(0.0, mu + rng.normal(0, self.SIG, 240))
+        y = d + rng.normal(0, self.TAU, 240)
+        seen = BI.state_space_orders(y, self.H, self.SIG, self.TAU)
+        blind = BI.state_space_orders(np.full(240, np.nan), self.H, self.SIG, self.TAU)
+        pay = lambda S: float(BI.inventory_payoff(S, d)[40:].mean())
+        assert pay(seen) > pay(blind)
+
+    def test_the_family_states_its_assumptions_and_its_cost(self):
+        f = BI.FAMILIES["bayes_est"]
+        assert "tuned on training environments" in f.assumptions
+        assert "never told" in f.assumptions
+        assert f.compute.strip() and f.sources

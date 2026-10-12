@@ -93,9 +93,22 @@ def censored_mixture_quantile(w: np.ndarray, mu: np.ndarray, sigma: float, frac:
     return hi
 
 
-def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
-                      return_post: bool = False):
-    """Orders of the correctly specified Bayesian filter (see the module docstring) for observations y."""
+def state_space_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
+                       return_post: bool = False):
+    """Orders of the grid state-space filter for observations y. The filter itself; who supplies its parameters is
+    what distinguishes the correctly specified benchmark from the estimated competitor.
+
+    Latent variation and measurement error are kept apart throughout, because they enter different places:
+        update   y_t carries BOTH, so the likelihood uses sigma (demand around its mean) and tau (measurement),
+                 with the censoring of demand at zero;
+        order    the decision is about DEMAND, so the predictive quantile uses the posterior over the mean plus
+                 sigma ALONE. Folding tau into the order inflates the fractile margin by measurement error the
+                 agent never pays for, which is the mistake a single "observation s.d." invites.
+
+    Missing observations (NaN in y) are handled by prediction only: the state is advanced through the transition
+    and the posterior is left otherwise untouched. A period whose demand was not observed is not evidence that
+    demand was average, and a likelihood of NaN would destroy the posterior outright.
+    """
     grid = np.arange(MU_LO, MU_HI + 1e-9, grid_step)
     P = grid_transition(grid, hazard)
     w = np.zeros(len(grid))
@@ -105,10 +118,24 @@ def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, gr
     for t in range(len(y)):
         pred = w @ P                                             # mean demand of period t, before y_t is seen
         S[t] = censored_mixture_quantile(pred, grid, sigma)
-        post = pred * obs_likelihood(y[t], grid, sigma, tau)
-        w = post / post.sum()
+        if np.isfinite(y[t]):
+            post = pred * obs_likelihood(y[t], grid, sigma, tau)
+            tot = post.sum()
+            w = post / tot if tot > 0 else pred                  # an impossible observation leaves the prior
+        else:
+            w = pred                                             # predict only: no evidence arrived
         means[t] = float(w @ grid)
     return (S, means) if return_post else S
+
+
+def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
+                      return_post: bool = False):
+    """The correctly specified benchmark: the filter above, given the TRUE generating parameters by the researcher.
+
+    Reported beside the ranking and never in it (bench_tuning.ROLES). Its estimated counterpart is bayes_est,
+    which must find hazard, sigma and tau for itself on training environments.
+    """
+    return state_space_orders(y, hazard, sigma, tau, grid_step, return_post)
 
 
 def filter_posterior(y: np.ndarray, grid: np.ndarray, P: np.ndarray, w0: np.ndarray, lik) -> np.ndarray:
@@ -317,6 +344,9 @@ def orders(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, grid_step: 
         return bocpd_orders(y, float(cfg["hazard"]), float(cfg["prior_sd"]), float(cfg["obs_sd"]))
     if family == "bayes_true":
         return bayes_true_orders(y, env.hazard, env.noise, env.obs_noise, grid_step)
+    if family == "bayes_est":
+        # the same filter, with parameters it had to find on training environments: no true value reaches it
+        return state_space_orders(y, float(cfg["hazard"]), float(cfg["sigma"]), float(cfg["tau"]), grid_step)
     if family == "oracle":
         return np.maximum(mu + Z_FRAC * env.noise, 0.0)
     raise ValueError(family)
@@ -356,6 +386,16 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
            "[30, 170], and demand is censored at 0 and observed with separate noise.",
            "O(R) per period for R kept run lengths (R ≤ 300); exact for R ≥ T.", ("adams2007", "fearnhead2007"),
            "Every observed demand"),
+    Family("bayes_est", "Bayesian state space, estimated parameters (grid filter)", "competitor",
+           {"hazard": Param(0.001, 0.2, log=True), "sigma": Param(2.0, 60.0, log=True),
+            "tau": Param(0.1, 60.0, log=True)},
+           "The same piecewise-constant-mean model as the correctly specified benchmark, but its hazard, latent "
+           "demand variation sigma and measurement error tau are tuned on training environments; it is never told "
+           "the generating values. Keeping sigma and tau apart matters for the decision: the likelihood uses both, "
+           "the order uses sigma alone, so measurement error does not inflate the fractile margin. Missing "
+           "observations advance the state without updating it.",
+           "O(G^2) per period for G grid points (G = 141 at step 1), as the benchmark.",
+           ("fearnhead2007", "arrow1951b"), "Every observed demand"),
     Family("bayes_true", "Bayes, correctly specified (grid filter)", "benchmark", {},
            "Knows the generating process and its parameters (hazard, jump s.d., bounds, σ, τ); exact on a grid of "
            "mean demands.", "O(G²) per period for G grid points (G = 141 at step 1).", ("fearnhead2007",),

@@ -371,7 +371,8 @@ see the README), "superior" holds in one sense and not the other:
 **Caveats.** The directional experiments use the market model built for Heiner's framework (rule B, flexibility φ,
 the CD-gap and the counterfactual bookkeeping), so they are paired with the agent track, in which all nine theories,
 including satisficing, reinforcement learning, imitation and organizational ecology, act through their own agents in
-every condition. Every theory states a prediction for every experiment; where a literature does not address an
+every condition. Organizational ecology's own mechanism, selection through exit and entry, is tested separately on
+the *Organizational ecology (selection)* page: this table scores adaptation, that page scores selection. Every theory states a prediction for every experiment; where a literature does not address an
 experiment, the prediction is read from the theory's core mechanism and the reasoning is shown above, so it can be
 disputed. The forecasting horse race covers only theories that make a firm-level forecast. Results depend on the base scenario (margin feedback versus Cournot best reply in particular), so rerun the
 tournament under both. A ❌ means the tested implementation showed the opposite sign in this market; it does not

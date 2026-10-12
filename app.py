@@ -25,6 +25,7 @@ SECTIONS = {
         st.Page("app_pages/designer.py", title="Experiment designer (market sweeps)", icon="📐"),
         st.Page("app_pages/arena.py", title="Agent tournament", icon="🤖"),
         st.Page("app_pages/rule_choice.py", title="Rule choice (emergence)", icon="🔄"),
+        st.Page("app_pages/ecology.py", title="Organizational ecology (selection)", icon="🌱"),
         st.Page("app_pages/evolution.py", title="Endogenous flexibility", icon="🧬"),
         st.Page("app_pages/theories.py", title="Competing theories", icon="🏆"),
         st.Page("app_pages/generalisation.py", title="Generalization tasks", icon="🌐"),

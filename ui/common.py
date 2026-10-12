@@ -161,6 +161,14 @@ def render_agents() -> None:
                 d = ar.DESIGNS[k]
                 params = ", ".join(d.SPACE) or "none"
                 st.markdown(f"**{d.name}** · `{k}`  \n{d.rule}  \n*Tuned parameters:* {params}")
+    # The ecology designs are deliberately outside the registered tournament, so they are listed separately
+    # rather than folded into THEORY_DESIGNS: adding them there would change the tournament plan hash.
+    from heiner_abm.ecology import ECO_DESIGNS
+    with sb.expander("Organizational ecology (selection)"):
+        st.caption("Outside the registered tournament; they compete under exit and entry on their own page.")
+        for k, d in ECO_DESIGNS.items():
+            params = ", ".join(d.SPACE) or "none"
+            st.markdown(f"**{d.name}** · `{k}`  \n{d.rule}  \n*Tuned parameters:* {params}")
 
 
 def render_navigation(sections, current) -> None:

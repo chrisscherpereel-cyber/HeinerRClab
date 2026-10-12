@@ -156,7 +156,7 @@ Within each section the simulation pages are split by fairness. **General simula
 |---|---|
 | Results | Opens with the question, the comparison, the primary outcome and the kind of evidence, then the paired effect with its 95% interval and a plain interpretation against the smallest effect of interest; tabs for performance, behavior, mechanisms, robustness (split replications, per-replication spread), a decision inspector (what the agent had before deciding, what it chose and why, what followed, and where its feedback came from, when that outcome matured and when it reached the agent; researcher-only values marked) and details & export (the run manifest, configuration, provenance, trial data, any pilot and validation passes, a reproducible bundle) |
 | Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
-| Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes |
+| Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes. A validation section then asks what the predictions are predictions *of*: it estimates the conditional expected net advantage at sampled decision states from independent researcher-only continuations and scores each gate's prediction and bound against it |
 | Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
 | Heiner: CD-gap explorer | Difficulty (Δ or noise) × competence (foresight κ) heatmaps of r, w, π, RC margin and the payoff to flexibility |
 
@@ -754,6 +754,10 @@ heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
                            decision benchmarks: Bayes, robust optimization, bandits; tuning protocol; correctness checks
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
+heiner_abm/gate_validation.py
+                           validation of the gates: the estimand each one targets, conditional expected
+                           advantage from independent researcher-only continuations, calibration, measured
+                           coverage, both error types and their cost, memory variants (docs/gate_validation.md)
 heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
 heiner_abm/traces.py       decision-level traces of the tournament, rule choice and the market lab: what each agent
@@ -772,6 +776,49 @@ ui/common.py               navigation, sidebar base scenario, presets, caching, 
 ui/workbench_ui.py         workspace widgets bound to the experiment specification, result charts
 app_pages/*.py             the Streamlit pages
 ```
+
+## Validating the reliability gates
+
+Full note: [`docs/gate_validation.md`](docs/gate_validation.md). Results: `docs/gate_validation_results/`.
+Reproduce: `python tools/run_gate_validation.py`.
+
+The gate study compares the gates on outcomes. This asks the prior question: a gate reports a predicted advantage,
+and the confidence-sensitive gate a lower bound on it — predictions of *what*? Three quantities are easy to
+conflate: the **observed-feedback advantage** the gate learns from (its own counterfactual, on its *believed*
+demand curve, with its misspecification in it), the **realized advantage** on the one shock path that occurred
+(true demand, but a single draw), and the **conditional expected true net advantage** `A*` at the decision state.
+`A*` is the estimand: a prediction should be judged against the thing it is a prediction of.
+
+`A*` is estimated from independent continuations resampled from each sampled decision state, under a declared
+policy (`rivals_hold`, deliberately the assumption the firm's own counterfactual makes) and horizon, with the two
+arms sharing their cost draws. **The continuation is pinned to the engine rather than believed:** with a
+one-period judgement window the engine's own realized fork *is* this estimand, and the test asserts they agree —
+observed difference identically `0.0`.
+
+Three findings from the registered-size run (6 markets, 400 periods, 200 states per cell, 64 continuations):
+
+* **The 90% lower bound covers 45–62%,** in every regime and for both gates. This is measured, never asserted;
+  `gates.py` has always declined to claim nominal coverage, and this says how large the gap is. It is *not* an
+  artifact of the continuation policy — the shortfall is just as large in the clean regime, where `A*` equals the
+  engine's realized fork exactly.
+* **Overlapping judgement windows are the single largest source of damage.** With `W = 1` the predictions are
+  nearly unbiased (+2.6, +5.0) with slopes near 1; with `W = 20` the bias reaches +105 and +179 and the slope
+  leaves 1 entirely.
+* **Caution is not free.** The confidence-sensitive gate adapts falsely less often than the existing gate in every
+  regime, but misses beneficial adaptations more often, and in **five of six regimes its total regret in payoff is
+  higher**. Only under correlated feedback does the caution pay for itself. That is a result against this
+  proposed extension in this market, and it is reported as one.
+
+The four memory rules — the existing per-update forgetting, calendar-time aging, change-detection resets, and a
+configurable probability of continuing to explore after a decisive classification — are compared as separate
+variants on the same recorded evidence streams, with exploration propensities and costs logged. Calendar-time
+aging improves on the existing rule on every axis measured at a small extra exploration cost; the reset has the
+lowest error but classifies far less often and explores three times as much.
+
+> Researcher-only, and held to it by tests: continuations draw from a seed block above the ORACLE benchmark's,
+> run outside any agent's feedback queue, and are checked by running a market, running a full validation, and
+> asserting a rerun of the same market is bit-identical. No registered fingerprint or plan hash depends on this
+> module; all seven and all four were verified unchanged afterwards.
 
 ## Provenance of a workbench run
 

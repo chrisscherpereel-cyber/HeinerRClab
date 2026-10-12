@@ -1,0 +1,121 @@
+{
+ "plan": {
+  "burn_in": 50,
+  "continuation": {
+   "discount": 1.0,
+   "draws": 64,
+   "horizon": null,
+   "policy": "rivals_hold",
+   "regime": "frozen",
+   "seed_base": 11000000
+  },
+  "gates": [
+   "gain",
+   "lcb"
+  ],
+  "markets": 6,
+  "periods": 400,
+  "regimes": [
+   "clean",
+   "overlapping",
+   "delayed",
+   "noisy",
+   "missing",
+   "correlated"
+  ],
+  "seed0": 1,
+  "state_seed": 20261012,
+  "states_per_cell": 200,
+  "variant_regime": "missing",
+  "variants": [
+   [
+    "per_update_forgetting",
+    0.0
+   ],
+   [
+    "calendar_aging",
+    0.0
+   ],
+   [
+    "change_reset",
+    0.0
+   ],
+   [
+    "explore_continuing",
+    0.1
+   ]
+  ],
+  "version": "1.0"
+ },
+ "plan_hash": "139c10aef80b3d60",
+ "estimands": {
+  "observed_feedback": "g_t: the advantage the gate learns from. Estimated counterfactual on the firm's believed demand curve with rivals held (gain, lcb), or own realized payoff in a randomized trial minus an action-independent baseline (explore). Contains the firm's misspecification.",
+  "realized_advantage": "A_t^realized: the researcher's ex-post fork on the single shock path that occurred, true demand and true costs, horizon H. One draw, so it carries continuation noise.",
+  "conditional_expected_net": "A*_t = E[sum_h discount^h (U_h(x*) - U_h(x_B)) | state_t] - adjustment cost, under the declared continuation policy and horizon. Estimated from independent continuations. This is the estimand a gate's prediction is judged against."
+ },
+ "continuation_policies": {
+  "rivals_hold": "The evaluated firm holds the action under test; every rival holds its period-t output. Matches the assumption the firm's own counterfactual feedback makes."
+ },
+ "regimes": {
+  "clean": "One-period judgement, no delay, no observation noise, no regime shifts: consecutive feedback values do not overlap and nothing is missing.",
+  "overlapping": "A judgement window of W > 1 means consecutive decisions' windows share periods, so their feedback values are positively correlated and the standard error understates the uncertainty.",
+  "delayed": "Every release is postponed, so the estimate acts on older evidence.",
+  "noisy": "Observation noise in what the firm sees when forming its counterfactual.",
+  "missing": "Demand-regime shifts invalidate pending judgements, so some decisions never produce any feedback at all. A missing outcome is not a zero gain.",
+  "correlated": "High cost volatility makes consecutive judgements share a common drift on top of the overlap, the hardest case for an independence assumption."
+ },
+ "variant_notes": {
+  "per_update_forgetting": "The existing rule: statistics decay by lambda once per released value, regardless of how much calendar time passed.",
+  "calendar_aging": "Statistics decay by lambda^(periods elapsed), so evidence ages with the environment rather than with the arrival count. Equal to the existing rule when releases are one period apart.",
+  "change_reset": "Per-update forgetting, plus discarding the bin's evidence when a demand-regime change is detected. Sharp but destroys information if the detector fires spuriously.",
+  "explore_continuing": "Per-update forgetting, plus continuing to randomize with probability `explore_after` even once a bin has been classified decisively, so a changed bin can be re-learned. The propensity and the payoff given up are logged."
+ },
+ "scenario": {
+  "periods": 400,
+  "burn_in": 50,
+  "seed": 1,
+  "n_firms": 4,
+  "adaptive": {
+   "bin_edges": [
+    5.0,
+    15.0,
+    30.0,
+    60.0
+   ],
+   "memory": 0.97,
+   "window": 20,
+   "gate": "gain",
+   "adjust_cost": 0.0,
+   "confidence": 0.9,
+   "min_evidence": 5.0,
+   "explore_rate": 0.2,
+   "on_change": "forget",
+   "oracle_table": []
+  },
+  "info": {
+   "feedback": "estimated",
+   "obs_noise": 0.0,
+   "obs_delay": 0,
+   "demand_knowledge": "believed",
+   "regime_announced": false,
+   "rivals_visible": true,
+   "unmet_demand_observed": true
+  },
+  "market": {
+   "p_max": 100.0,
+   "p_min": 10.0,
+   "q_range": 1500.0,
+   "c0": 45.0,
+   "c_max": 80.0,
+   "delta": 10.0
+  }
+ },
+ "seed_blocks": {
+  "evaluation": "1 and upward",
+  "oracle_benchmark": "7000000 and upward",
+  "researcher_continuations": "11000000 and upward"
+ },
+ "reproduce": "heiner_abm.gate_validation.run_validation(plan, base)",
+ "defaults_digest": "20a2d713c37f09ba",
+ "not_run": {}
+}

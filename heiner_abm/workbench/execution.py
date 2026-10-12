@@ -164,6 +164,7 @@ def execute(spec: ExperimentSpec, kind: str = "research", progress: Optional[Pro
     collected: Dict[str, List[pd.DataFrame]] = {name: [] for name, _ in passes}
     traces: Dict[str, Dict[str, List[pd.DataFrame]]] = {}
     hps: Dict[str, Any] = {}
+    tuning_log: Dict[str, Any] = {}
     total = len(levels) * (sum(len(sd) for _, sd in passes) + (1 if s.design.tuning == "grid" else 0))
     done = 0
     status = "complete"
@@ -174,7 +175,7 @@ def execute(spec: ExperimentSpec, kind: str = "research", progress: Optional[Pro
         if s.design.tuning == "grid":
             # Tuning sees training seeds only. Nothing selected here is ever an evaluation or validation seed.
             note(done / total, f"{label}: tuning on training seeds")
-            hp = env.tune(s, params, train_seeds(s), stop)
+            hp, tuning_log[label] = env.tune_with_log(s, params, train_seeds(s), stop)
             done += 1
         hps[label] = hp
         for stage, stage_seeds in passes:
@@ -221,6 +222,7 @@ def execute(spec: ExperimentSpec, kind: str = "research", progress: Optional[Pro
                 trace_retention=retention, trace_retention_note=provenance.RETENTION_LABELS[retention],
                 tuning_note=env.tuning_note if s.design.tuning == "grid" else "No tuning (documented fixed "
                                                                                "parameters).",
+                tuning_log=tuning_log,
                 cluster_note=env.cluster_note)
     man = manifest(s, kind, env, prov, trace_columns)
     return RunOutput(prov["key"], kind, s, trials, logs, prov, pilot, validation, man)
@@ -258,8 +260,19 @@ def manifest(spec: ExperimentSpec, kind: str, env, prov: Dict[str, Any],
         "tuning": {"mode": spec.design.tuning, "note": prov["tuning_note"],
                    "training_replications": spec.design.train_replications,
                    "chosen": prov["hyperparameters"],
-                   "budget_note": "Every tunable policy is given the same number of candidates; see the "
-                                  "environment adapter's tune()."},
+                   "protocol": "heiner_abm.bench_tuning, shared with the decision benchmarks: the same budget "
+                               "rules, accounting, boundary and sensitivity reports. The workbench searches "
+                               "declared candidate lists and the benchmarks sample from ranges; that is a "
+                               "property of each space, not of the protocol.",
+                   "budget_rule": str(getattr(spec.design, "budget_rule", "equal_candidates")),
+                   "budget_note": "Every tunable policy is offered the same number of candidates, so none is "
+                                  "compared on a smaller search than another.",
+                   "steps": prov.get("tuning_log", {}),
+                   "pinned": sorted({f"{lvl}: {st['step']}.{p}" for lvl, steps in (prov.get("tuning_log") or {}).items()
+                                     for st in steps for p in st.get("pinned", [])}),
+                   "pinned_note": "A chosen value at the end of the list it was offered means the search wanted "
+                                  "to go further: the reported value is then a statement about the candidate "
+                                  "list rather than about the policy."},
         "costs": costs,
         "information": {"assumptions": prov["information"], "engine": env.engine,
                         "not_applicable": dict(env.not_applicable)},

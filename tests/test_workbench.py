@@ -289,15 +289,23 @@ def test_inventory_workbench_forwards_the_gate_hyperparameters():
 
 
 def test_inventory_workbench_tunes_the_gate_with_the_same_budget():
-    """The gate must get as many candidate settings as the forecast gain and the band, not zero."""
-    import inspect
+    """The gate must get as many candidate settings as the forecast gain and the band, not zero.
+
+    This used to read the source of Inventory.tune and count brackets. The search now lives in a declared
+    tuning_plan routed through the shared protocol, so the property is checked where it holds - in the plan - and
+    by counting candidates rather than parentheses.
+    """
+    from heiner_abm.bench_tuning import candidate_configs, design_budget
+    from heiner_abm.workbench import presets
     from heiner_abm.workbench.environments import Inventory
-    src = inspect.getsource(Inventory.tune)
-    assert "gate_lcb" in src and "gate_grid" in src
-    grid = [ln for ln in src.splitlines() if "gate_grid = " in ln][0]
-    assert grid.count("(") - 1 == 4, grid                      # four candidate pairs, as for gain and band_b
-    out = Inventory.tune.__doc__ or ""
-    assert isinstance(Inventory().tuning_note, str) and "four candidates" in Inventory().tuning_note
+    env = Inventory()
+    spec = presets.load("learnability", "research")
+    steps = {st.name: st for st in env.tuning_plan(spec, env.params(spec, None))}
+    assert any(st.policy == "gate_lcb" for st in steps.values()), "the gate is not tuned at all"
+    counts = {name: len(candidate_configs(st.space, design_budget(st.space, "equal_candidates", 4), 0))
+              for name, st in steps.items()}
+    assert set(counts.values()) == {4}, counts
+    assert "four candidates" in env.tuning_note
 
 
 def test_every_preset_asks_for_outcomes_its_environment_reports():

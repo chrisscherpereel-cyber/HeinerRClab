@@ -342,6 +342,12 @@ AGENTS: List[Needs] = [
        uses="the last N observed demands; ambiguity size calibrated on training environments"),
     _a("inv_bocpd", "Inventory: Bayesian change detection (misspecified)", "bench_inventory", feedback=("full",),
        uses="observed demands; its own (misspecified) change-point model"),
+    _a("inv_dro_moment", "Inventory: distributionally robust, moment ambiguity (Scarf)", "bench_inventory",
+       feedback=("full",), uses="the mean and s.d. of recent observed demands; no assumption about the shape or "
+       "the support of the distribution"),
+    _a("inv_bayes_est", "Inventory: Bayesian state space, estimated parameters", "bench_inventory",
+       feedback=("full",), uses="observed demands only; its hazard, latent variation and measurement error are "
+       "tuned on training environments"),
     _a("inv_bayes_true", "Inventory: Bayes, correctly specified (benchmark)", "bench_inventory", feedback=("oracle",),
        oracle=True, uses="observed demands and the TRUE generating model and parameters"),
     _a("inv_oracle", "Inventory: ORACLE (knows the mean demand)", "bench_inventory", feedback=("oracle",), oracle=True,
@@ -355,6 +361,9 @@ AGENTS: List[Needs] = [
        uses="noisy payoffs of its configuration and candidates; its aspiration level"),
     _a("nk_imitate", "NK: imitation (partial observability)", "nk", feedback=("chosen",), rivals_visible=True,
        uses="the observable components of a leader's configuration; noisy payoffs of its own candidates"),
+    _a("nk_verify", "NK: resample and accept (verifies before moving)", "nk", feedback=("chosen",),
+       uses="noisy payoffs of its configuration and of a candidate, plus independent verification readings "
+       "of both bought from the same evaluation budget"),
     _a("nk_gate_none", "NK: ungated search (same proposals and budget as the gates)", "nk", feedback=("chosen",),
        uses="noisy payoffs of its configuration and candidates"),
     _a("nk_gate_gain", "NK: reliability-gated search, estimated gain", "nk", feedback=("chosen",),
@@ -383,6 +392,15 @@ AGENTS: List[Needs] = [
        uses="payoffs of its own choices in the last τ periods"),
     _a("bandit_d_ucb", "Bandit: discounted UCB", "bench_bandit", feedback=("chosen",),
        uses="discounted payoffs of its own choices"),
+    _a("bandit_cusum_ucb", "Bandit: change-detecting UCB (CUSUM-UCB)", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices since its last change alarm"),
+    _a("bandit_cusum_ucb_robust", "Bandit: change-detecting UCB, robust location", "bench_bandit",
+       feedback=("chosen",), uses="payoffs of its own choices since its last change alarm, summarized by a median "
+       "of block means"),
+    _a("bandit_ts_sw", "Bandit: sliding-window Thompson sampling", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices in the last W periods; its reward s.d. and prior are tuned, not given"),
+    _a("bandit_ts_disc", "Bandit: discounted Thompson sampling", "bench_bandit", feedback=("chosen",),
+       uses="geometrically discounted payoffs of its own choices; its reward s.d. and prior are tuned, not given"),
     _a("bandit_eps_greedy", "Bandit: ε-greedy with constant step size", "bench_bandit", feedback=("chosen",),
        uses="payoffs of its own choices"),
     _a("bandit_oracle", "Bandit: ORACLE (knows the better option)", "bench_bandit", feedback=("oracle",), oracle=True,

@@ -148,7 +148,7 @@ Within each section the simulation pages are split by fairness. **General simula
 | Competing theories | Heiner's RC against neoclassical optimization, real options (as operationalized here), cobweb stability, bias–variance / ecological rationality, satisficing, reinforcement learning, imitation and structural inertia. A tournament of nine discriminating experiments scores each theory's directional predictions, with every theory predicting every experiment; an agent track lets every theory's own agent (registered tuned design) compete against all others and rule B in every condition of six experiments (profitability, volatility, competence, noise, number of rivals, demand shifts); an out-of-sample horse race scores each theory's forecast of which firms benefit from flexibility, plus an encompassing test of whether the RC adds information beyond all rivals |
 | Generalization | The same selection layers and boundary test in three other decision tasks with a default, a flexible alternative and a difficulty–competence gap: an inventory (newsvendor) task with shifting demand, a learning task with shifting payoffs and an irreversible investment task. Frozen plan with four pre-registered hypotheses |
 | When can reliability be learned? (extension) | **Proposed extension.** Tests whether a learnability ratio (observations needed to learn the sign of the advantage of adapting, relative to the informative observations available within a regime) explains when the confidence-sensitive gate beats the better fixed rule, beyond volatility and observation noise; seven policies on shared paths, training/pilot/test separation, new process families, negative controls, market replication. Frozen in the repository, not externally preregistered |
-| NK landscapes (complexity) | Search on NK landscapes with K_NK interacting components: hill climbing, stochastic search, satisficing, imitation with stated observability and (extension) reliability-gated search, under separately controlled observation noise and landscape change. Exact benchmarks by enumeration for small N, best-known otherwise; performance against interdependence, noise and change with landscape-clustered intervals |
+| NK landscapes (complexity) | Search on NK landscapes with K_NK interacting components: hill climbing, stochastic search, satisficing, imitation with stated observability, (extension) reliability-gated search and a resample-and-accept searcher that buys independent verification readings of a candidate out of the same evaluation budget and moves only if the verified advantage still clears the cost, under separately controlled observation noise and landscape change. Exact benchmarks by enumeration for small N, best-known otherwise; performance against interdependence, noise and change with landscape-clustered intervals |
 
 **Results** (interpret a completed experiment; specialized mechanism analyses follow)
 
@@ -752,6 +752,9 @@ heiner_abm/terminology.py  terms, kinds of uncertainty and evidence, scope of co
 heiner_abm/information.py  information-and-feedback specification, Observation, engine support, agents' needs
 heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
                            decision benchmarks: Bayes, robust optimization, bandits; tuning protocol; correctness checks
+                           Stage families added October 2026: a Bayesian state space with estimated parameters;
+                           moment-ambiguity (Scarf) robustness; sliding-window and discounted Thompson sampling;
+                           change-detecting CUSUM-UCB with a robust location variant. See docs/benchmarks.md
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/gate_validation.py
@@ -1006,20 +1009,34 @@ operationalizations of acting on uncertain estimates of one's own reliability.
 
 ## Decision benchmarks
 
+Full note on the comparators and the tuning protocol: [`docs/benchmarks.md`](docs/benchmarks.md).
+
 Three established decision methods are run in two tasks of the generalization study, whose environment generators
 (`heiner_abm/tasks.py`, part of a frozen plan) are imported unchanged.
 
 | Benchmark | Task and design | Agents (role) | Sources |
 |---|---|---|---|
-| A. Bayesian learning with change detection | Inventory (newsvendor): mean demand jumps by N(0, 30²) with the environment's hazard, clipped to [30, 170]; demand max(0, mean + σ·e), observed with noise τ; order = 0.8 critical fractile of the predictive | Exact grid filter of this process with the true parameters, ordering by posterior expected payoff (**benchmark**, not ranked); Bayesian online change-point detection with a misspecified reset model, tuned (competitor) | Adams & MacKay (2007); Fearnhead & Liu (2007); Arrow, Harris & Marschak (1951) |
-| B. Distributionally robust optimization | The same newsvendor; the last N observed demands | Robust order against every distribution within modified-χ² distance ρ of their empirical distribution, ρ and N calibrated on training environments; empirical (SAA) order as comparator; ρ = 0 reduces to SAA | Ben-Tal et al. (2013) |
-| C. Nonstationary bandit | The learning task with **chosen-action feedback**: only the chosen option's payoff is observed | Sliding-window and discounted UCB, UCB (stationary baseline), ε-greedy with constant step size (competitors); oracle (not ranked); the task's full-feedback learner as a separate reference, not a bandit | Garivier & Moulines (2011); Auer, Cesa-Bianchi & Fischer (2002); Sutton & Barto (2018) |
+| A. Bayesian learning with change detection | Inventory (newsvendor): mean demand jumps by N(0, 30²) with the environment's hazard, clipped to [30, 170]; demand max(0, mean + σ·e), observed with noise τ; order = 0.8 critical fractile of the predictive | Exact grid filter of this process with the true parameters, ordering by posterior expected payoff (**benchmark**, not ranked); Bayesian online change-point detection with a misspecified reset model, tuned (competitor) | Adams & MacKay (2007); Fearnhead & Liu (2007); Arrow, Harris & Marschak (1951) Between them, a state-space model that must **estimate** its own hazard, latent demand variation and measurement error, keeping the two sources apart: the likelihood uses both, the order uses the demand variation alone, and a missing observation advances the state without updating it (competitor) |
+| B. Distributionally robust optimization | The same newsvendor; the last N observed demands | Two ambiguity sets, named for what they are robust to: **empirical support only** (modified-χ² ball, which reweights observed demands and cannot price an unobserved one) and **moment ambiguity** (every distribution with the estimated mean and s.d., any shape or support, so outcomes never observed are priced); empirical (SAA) order as comparator; ρ = 0 reduces to SAA | Ben-Tal et al. (2013); Scarf (1958); Gallego & Moon (1993) |
+| C. Nonstationary bandit | The learning task with **chosen-action feedback**: only the chosen option's payoff is observed. A heavy-tailed evaluation condition contaminates what agents observe and leaves the true payoffs they are scored on untouched | Sliding-window and discounted UCB, UCB (stationary baseline), ε-greedy with constant step size, sliding-window and discounted **Thompson sampling**, and a **change-detecting** CUSUM-UCB with a robust-location variant (competitors); oracle (not ranked); the task's full-feedback learner as a separate reference, not a bandit | Garivier & Moulines (2011); Auer, Cesa-Bianchi & Fischer (2002); Sutton & Barto (2018); Thompson (1933); Agrawal & Goyal (2013); Trovò et al. (2020); Liu, Lee & Shroff (2018) |
 
-* **Protocol** (`heiner_abm/bench_tuning.py`): disjoint training, validation and test environments; random search where
-  budget b means the first b sampled configurations; the configuration chosen at each budget is scored on validation
-  environments (the curve of tuning performance against the evaluation budget, with the training runs spent); the
+* **Protocol** (`heiner_abm/bench_tuning.py`, now shared with the workbench): disjoint training, validation and
+  test environments; a budget b means the first b candidates of the same sequence, so a larger budget sees
+  everything a smaller one saw; the configuration chosen at each budget is scored on validation environments; the
   final configuration is the best of these on validation; only it is run on the test environments. Correctly
   specified benchmarks, oracles and references are reported beside the ranking of competitors, never in it.
+  * **"The same budget" is a stated choice.** `equal_candidates` gives every family the same number of
+    candidates (equal effort, unequal search density); `per_parameter` gives `base` per free parameter (equal
+    density, unequal effort). Both are implemented, every run records which was used and what it cost, and an
+    unnamed rule is refused rather than defaulted.
+  * **Boundary selections and sensitivity are reported.** Where each chosen value sits in the range it was
+    offered, whether it is pinned at an end (a statement about the range rather than about the agent), the spread
+    of validation scores across repetitions, and what the largest budget bought over the smallest.
+  * **The workbench uses the same protocol**, and deliberately not the same search: the benchmarks sample from
+    ranges, the workbench enumerates short hand-picked lists that span a rule's behaviour. It picks exactly what
+    its hand-rolled grids picked, which a test asserts; what changed is what it tells you. The reporting
+    immediately found that the inaction band is chosen at the smallest value it is offered, so that candidate
+    list is too narrow at the low end.
 * **Correctness first** (`heiner_abm/bench_checks.py`, also shown on the page): grid filter = enumeration of all paths;
   BOCPD = enumeration of all change-point configurations, and = the conjugate posterior with hazard 0; the documented
   process reproduces the task's generator draw for draw; ρ = 0 gives the SAA objective and optimum; the worst case

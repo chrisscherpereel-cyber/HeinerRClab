@@ -93,9 +93,22 @@ def censored_mixture_quantile(w: np.ndarray, mu: np.ndarray, sigma: float, frac:
     return hi
 
 
-def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
-                      return_post: bool = False):
-    """Orders of the correctly specified Bayesian filter (see the module docstring) for observations y."""
+def state_space_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
+                       return_post: bool = False):
+    """Orders of the grid state-space filter for observations y. The filter itself; who supplies its parameters is
+    what distinguishes the correctly specified benchmark from the estimated competitor.
+
+    Latent variation and measurement error are kept apart throughout, because they enter different places:
+        update   y_t carries BOTH, so the likelihood uses sigma (demand around its mean) and tau (measurement),
+                 with the censoring of demand at zero;
+        order    the decision is about DEMAND, so the predictive quantile uses the posterior over the mean plus
+                 sigma ALONE. Folding tau into the order inflates the fractile margin by measurement error the
+                 agent never pays for, which is the mistake a single "observation s.d." invites.
+
+    Missing observations (NaN in y) are handled by prediction only: the state is advanced through the transition
+    and the posterior is left otherwise untouched. A period whose demand was not observed is not evidence that
+    demand was average, and a likelihood of NaN would destroy the posterior outright.
+    """
     grid = np.arange(MU_LO, MU_HI + 1e-9, grid_step)
     P = grid_transition(grid, hazard)
     w = np.zeros(len(grid))
@@ -105,10 +118,24 @@ def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, gr
     for t in range(len(y)):
         pred = w @ P                                             # mean demand of period t, before y_t is seen
         S[t] = censored_mixture_quantile(pred, grid, sigma)
-        post = pred * obs_likelihood(y[t], grid, sigma, tau)
-        w = post / post.sum()
+        if np.isfinite(y[t]):
+            post = pred * obs_likelihood(y[t], grid, sigma, tau)
+            tot = post.sum()
+            w = post / tot if tot > 0 else pred                  # an impossible observation leaves the prior
+        else:
+            w = pred                                             # predict only: no evidence arrived
         means[t] = float(w @ grid)
     return (S, means) if return_post else S
+
+
+def bayes_true_orders(y: np.ndarray, hazard: float, sigma: float, tau: float, grid_step: float = 1.0,
+                      return_post: bool = False):
+    """The correctly specified benchmark: the filter above, given the TRUE generating parameters by the researcher.
+
+    Reported beside the ranking and never in it (bench_tuning.ROLES). Its estimated counterpart is bayes_est,
+    which must find hazard, sigma and tau for itself on training environments.
+    """
+    return state_space_orders(y, hazard, sigma, tau, grid_step, return_post)
 
 
 def filter_posterior(y: np.ndarray, grid: np.ndarray, P: np.ndarray, w0: np.ndarray, lik) -> np.ndarray:
@@ -273,6 +300,51 @@ def dro_orders_window(windows: np.ndarray, rho: float, iters: int = 48) -> np.nd
     return 0.5 * (a + b)
 
 
+# ================================================================================================ D. moment DRO
+# Two distributionally robust models, differing in WHAT THEY ARE ROBUST TO, which is the distinction the names
+# now carry:
+#   dro         an ambiguity set of reweightings of the observed window (a modified chi-squared ball around the
+#               empirical distribution). It can make an observed demand more or less likely; it CANNOT put mass on
+#               a value the window never contained, so its order always lies inside the observed range.
+#   dro_moment  an ambiguity set of every distribution with the estimated mean and standard deviation, whatever
+#               its shape and wherever its support. Outcomes never observed are priced, because the worst case is
+#               attained by a two-point distribution that need not sit on observed values.
+#
+# The second is Scarf (1958), whose min-max order for shortage cost p and holding cost h is
+#     S* = mu + (sigma / 2) (sqrt(p / h) - sqrt(h / p))
+# from the tight bound max E[(D - S)+] = (sqrt(sigma^2 + (S - mu)^2) - (S - mu)) / 2 over all distributions with
+# that mean and variance. Gallego & Moon (1993) give the simpler proof and the non-negative-demand treatment; the
+# order is floored at zero here for the same reason.
+#
+# ADAPTATION TO THIS TASK. Scarf's rule takes mu and sigma as given. Here they are estimated from the last N
+# observations, which carry measurement error on top of demand variation, so the estimated sigma overstates the
+# variation the agent is actually exposed to. Rather than hand it the true measurement error, the family tunes a
+# multiplier `sd_scale` on the estimated s.d. on training environments: a correction it has to find, not a
+# parameter it is told.
+def scarf_order(mu: float, sd: float, p_short: float = P_SHORT, h_over: float = H_OVER) -> float:
+    """Scarf (1958): the order maximizing the worst-case expected payoff over all demand distributions with this
+    mean and standard deviation. Floored at zero (Gallego & Moon 1993)."""
+    sd = max(float(sd), 0.0)
+    return float(max(0.0, mu + 0.5 * sd * (np.sqrt(p_short / h_over) - np.sqrt(h_over / p_short))))
+
+
+def scarf_worst_case_loss(S: float, mu: float, sd: float, p_short: float = P_SHORT,
+                          h_over: float = H_OVER) -> float:
+    """The worst-case expected newsvendor loss of order S over that moment set, which scarf_order minimizes.
+
+    Kept so the closed form can be checked against the objective it claims to minimize rather than trusted.
+    """
+    x = float(S) - float(mu)
+    shortage = 0.5 * (np.sqrt(float(sd) ** 2 + x * x) - x)
+    return float(h_over * x + (h_over + p_short) * shortage)
+
+
+def moment_order_window(window: np.ndarray, sd_scale: float = 1.0) -> float:
+    w = np.asarray(window, float)
+    sd = float(w.std(ddof=1)) if len(w) > 1 else 0.0
+    return scarf_order(float(w.mean()), sd_scale * sd)
+
+
 def saa_order_window(windows: np.ndarray) -> np.ndarray:
     """Empirical (SAA) newsvendor order: the ceil(0.8 N)-th smallest observation (the smallest minimizer of the
     average loss), clipped at 0."""
@@ -313,10 +385,17 @@ def orders(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, grid_step: 
         return window_orders(y, int(cfg["window"]), saa_order_window, default)
     if family == "dro":
         return window_orders(y, int(cfg["window"]), lambda W: dro_orders_window(W, float(cfg["rho"])), default)
+    if family == "dro_moment":
+        return window_orders(y, int(cfg["window"]),
+                             lambda W: np.array([moment_order_window(w, float(cfg["sd_scale"])) for w in W]),
+                             default)
     if family == "bocpd":
         return bocpd_orders(y, float(cfg["hazard"]), float(cfg["prior_sd"]), float(cfg["obs_sd"]))
     if family == "bayes_true":
         return bayes_true_orders(y, env.hazard, env.noise, env.obs_noise, grid_step)
+    if family == "bayes_est":
+        # the same filter, with parameters it had to find on training environments: no true value reaches it
+        return state_space_orders(y, float(cfg["hazard"]), float(cfg["sigma"]), float(cfg["tau"]), grid_step)
     if family == "oracle":
         return np.maximum(mu + Z_FRAC * env.noise, 0.0)
     raise ValueError(family)
@@ -341,13 +420,23 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
                                                                                             integer=True)},
            "The last N observations are an i.i.d. sample of next period's demand; observation noise is ignored.",
            "O(N log N) per period (one order statistic).", ("arrow1951b",), "Every observed demand"),
-    Family("dro", "Distributionally robust (modified χ² ball, window N)", "competitor",
+    Family("dro", "Distributionally robust, empirical support only (modified χ² ball, window N)", "competitor",
            {"window": Param(5, 150, log=True, integer=True), "rho": Param(0.001, 5.0, log=True)},
            "Next period's demand distribution lies within modified-χ² distance ρ of the empirical distribution of the "
            "last N observations (it reweights observed values; it cannot place mass on unseen values). ρ and N are "
            "calibrated on training environments only.",
            "O(N log N) per worst-case evaluation (exact); about 50 evaluations per period (golden section).",
            ("bental2013", "arrow1951b"), "Every observed demand"),
+    Family("dro_moment", "Distributionally robust, moment ambiguity (Scarf rule, window N)", "competitor",
+           {"window": Param(5, 150, log=True, integer=True), "sd_scale": Param(0.2, 2.0, log=True)},
+           "Next period's demand has the mean and s.d. estimated from the last N observations; its SHAPE and its "
+           "SUPPORT are otherwise unrestricted, so outcomes never observed are priced. The worst case is a "
+           "two-point distribution that need not sit on observed values, which is what separates this from the "
+           "empirical-support model above. The estimated s.d. carries measurement error as well as demand "
+           "variation, so a multiplier on it is tuned on training environments; the true measurement error is "
+           "never given.",
+           "O(N) per period (a mean and an s.d.); the order itself is closed form.",
+           ("scarf1958", "gallego1993", "arrow1951b"), "Every observed demand"),
     Family("bocpd", "Bayesian change detection (misspecified BOCPD)", "competitor",
            {"hazard": Param(0.001, 0.2, log=True), "prior_sd": Param(5.0, 100.0, log=True),
             "obs_sd": Param(3.0, 100.0, log=True)},
@@ -356,6 +445,16 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
            "[30, 170], and demand is censored at 0 and observed with separate noise.",
            "O(R) per period for R kept run lengths (R ≤ 300); exact for R ≥ T.", ("adams2007", "fearnhead2007"),
            "Every observed demand"),
+    Family("bayes_est", "Bayesian state space, estimated parameters (grid filter)", "competitor",
+           {"hazard": Param(0.001, 0.2, log=True), "sigma": Param(2.0, 60.0, log=True),
+            "tau": Param(0.1, 60.0, log=True)},
+           "The same piecewise-constant-mean model as the correctly specified benchmark, but its hazard, latent "
+           "demand variation sigma and measurement error tau are tuned on training environments; it is never told "
+           "the generating values. Keeping sigma and tau apart matters for the decision: the likelihood uses both, "
+           "the order uses sigma alone, so measurement error does not inflate the fractile margin. Missing "
+           "observations advance the state without updating it.",
+           "O(G^2) per period for G grid points (G = 141 at step 1), as the benchmark.",
+           ("fearnhead2007", "arrow1951b"), "Every observed demand"),
     Family("bayes_true", "Bayes, correctly specified (grid filter)", "benchmark", {},
            "Knows the generating process and its parameters (hazard, jump s.d., bounds, σ, τ); exact on a grid of "
            "mean demands.", "O(G²) per period for G grid points (G = 141 at step 1).", ("fearnhead2007",),
@@ -394,7 +493,12 @@ class InventoryPlan:
         return asdict(self)
 
 
-QUICK_INVENTORY = dict(periods=400, burn_in=50, n_train=3, n_val=3, n_test=5, budgets=(1, 2, 4), reps=2)
+# A quick check is meant to be quick, and it is now spread over more families: the inventory suite gained
+# a Bayesian state space with estimated parameters and a moment-ambiguity robust order, the bandit suite
+# gained two Thompson variants and two change-detecting ones. The periods were cut to keep an orientation
+# run at roughly its previous cost; the Full scale, which is what any reported comparison uses, is
+# unchanged.
+QUICK_INVENTORY = dict(periods=250, burn_in=40, n_train=3, n_val=3, n_test=4, budgets=(1, 2, 4), reps=2)
 
 
 def run_inventory(plan: InventoryPlan, progress=None) -> Dict:

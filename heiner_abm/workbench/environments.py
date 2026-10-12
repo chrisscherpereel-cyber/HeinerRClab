@@ -28,6 +28,24 @@ Cancel = Callable[[], bool]
 
 
 @dataclass(frozen=True)
+class TuningStep:
+    """One step of an environment's search: a policy to score, and the space searched while scoring it.
+
+    `expand` maps a candidate into the hyperparameter keys the environment actually reads, for spaces whose
+    candidates are paired rather than independent (a confidence and a minimum evidence that belong together are
+    four specific pairs, not sixteen combinations). Without it a candidate key the environment does not read is
+    silently ignored and every candidate scores the same, which is how this was caught.
+    """
+    name: str
+    policy: str
+    space: Dict[str, Any]
+    expand: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
+
+    def to_hp(self, candidate: Dict[str, Any]) -> Dict[str, Any]:
+        return dict(self.expand(candidate)) if self.expand else dict(candidate)
+
+
+@dataclass(frozen=True)
 class Control:
     key: str
     label: str
@@ -126,8 +144,59 @@ class Environment:
         from ..information import ENGINES
         return ENGINES[self.engine].native.to_dict()
 
+    # ---------------------------------------------------------------------------------------- tuning
+    # The workbench and the decision benchmarks now share one protocol (heiner_abm.bench_tuning): the same budget
+    # rules, the same accounting, the same boundary and sensitivity reports. What they do NOT share is the search
+    # itself, and deliberately: the benchmarks sample hyperparameters from ranges, while the workbench searches a
+    # short list of hand-picked values chosen to span a rule's behaviour. Four well-chosen values beat four random
+    # draws at this budget, so the list is declared as a Choice space and the protocol enumerates it.
+    #
+    # An environment declares its steps and how to score one; everything else is handled here, once.
+    def tuning_plan(self, spec, params) -> Tuple[TuningStep, ...]:
+        """Steps of this environment's search, in order. Later steps see the choices made by earlier ones, which
+        is how a shared candidate-generation parameter is settled before the policies that use it."""
+        return ()
+
+    def score_policy(self, spec, params, policy: str, hp: Dict[str, Any], seeds: Sequence[int]) -> float:
+        """Mean training payoff of one policy under one candidate configuration. Higher is better."""
+        raise NotImplementedError
+
     def tune(self, spec, params, seeds: Sequence[int], cancel: Cancel) -> Dict[str, Any]:
-        return {}
+        hp, _ = self.tune_with_log(spec, params, seeds, cancel)
+        return hp
+
+    def tune_with_log(self, spec, params, seeds: Sequence[int], cancel: Cancel):
+        """The chosen hyperparameters and a record of how they were chosen: candidates offered, what each scored,
+        the budget rule in force, and whether the choice sits at the end of the list it was offered."""
+        from ..bench_tuning import boundary_report, candidate_configs, design_budget
+        rule = str(getattr(spec.design, "budget_rule", "equal_candidates"))
+        base = int(getattr(spec.design, "tuning_base", 4))
+        hp: Dict[str, Any] = {}
+        log: List[Dict[str, Any]] = []
+        for step in self.tuning_plan(spec, params):
+            if cancel():
+                break
+            n = design_budget(step.space, rule, base)
+            cands = candidate_configs(step.space, n, seed=spec.design.seed)
+            scores = []
+            for c in cands:
+                if cancel():
+                    break
+                scores.append(self.score_policy(spec, params, step.policy, {**hp, **step.to_hp(c)}, seeds))
+            if not scores:
+                break
+            k = int(np.argmax(scores))
+            hp.update(step.to_hp(cands[k]))
+            bound = boundary_report(step.space, cands[k])
+            log.append(dict(step=step.name, policy=step.policy, parameters=sorted(step.space),
+                            budget_rule=rule, candidates=len(cands),
+                            candidates_per_parameter=len(cands) / max(len(step.space), 1),
+                            chosen=dict(cands[k]), chosen_score=float(scores[k]),
+                            first_score=float(scores[0]), gain_over_first=float(scores[k] - scores[0]),
+                            score_spread=float(max(scores) - min(scores)),
+                            pinned=[r["parameter"] for _, r in bound.iterrows() if r["pinned"]],
+                            boundary=bound.to_dict(orient="records")))
+        return hp, log
 
     def cost_definitions(self, spec, params) -> List[Dict[str, Any]]:
         """The economic charges in force, one entry per distinct friction, for the run manifest.
@@ -268,32 +337,31 @@ class Inventory(Environment):
                          "nmin": float(hp.get("gate_nmin", params["gate_nmin"]))},
                 "bocpd": {"hazard": 0.005, "prior_sd": 30.0, "obs_sd": 25.0}, "dro": {"window": 20, "rho": 0.01}}
 
-    def tune(self, spec, params, seeds, cancel):
+    def tuning_plan(self, spec, params):
+        """Candidate generation first, then one step per tunable policy, each offered the same number of
+        candidates so that no policy is compared on a smaller search than another."""
+        from ..bench_tuning import Choice
+        return (
+            TuningStep("candidate rule", "always", {"gain": Choice((0.05, 0.1, 0.2, 0.4))}),
+            TuningStep("inaction band", "band", {"band_b": Choice((0.25, 0.5, 1.0, 2.0))}),
+            # the confidence and the minimum evidence are four chosen PAIRS, not a grid of sixteen
+            TuningStep("confidence gate", "gate_lcb",
+                       {"gate": Choice(((0.9, 5.0), (0.8, 3.0), (0.9, 12.0), (0.95, 25.0)))},
+                       expand=lambda c: {"gate_conf": float(c["gate"][0]), "gate_nmin": float(c["gate"][1])}),
+        )
+
+    def score_policy(self, spec, params, policy, hp, seeds):
         from .. import learnability as L
         cfg = self._cfg(params)
         T, burn = spec.design.periods, spec.design.burn_in
-
-        def score(policy, hp):
-            vals = []
-            for s in seeds:
-                p = L.paths(cfg, T, s)
-                c = L.candidate_orders(cfg, p, hp["gain"])
-                S, pr, go = L.policy_orders(policy, cfg, p, c, hp)
-                vals.append(L.outcomes(policy, cfg, p, c, S, pr, go, burn)["net_payoff"])
-            return float(np.mean(vals))
-
-        base = self._hp(params, {})
-        gain = max((0.05, 0.1, 0.2, 0.4), key=lambda g: score("always", {**base, "gain": g}))
-        if cancel():
-            return {}
-        b = max((0.25, 0.5, 1.0, 2.0), key=lambda b: score("band", {**base, "gain": gain, "band": {"b": b}}))
-        if cancel():
-            return {"gain": gain, "band_b": b}
-        # Same number of candidates as the two policies above, so the gate is not compared on a smaller budget.
-        gate_grid = ((0.9, 5.0), (0.8, 3.0), (0.9, 12.0), (0.95, 25.0))
-        conf, nmin = max(gate_grid, key=lambda v: score(
-            "gate_lcb", {**base, "gain": gain, "gate": {"conf": v[0], "nmin": v[1]}}))
-        return {"gain": gain, "band_b": b, "gate_conf": conf, "gate_nmin": nmin}
+        h = self._hp(params, hp)
+        vals = []
+        for s in seeds:
+            p = L.paths(cfg, T, s)
+            c = L.candidate_orders(cfg, p, h["gain"])
+            S, pr, go = L.policy_orders(policy, cfg, p, c, h)
+            vals.append(L.outcomes(policy, cfg, p, c, S, pr, go, burn)["net_payoff"])
+        return float(np.mean(vals))
 
     def cost_definitions(self, spec, params):
         cfg = self._cfg(params)
@@ -488,15 +556,14 @@ class Market(Environment):
         net = (a["sum_profit"] - float(params["adjust_cost"]) * a["n_dev"]) / a["n_rec"]
         return net
 
-    def tune(self, spec, params, seeds, cancel):
+    def tuning_plan(self, spec, params):
+        from ..bench_tuning import Choice
+        return (TuningStep("inaction band", "band", {"threshold": Choice((10.0, 25.0, 50.0, 100.0))}),)
+
+    def score_policy(self, spec, params, policy, hp, seeds):
         from ..engine import run_batch
-        scores = {}
-        for th in (10.0, 25.0, 50.0, 100.0):
-            if cancel():
-                return {}
-            res = run_batch([self._scenario(spec, params, "band", s, {"threshold": th}) for s in seeds])
-            scores[th] = float(self._net(res, params).mean())
-        return {"threshold": max(scores, key=scores.get)}
+        res = run_batch([self._scenario(spec, params, policy, s, hp) for s in seeds])
+        return float(self._net(res, params).mean())
 
     def cost_definitions(self, spec, params):
         return [
@@ -826,7 +893,8 @@ class NKLandscape(Environment):
             if (base + r) in trace:
                 path = nk.landscape_path(env)
                 st_ = nk.run_streams(env, path, s + 1)
-                obs = nk.Observer(env, path, st_.noise, st_.leader, st_.visible)
+                obs = nk.Observer(env, path, st_.noise, st_.leader, st_.visible,
+                                  verify_noise=st_.verify)
                 for pol in spec.policies:
                     xs, costs, log = nk.simulate(pol, env, obs, st_.start, st_.U, hpar)
                     keep_trace(traces, pol, base + r, self._trace(env, path, xs, log))

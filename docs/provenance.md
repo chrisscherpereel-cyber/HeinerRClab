@@ -96,6 +96,21 @@ Per environment:
 `provenance.check_decision_log()` rejects an unclassified column, feedback recorded without its timing, and an
 undeclared origin. A test runs it over every environment.
 
+### The same schema outside the workbench
+
+`heiner_abm/traces.py` records decision-level traces of the *registered* studies — the tournament
+(`arena.simulate`), endogenous rule choice (`rulechoice.simulate_choice`) and the market lab (`engine.run_batch`) —
+which the workbench provenance above does not cover. Its columns carry role prefixes (`obs_`, `pred_`, `action_`,
+`feedback_`, `researcher_`) that `role_of()` resolves through `ROLE_PREFIXES`, so a tournament trace classifies
+under the same schema as a workbench decision log and passes the same `check_decision_log()`. An explicit entry in
+`DECISION_LOG_ROLES` still wins, and a name matching no entry and no declared prefix is still reported as
+unclassified: the fallback is not a rubber stamp.
+
+Those functions re-implement the loops they trace rather than instrumenting them, so the two could drift apart.
+`tests/test_traces.py` is what prevents it: `trace_markets` is pinned to `arena.simulate` with `np.array_equal` (not
+approximate equality) across every design under the registered tuned parameters, including environments with
+unannounced regime shifts, and `trace_choice` likewise to `simulate_choice`.
+
 ## 5. Researcher-only fields
 
 Columns prefixed `researcher_` were never available to any agent at any time. They are listed explicitly in the

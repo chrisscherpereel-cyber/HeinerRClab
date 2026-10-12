@@ -756,6 +756,8 @@ heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statis
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
+heiner_abm/traces.py       decision-level traces of the tournament, rule choice and the market lab: what each agent
+                           saw, chose and was later told (pinned to the originals exactly in tests/test_traces.py)
 heiner_abm/ecology.py      organizational ecology agents and selection through exit and entry
                            (Hannan & Freeman); exploratory, outside the registered tournament
 heiner_abm/nk.py           NK-landscape environment: landscapes, searchers, gates, exact or best-known benchmarks

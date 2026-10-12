@@ -52,7 +52,8 @@ def test_bandit_choices_use_only_past_payoffs(family, cfg, monkeypatch):
     base = BB.actions(env, family, cfg, T)
     alt = obs.copy()
     alt[K:] += 30.0
-    monkeypatch.setattr(BB, "_stream", lambda e, t: (state, pay, alt))
+    # the stub must take the evaluation condition too, since _stream now carries one
+    monkeypatch.setattr(BB, "_stream", lambda e, t, tail="gaussian": (state, pay, alt))
     pert = BB.actions(env, family, cfg, T)
     np.testing.assert_array_equal(base[:K + 1], pert[:K + 1])
 
@@ -400,3 +401,241 @@ class TestThompsonSampling:
             quick.append(BB.run_agent(env, family, a, 600, 50)["payoff"])
             never.append(BB.run_agent(env, family, b, 600, 50)["payoff"])
         assert np.mean(quick) > np.mean(never), f"{family}: {np.mean(quick):.4f} vs {np.mean(never):.4f}"
+
+
+# ================================================================ C. change-detecting UCB
+class TestChangeDetectingUCB:
+    """Stage C: CUSUM-UCB checked against the published equations, and robust location under heavy tails."""
+
+    ENV = tasks.TaskEnv("learning", 1.0, 0.02, 0.5, 0.1, 3)
+    CFG = dict(eps=0.2, h=8.0, alpha=0.05, c=0.5, M=20)
+
+    # ------------------------------------------------------------ the borrowed algorithm
+    def test_the_cusum_recursion_is_the_published_one(self):
+        """s+ = y - u0 - eps, g+ = max(0, g+ + s+); s- = u0 - y - eps, g- = max(0, g- + s-); both floored at 0."""
+        gp, gm = 0.0, 0.0
+        ref, eps = 10.0, 0.5
+        for y, want_p, want_m in [(10.0, 0.0, 0.0),            # on the reference: the slack absorbs it
+                                  (12.0, 1.5, 0.0),            # above: the upper walk moves by y - u0 - eps
+                                  (12.0, 3.0, 0.0),
+                                  (6.0, 0.0, 3.5),             # below: upper floored at zero, lower moves
+                                  (6.0, 0.0, 7.0)]:
+            gp, gm = BB.cusum_step(gp, gm, y, ref, eps)
+            assert gp == pytest.approx(want_p) and gm == pytest.approx(want_m)
+
+    def test_neither_walk_can_go_negative(self):
+        gp, gm = BB.cusum_step(0.0, 0.0, 10.0, 10.0, 5.0)
+        assert gp == 0.0 and gm == 0.0
+
+    def test_the_detector_alarms_on_a_shift_and_not_on_a_flat_stream(self):
+        T = 600
+        flat = np.zeros((T, 2))
+        shifted = np.zeros((T, 2))
+        shifted[T // 2:, :] = 6.0
+        draws = BB.detector_draws(self.ENV, T)
+        _, quiet = BB.cusum_ucb_actions(flat, 0.2, 3.0, 0.5, 0.5, 10, draws)
+        _, loud = BB.cusum_ucb_actions(shifted, 0.2, 3.0, 0.5, 0.5, 10, draws)
+        assert quiet.sum() == 0, "a constant stream raised a change alarm"
+        assert loud.sum() > 0, "a step of six raised no alarm"
+        assert np.flatnonzero(loud)[0] >= T // 2, "an alarm fired before the shift"
+
+    def test_an_alarm_restarts_that_arm_rather_than_the_whole_agent(self):
+        """After an alarm the arm discards its history and re-references at the new level, so a single step gives
+        exactly one alarm and a second step is needed for a second. Between them it must take M fresh samples."""
+        T = 500
+        obs = np.zeros((T, 2))
+        obs[100:250, 0] = 10.0                         # up, then back down: two changes to find
+        draws = np.zeros((2, T))                       # no uniform exploration: deterministic
+        _, one_step = BB.cusum_ucb_actions(np.where(np.arange(T)[:, None] >= 100, [10.0, 0.0], 0.0),
+                                           0.2, 3.0, 0.0, 0.5, 10, draws)
+        assert one_step.sum() == 1, "a single step should alarm once and then re-reference at the new level"
+        _, two_steps = BB.cusum_ucb_actions(obs, 0.2, 3.0, 0.0, 0.5, 10, draws)
+        fired = np.flatnonzero(two_steps)
+        assert len(fired) >= 2, "two changes produced fewer than two alarms"
+        assert int(np.diff(fired).min()) > 10, "an alarm fired before M fresh samples had been taken"
+
+    def test_uniform_exploration_happens_at_the_stated_rate(self):
+        T = 2000
+        obs = np.zeros((T, 2))
+        obs[:, 0] = 5.0                                 # arm 0 obviously better: any arm-1 play is exploration
+        draws = BB.detector_draws(self.ENV, T)
+        a_none, _ = BB.cusum_ucb_actions(obs, 0.2, 1e9, 0.0, 0.5, 20, draws)
+        a_lots, _ = BB.cusum_ucb_actions(obs, 0.2, 1e9, 0.4, 0.5, 20, draws)
+        assert (a_none[50:] == 1).mean() == 0.0, "an agent with alpha = 0 explored anyway"
+        assert 0.1 < (a_lots[50:] == 1).mean() < 0.35, "the exploration rate is far from alpha / K"
+
+    def test_only_the_chosen_option_is_observed(self):
+        T = 400
+        _, _, obs = BB._stream(self.ENV, T)
+        draws = BB.detector_draws(self.ENV, T)
+        run = lambda o: BB.cusum_ucb_actions(o, self.CFG["eps"], self.CFG["h"], self.CFG["alpha"], self.CFG["c"],
+                                             self.CFG["M"], draws)[0]
+        base = run(obs.copy())
+        poisoned = obs.copy().astype(float)
+        for t, at in enumerate(base):
+            poisoned[t, 1 - int(at)] += 1000.0
+        assert np.array_equal(run(poisoned), base)
+
+    def test_the_adaptations_to_this_task_are_documented(self):
+        f = BB.FAMILIES["cusum_ucb"]
+        assert "liu2018" in f.sources and "liu2018" in REFERENCES
+        for phrase in ("known", "bounded in [0, 1]", "tuned"):
+            assert phrase in f.assumptions, f"the family does not record the assumption {phrase!r}"
+        assert "adaptation" in BB.FAMILIES["cusum_ucb_robust"].assumptions
+
+    # ------------------------------------------------------------ robust location
+    def test_median_of_means_resists_an_outlier_that_moves_the_mean(self):
+        x = np.r_[np.zeros(40), 1000.0]
+        assert abs(float(x.mean())) > 20
+        assert abs(BB.median_of_means(x, blocks=5)) < 1.0
+
+    def test_median_of_means_agrees_with_the_mean_on_clean_symmetric_data(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(5.0, 1.0, 4000)
+        assert BB.median_of_means(x, blocks=5) == pytest.approx(float(x.mean()), abs=0.1)
+
+    def test_median_of_means_falls_back_rather_than_inventing_precision(self):
+        assert BB.median_of_means(np.array([3.0]), blocks=5) == pytest.approx(3.0)
+        assert BB.median_of_means(np.array([]), blocks=5) == 0.0
+
+    def test_the_robust_family_differs_only_in_the_location_estimator(self):
+        a = BB.actions(self.ENV, "cusum_ucb", self.CFG, 400, "heavy")
+        b = BB.actions(self.ENV, "cusum_ucb_robust", self.CFG, 400, "heavy")
+        assert not np.array_equal(a, b)
+        assert set(BB.FAMILIES["cusum_ucb"].space) == set(BB.FAMILIES["cusum_ucb_robust"].space)
+
+    # ------------------------------------------------------------ the heavy-tailed condition
+    def test_the_heavy_condition_is_actually_heavy_tailed(self):
+        kurt = lambda o: float(((o - o.mean()) ** 4).mean() / ((o - o.mean()) ** 2).mean() ** 2)
+        light = kurt(BB._stream(self.ENV, 2000)[2])
+        heavy = kurt(BB._stream(self.ENV, 2000, "heavy")[2])
+        assert 2.0 < light < 4.0, f"the default condition is not approximately Gaussian: kurtosis {light:.1f}"
+        assert heavy > 20.0, f"the heavy condition has kurtosis {heavy:.1f}, which is not heavy-tailed"
+
+    def test_the_heavy_condition_changes_only_what_is_observed(self):
+        """Agents are still scored on the truth; only their evidence is contaminated."""
+        s_g, o_g, obs_g = BB._stream(self.ENV, 500)
+        s_h, o_h, obs_h = BB._stream(self.ENV, 500, "heavy")
+        assert np.array_equal(s_g, s_h) and np.array_equal(o_g, o_h)
+        assert not np.array_equal(obs_g, obs_h)
+
+    def test_every_family_faces_the_same_condition(self):
+        """Identical information restrictions: the condition belongs to the run, not to the agent."""
+        assert np.array_equal(BB._stream(self.ENV, 300, "heavy")[2], BB._stream(self.ENV, 300, "heavy")[2])
+        for fam, cfg in (("cusum_ucb", self.CFG), ("ts_sw", dict(window=50, reward_sd=1.0, prior_sd=1.0))):
+            assert np.isfinite(BB.run_agent(self.ENV, fam, cfg, 300, 50, "heavy")["payoff"])
+
+    def test_an_unknown_condition_is_refused(self):
+        with pytest.raises(ValueError):
+            BB._stream(self.ENV, 100, "lognormalish")
+
+    def test_robust_location_does_not_pay_at_these_untuned_settings(self):
+        """Measured, not assumed. Resistance to outliers is a property of the estimator and is tested directly
+        above; whether substituting it PAYS in this environment is an empirical question, and at one shared
+        untuned configuration averaged over six environments it does not. Recorded here so the claim is not
+        quietly made elsewhere: the tuned comparison is the place to settle it, since the two families have the
+        same parameters and may want different values for them.
+        """
+        def mean_payoff(family, tail):
+            return float(np.mean([BB.run_agent(tasks.TaskEnv("learning", 1.0, 0.02, 0.5, 0.1, s + 1),
+                                               family, self.CFG, 800, 50, tail)["payoff"] for s in range(6)]))
+        robust, plain = mean_payoff("cusum_ucb_robust", "heavy"), mean_payoff("cusum_ucb", "heavy")
+        assert np.isfinite(robust) and np.isfinite(plain)
+        assert robust < plain, ("robust location now pays at these settings; the finding recorded in this test "
+                                "has changed and the documentation that cites it needs updating")
+
+
+# ================================================================ D. moment-based distributional robustness
+class TestMomentDRO:
+    """Stage D: an ambiguity set over distributions with given moments, which can price unobserved outcomes."""
+
+    ENV = tasks.TaskEnv("inventory", 20.0, 0.01, 10.0, 0.1, 4)
+
+    # ------------------------------------------------------------ the closed form, checked not trusted
+    def test_the_closed_form_minimizes_the_worst_case_loss_it_claims_to(self):
+        """Scarf's order against a grid search over the worst-case objective. If the algebra were wrong, the
+        closed form and the numerical minimizer would part company here."""
+        for mu, sd in [(100.0, 20.0), (50.0, 5.0), (120.0, 45.0)]:
+            S = BI.scarf_order(mu, sd)
+            grid = np.linspace(mu - 4 * sd, mu + 4 * sd, 40001)
+            numerical = grid[int(np.argmin([BI.scarf_worst_case_loss(x, mu, sd) for x in grid]))]
+            assert S == pytest.approx(float(numerical), abs=1e-2)
+
+    def test_the_order_is_the_published_expression(self):
+        """S* = mu + (sigma / 2) (sqrt(p / h) - sqrt(h / p))."""
+        mu, sd = 100.0, 20.0
+        want = mu + 0.5 * sd * (np.sqrt(BI.P_SHORT / BI.H_OVER) - np.sqrt(BI.H_OVER / BI.P_SHORT))
+        assert BI.scarf_order(mu, sd) == pytest.approx(want)
+
+    def test_with_no_estimated_variation_it_orders_the_mean(self):
+        assert BI.scarf_order(80.0, 0.0) == pytest.approx(80.0)
+
+    def test_the_order_is_never_negative(self):
+        assert BI.scarf_order(1.0, 0.0) >= 0.0
+        assert BI.scarf_order(-50.0, 1.0) == 0.0
+
+    def test_it_is_more_cautious_than_the_normal_quantile_at_this_cost_ratio(self):
+        """Distribution-free is not the same as conservative in every direction: at a 0.8 critical fractile the
+        moment bound orders LESS than the Gaussian quantile, because the worst case it guards against is a
+        two-point distribution rather than a normal tail. Recorded so the direction is not assumed."""
+        mu, sd = 100.0, 20.0
+        assert BI.scarf_order(mu, sd) < mu + BI.Z_FRAC * sd
+
+    # ------------------------------------------------------------ what separates it from the empirical model
+    def test_the_empirical_support_model_cannot_leave_the_observed_range(self):
+        window = np.array([[90.0, 110.0]])
+        empirical = float(BI.dro_orders_window(window, 0.05)[0])
+        assert 90.0 - 1e-9 <= empirical <= 110.0 + 1e-9
+
+    def test_the_moment_model_can_order_outside_the_observed_range(self):
+        """The decisive difference. The worst case is attained by a two-point distribution that need not sit on
+        observed values, so an outcome never seen can still be priced."""
+        window = np.array([90.0, 110.0])
+        moment = BI.moment_order_window(window)
+        assert moment > window.max(), f"the moment order {moment:.2f} stayed inside the observed range"
+
+    def test_the_moment_model_depends_on_the_window_only_through_its_first_two_moments(self):
+        """Two windows with the same mean and s.d. but different shapes: the moment model cannot tell them apart,
+        the empirical-support model can. That is what 'moment ambiguity' means, stated as a test."""
+        a = np.array([80.0, 80.0, 120.0, 120.0])
+        # same mean and same sample s.d., different shape: two-point against a spread-out quartet
+        b = np.array([100.0 - 20.0 * np.sqrt(2), 100.0, 100.0, 100.0 + 20.0 * np.sqrt(2)])
+        assert float(a.mean()) == pytest.approx(float(b.mean()))
+        assert float(a.std(ddof=1)) == pytest.approx(float(b.std(ddof=1)))
+        assert BI.moment_order_window(a) == pytest.approx(BI.moment_order_window(b))
+        emp_a = float(BI.dro_orders_window(a[None, :], 0.05)[0])
+        emp_b = float(BI.dro_orders_window(b[None, :], 0.05)[0])
+        assert emp_a != pytest.approx(emp_b), "the empirical-support model ignored the shape of its window"
+
+    # ------------------------------------------------------------ naming and estimation
+    def test_the_existing_model_is_named_for_what_it_actually_assumes(self):
+        name = BI.FAMILIES["dro"].name
+        assert "empirical support only" in name
+        assert "cannot place mass on unseen values" in BI.FAMILIES["dro"].assumptions
+
+    def test_the_moment_family_says_what_its_ambiguity_set_is(self):
+        f = BI.FAMILIES["dro_moment"]
+        assert f.role == "competitor"
+        assert "SUPPORT" in f.assumptions and "never given" in f.assumptions
+        for key in ("scarf1958", "gallego1993"):
+            assert key in f.sources and key in REFERENCES
+
+    def test_the_spread_multiplier_is_tuned_rather_than_the_true_measurement_error(self):
+        env = self.ENV
+        a = BI.orders(env, "dro_moment", dict(window=40, sd_scale=0.4), 300)
+        b = BI.orders(env, "dro_moment", dict(window=40, sd_scale=1.8), 300)
+        assert not np.allclose(a, b), "sd_scale had no effect, so it is not being used"
+        assert float(np.mean(b[60:])) > float(np.mean(a[60:])), "a wider assumed spread must not order less"
+        assert set(BI.FAMILIES["dro_moment"].space) == {"window", "sd_scale"}
+
+    def test_it_runs_over_a_whole_environment_and_warms_up_on_the_default(self):
+        S = BI.orders(self.ENV, "dro_moment", dict(window=40, sd_scale=1.0), 300)
+        assert len(S) == 300 and np.isfinite(S).all() and (S >= 0).all()
+
+    # ------------------------------------------------------------ the registered study is untouched
+    def test_the_registered_learnability_plan_does_not_move(self):
+        """The learnability plan digests six named objects from this module. Stage D adds functions and renames a
+        display label; it must not touch those."""
+        from heiner_abm import learnability as L
+        from heiner_abm import registered as R
+        assert L.LearnPlan().digest == R.LEARN_PLAN

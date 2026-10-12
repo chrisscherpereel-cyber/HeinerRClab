@@ -342,6 +342,9 @@ AGENTS: List[Needs] = [
        uses="the last N observed demands; ambiguity size calibrated on training environments"),
     _a("inv_bocpd", "Inventory: Bayesian change detection (misspecified)", "bench_inventory", feedback=("full",),
        uses="observed demands; its own (misspecified) change-point model"),
+    _a("inv_dro_moment", "Inventory: distributionally robust, moment ambiguity (Scarf)", "bench_inventory",
+       feedback=("full",), uses="the mean and s.d. of recent observed demands; no assumption about the shape or "
+       "the support of the distribution"),
     _a("inv_bayes_est", "Inventory: Bayesian state space, estimated parameters", "bench_inventory",
        feedback=("full",), uses="observed demands only; its hazard, latent variation and measurement error are "
        "tuned on training environments"),
@@ -386,6 +389,11 @@ AGENTS: List[Needs] = [
        uses="payoffs of its own choices in the last τ periods"),
     _a("bandit_d_ucb", "Bandit: discounted UCB", "bench_bandit", feedback=("chosen",),
        uses="discounted payoffs of its own choices"),
+    _a("bandit_cusum_ucb", "Bandit: change-detecting UCB (CUSUM-UCB)", "bench_bandit", feedback=("chosen",),
+       uses="payoffs of its own choices since its last change alarm"),
+    _a("bandit_cusum_ucb_robust", "Bandit: change-detecting UCB, robust location", "bench_bandit",
+       feedback=("chosen",), uses="payoffs of its own choices since its last change alarm, summarized by a median "
+       "of block means"),
     _a("bandit_ts_sw", "Bandit: sliding-window Thompson sampling", "bench_bandit", feedback=("chosen",),
        uses="payoffs of its own choices in the last W periods; its reward s.d. and prior are tuned, not given"),
     _a("bandit_ts_disc", "Bandit: discounted Thompson sampling", "bench_bandit", feedback=("chosen",),

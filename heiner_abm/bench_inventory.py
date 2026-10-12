@@ -300,6 +300,51 @@ def dro_orders_window(windows: np.ndarray, rho: float, iters: int = 48) -> np.nd
     return 0.5 * (a + b)
 
 
+# ================================================================================================ D. moment DRO
+# Two distributionally robust models, differing in WHAT THEY ARE ROBUST TO, which is the distinction the names
+# now carry:
+#   dro         an ambiguity set of reweightings of the observed window (a modified chi-squared ball around the
+#               empirical distribution). It can make an observed demand more or less likely; it CANNOT put mass on
+#               a value the window never contained, so its order always lies inside the observed range.
+#   dro_moment  an ambiguity set of every distribution with the estimated mean and standard deviation, whatever
+#               its shape and wherever its support. Outcomes never observed are priced, because the worst case is
+#               attained by a two-point distribution that need not sit on observed values.
+#
+# The second is Scarf (1958), whose min-max order for shortage cost p and holding cost h is
+#     S* = mu + (sigma / 2) (sqrt(p / h) - sqrt(h / p))
+# from the tight bound max E[(D - S)+] = (sqrt(sigma^2 + (S - mu)^2) - (S - mu)) / 2 over all distributions with
+# that mean and variance. Gallego & Moon (1993) give the simpler proof and the non-negative-demand treatment; the
+# order is floored at zero here for the same reason.
+#
+# ADAPTATION TO THIS TASK. Scarf's rule takes mu and sigma as given. Here they are estimated from the last N
+# observations, which carry measurement error on top of demand variation, so the estimated sigma overstates the
+# variation the agent is actually exposed to. Rather than hand it the true measurement error, the family tunes a
+# multiplier `sd_scale` on the estimated s.d. on training environments: a correction it has to find, not a
+# parameter it is told.
+def scarf_order(mu: float, sd: float, p_short: float = P_SHORT, h_over: float = H_OVER) -> float:
+    """Scarf (1958): the order maximizing the worst-case expected payoff over all demand distributions with this
+    mean and standard deviation. Floored at zero (Gallego & Moon 1993)."""
+    sd = max(float(sd), 0.0)
+    return float(max(0.0, mu + 0.5 * sd * (np.sqrt(p_short / h_over) - np.sqrt(h_over / p_short))))
+
+
+def scarf_worst_case_loss(S: float, mu: float, sd: float, p_short: float = P_SHORT,
+                          h_over: float = H_OVER) -> float:
+    """The worst-case expected newsvendor loss of order S over that moment set, which scarf_order minimizes.
+
+    Kept so the closed form can be checked against the objective it claims to minimize rather than trusted.
+    """
+    x = float(S) - float(mu)
+    shortage = 0.5 * (np.sqrt(float(sd) ** 2 + x * x) - x)
+    return float(h_over * x + (h_over + p_short) * shortage)
+
+
+def moment_order_window(window: np.ndarray, sd_scale: float = 1.0) -> float:
+    w = np.asarray(window, float)
+    sd = float(w.std(ddof=1)) if len(w) > 1 else 0.0
+    return scarf_order(float(w.mean()), sd_scale * sd)
+
+
 def saa_order_window(windows: np.ndarray) -> np.ndarray:
     """Empirical (SAA) newsvendor order: the ceil(0.8 N)-th smallest observation (the smallest minimizer of the
     average loss), clipped at 0."""
@@ -340,6 +385,10 @@ def orders(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, grid_step: 
         return window_orders(y, int(cfg["window"]), saa_order_window, default)
     if family == "dro":
         return window_orders(y, int(cfg["window"]), lambda W: dro_orders_window(W, float(cfg["rho"])), default)
+    if family == "dro_moment":
+        return window_orders(y, int(cfg["window"]),
+                             lambda W: np.array([moment_order_window(w, float(cfg["sd_scale"])) for w in W]),
+                             default)
     if family == "bocpd":
         return bocpd_orders(y, float(cfg["hazard"]), float(cfg["prior_sd"]), float(cfg["obs_sd"]))
     if family == "bayes_true":
@@ -371,13 +420,23 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
                                                                                             integer=True)},
            "The last N observations are an i.i.d. sample of next period's demand; observation noise is ignored.",
            "O(N log N) per period (one order statistic).", ("arrow1951b",), "Every observed demand"),
-    Family("dro", "Distributionally robust (modified χ² ball, window N)", "competitor",
+    Family("dro", "Distributionally robust, empirical support only (modified χ² ball, window N)", "competitor",
            {"window": Param(5, 150, log=True, integer=True), "rho": Param(0.001, 5.0, log=True)},
            "Next period's demand distribution lies within modified-χ² distance ρ of the empirical distribution of the "
            "last N observations (it reweights observed values; it cannot place mass on unseen values). ρ and N are "
            "calibrated on training environments only.",
            "O(N log N) per worst-case evaluation (exact); about 50 evaluations per period (golden section).",
            ("bental2013", "arrow1951b"), "Every observed demand"),
+    Family("dro_moment", "Distributionally robust, moment ambiguity (Scarf rule, window N)", "competitor",
+           {"window": Param(5, 150, log=True, integer=True), "sd_scale": Param(0.2, 2.0, log=True)},
+           "Next period's demand has the mean and s.d. estimated from the last N observations; its SHAPE and its "
+           "SUPPORT are otherwise unrestricted, so outcomes never observed are priced. The worst case is a "
+           "two-point distribution that need not sit on observed values, which is what separates this from the "
+           "empirical-support model above. The estimated s.d. carries measurement error as well as demand "
+           "variation, so a multiplier on it is tuned on training environments; the true measurement error is "
+           "never given.",
+           "O(N) per period (a mean and an s.d.); the order itself is closed form.",
+           ("scarf1958", "gallego1993", "arrow1951b"), "Every observed demand"),
     Family("bocpd", "Bayesian change detection (misspecified BOCPD)", "competitor",
            {"hazard": Param(0.001, 0.2, log=True), "prior_sd": Param(5.0, 100.0, log=True),
             "obs_sd": Param(3.0, 100.0, log=True)},

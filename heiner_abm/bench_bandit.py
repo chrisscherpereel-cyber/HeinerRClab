@@ -39,10 +39,33 @@ from .tasks import TaskEnv, learning_payoff
 ARMS = 2
 
 
+# Evaluation conditions. The default is the environment as it stands; "heavy" contaminates what agents OBSERVE
+# with occasional large outliers, leaving the regime and the true payoffs untouched, so agents are still scored on
+# the truth and only the tail of their evidence changes. That is the condition a location estimator has to
+# survive, and the reason a robust one is offered at all.
+#
+# An earlier attempt simply drew the observation noise from a Student t. It did not produce a heavy tail: with
+# obs_noise = 0.5 against payoff noise of 1.0, the payoff's own Gaussian noise dominates what is observed, and the
+# kurtosis of obs barely moved (3.1 against 2.8). Contamination is applied at the scale of the payoff noise
+# instead, which does.
+TAILS = ("gaussian", "heavy")
+HEAVY_DF = 3.0                       # Student t degrees of freedom for a contaminating draw (finite variance: >2)
+HEAVY_RATE = 0.05                    # share of observations contaminated
+HEAVY_SCALE = 8.0                    # contamination s.d., in units of the environment's payoff noise
+
+
 @lru_cache(maxsize=256)
-def _stream(env: TaskEnv, T: int):
+def _stream(env: TaskEnv, T: int, tail: str = "gaussian"):
     s = tasks._streams(env, T, env.seed)
-    return s["state"], s["outcome"], s["obs"]
+    state, outcome, obs = s["state"], s["outcome"], s["obs"]
+    if tail == "gaussian":
+        return state, outcome, obs
+    if tail != "heavy":
+        raise ValueError(f"unknown evaluation condition {tail!r} (one of {', '.join(TAILS)})")
+    rng = np.random.default_rng([env.seed, 30517])
+    hit = rng.random(obs.shape) < HEAVY_RATE
+    z = rng.standard_t(HEAVY_DF, size=obs.shape) / np.sqrt(HEAVY_DF / (HEAVY_DF - 2.0))
+    return state, outcome, obs + np.where(hit, HEAVY_SCALE * env.noise * z, 0.0)
 
 
 def _argmax(x) -> int:
@@ -102,6 +125,102 @@ def d_ucb_actions(obs: np.ndarray, gamma: float, c: float) -> np.ndarray:
         s[a[t]] += r
         played[a[t]] = True
     return a
+
+
+# ---------------------------------------------------------------------------------------- CUSUM-UCB
+# Liu, Lee & Shroff (2018), AAAI-18, section "CUSUM-UCB". Their two-sided CUSUM detector, per arm, with the first
+# M samples after a reset forming the reference mean u0:
+#     s_k+ = (y_k - u0 - eps) 1{k > M},      g_k+ = max(0, g_{k-1}+ + s_k+)
+#     s_k- = (u0 - y_k - eps) 1{k > M},      g_k- = max(0, g_{k-1}- + s_k-)
+# an alarm when g+ >= h or g- >= h, on which that arm's statistics and counts are reset. Arm choice is their
+# CD-UCB rule: with probability alpha play uniformly at random (this is what keeps the detectors fed), otherwise
+# play argmax of the UCB index xbar_i + sqrt(xi log n / N_i).
+#
+# ADAPTATIONS TO THIS TASK, none of them in Liu, Lee & Shroff:
+#   scale        they assume rewards bounded in [0, 1]. Payoffs here are about +/-0.5 with unbounded Gaussian
+#                (or, in the heavy condition, contaminated) noise, so the exploration constant c absorbs the
+#                reward scale, as the suite's existing `ucb` family already does. It is tuned, not fixed at
+#                their xi = 1.
+#   eps          they call eps a KNOWN detectability parameter and assume shifts of at least 3 eps. Nothing
+#                here is told the shift size, so eps is tuned on training environments like any other parameter.
+#   robust       their u0 and xbar are sample means, which a heavy tail can drag a long way. Under the heavy
+#                condition this laboratory substitutes a median-of-means estimator (see ROBUST_ESTIMATORS). That
+#                is an adaptation, not a result of theirs, and it is reported as a separate family.
+#   M, alarms    forced initial plays per arm via a countdown, as they prescribe; K = 2 here.
+ROBUST_ESTIMATORS = ("mean", "median_of_means")
+
+
+def median_of_means(x: np.ndarray, blocks: int = 5) -> float:
+    """Median of block means: a location estimate whose breakdown does not depend on the tail of the payoff.
+
+    With b blocks it tolerates fewer than half the blocks being dominated by outliers, so a few extreme draws move
+    it far less than they move the sample mean. Falls back to the mean when there are too few observations to
+    block, which is the honest behaviour early in a run rather than a sharper-looking estimate from nothing.
+    """
+    x = np.asarray(x, float)
+    if len(x) == 0:
+        return 0.0
+    b = int(min(max(blocks, 1), len(x)))
+    if b <= 1:
+        return float(x.mean())
+    cuts = np.array_split(x, b)
+    return float(np.median([c.mean() for c in cuts if len(c)]))
+
+
+def cusum_step(g_plus: float, g_minus: float, y: float, ref: float, eps: float) -> Tuple[float, float]:
+    """One step of the two-sided CUSUM of Liu, Lee & Shroff (2018), written as their equations:
+
+        s+ = y - u0 - eps,   g+ = max(0, g+ + s+)
+        s- = u0 - y - eps,   g- = max(0, g- + s-)
+
+    Separated out so the recursion can be checked against the published equations directly, not inferred from
+    a policy's chosen actions.
+    """
+    return max(0.0, g_plus + (y - ref - eps)), max(0.0, g_minus + (ref - y - eps))
+
+
+def _location(values: List[float], robust: str, blocks: int) -> float:
+    if not values:
+        return 0.0
+    return median_of_means(np.asarray(values), blocks) if robust == "median_of_means" else float(np.mean(values))
+
+
+def cusum_ucb_actions(obs: np.ndarray, eps: float, h: float, alpha: float, c: float, M: int,
+                      draws: np.ndarray, robust: str = "mean", blocks: int = 5) -> Tuple[np.ndarray, np.ndarray]:
+    """CUSUM-UCB (Liu, Lee & Shroff 2018) with the adaptations documented above.
+
+    Returns the actions and, per period, whether an alarm fired, so detection behaviour can be inspected rather
+    than inferred from the actions.
+    """
+    T = len(obs)
+    a = np.zeros(T, int)
+    alarms = np.zeros(T, bool)
+    hist: List[List[float]] = [[] for _ in range(ARMS)]      # observations of this arm since its last reset
+    ref = np.zeros(ARMS)                                     # u0, the reference mean, once M samples are in
+    gp, gm = np.zeros(ARMS), np.zeros(ARMS)
+    n, s = np.zeros(ARMS), np.zeros(ARMS)                    # valid plays and their sum since the last reset
+    for t in range(T):
+        if (n == 0).any():
+            a[t] = _argmax(n == 0)                           # forced initial plays
+        elif draws[0, t] < alpha:
+            a[t] = int(draws[1, t] * ARMS) % ARMS            # uniform exploration: what feeds the detectors
+        else:
+            total = max(n.sum(), 1.0)
+            a[t] = _argmax(s / n + c * np.sqrt(np.log(total) / n))
+        i = int(a[t])
+        y = float(obs[t, i])
+        n[i] += 1.0
+        s[i] += y
+        hist[i].append(y)
+        k = len(hist[i])
+        if k == M:
+            ref[i] = _location(hist[i], robust, blocks)
+        elif k > M:
+            gp[i], gm[i] = cusum_step(gp[i], gm[i], y, ref[i], eps)
+            if gp[i] >= h or gm[i] >= h:                     # alarm: reset this arm and restart its detector
+                alarms[t] = True
+                hist[i], ref[i], gp[i], gm[i], n[i], s[i] = [], 0.0, 0.0, 0.0, 0.0, 0.0
+    return a, alarms
 
 
 # ---------------------------------------------------------------------------------------- Thompson sampling
@@ -185,14 +304,24 @@ def exploration_draws(env: TaskEnv, T: int) -> np.ndarray:
     return np.random.default_rng([env.seed, 20111]).random((2, T))
 
 
-def actions(env: TaskEnv, family: str, cfg: Dict[str, float], T: int) -> np.ndarray:
-    state, pay, obs = _stream(env, T)
+def detector_draws(env: TaskEnv, T: int) -> np.ndarray:
+    """CUSUM-UCB's uniform-exploration stream, separate from every other agent's."""
+    return np.random.default_rng([env.seed, 30911]).random((2, T))
+
+
+def actions(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, tail: str = "gaussian") -> np.ndarray:
+    state, pay, obs = _stream(env, T, tail)
     if family == "ucb":
         return ucb_actions(obs, cfg["c"])
     if family == "sw_ucb":
         return sw_ucb_actions(obs, int(cfg["window"]), cfg["c"])
     if family == "d_ucb":
         return d_ucb_actions(obs, 1.0 - cfg["one_minus_gamma"], cfg["c"])
+    if family in ("cusum_ucb", "cusum_ucb_robust"):
+        robust = "median_of_means" if family == "cusum_ucb_robust" else "mean"
+        acts, _ = cusum_ucb_actions(obs, float(cfg["eps"]), float(cfg["h"]), float(cfg["alpha"]), float(cfg["c"]),
+                                    int(cfg["M"]), detector_draws(env, T), robust)
+        return acts
     if family == "ts_sw":
         return ts_sw_actions(obs, int(cfg["window"]), float(cfg["reward_sd"]), float(cfg["prior_sd"]),
                              posterior_draws(env, T))
@@ -208,9 +337,10 @@ def actions(env: TaskEnv, family: str, cfg: Dict[str, float], T: int) -> np.ndar
     raise ValueError(family)
 
 
-def run_agent(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, burn: int) -> Dict[str, float]:
-    state, pay, obs = _stream(env, T)
-    a = actions(env, family, cfg, T)
+def run_agent(env: TaskEnv, family: str, cfg: Dict[str, float], T: int, burn: int,
+              tail: str = "gaussian") -> Dict[str, float]:
+    state, pay, obs = _stream(env, T, tail)
+    a = actions(env, family, cfg, T, tail)
     assert a.shape == (T,)                                      # one choice per period for every agent
     got = learning_payoff(a, pay)[burn:]
     best = learning_payoff((state > 0).astype(int), pay)[burn:]
@@ -231,6 +361,26 @@ FAMILIES: Dict[str, Family] = {f.key: f for f in [
            {"one_minus_gamma": Param(0.0005, 0.2, log=True), "c": Param(0.01, 5.0, log=True)},
            "Payoffs piecewise stationary; past plays lose weight geometrically.", "O(K) per period.",
            ("garivier2011",), "Chosen-action payoff"),
+    Family("cusum_ucb", "Change-detecting UCB (CUSUM-UCB)", "competitor",
+           {"eps": Param(0.01, 2.0, log=True), "h": Param(0.5, 100.0, log=True),
+            "alpha": Param(0.005, 0.5, log=True), "c": Param(0.01, 5.0, log=True),
+            "M": Param(5, 150, log=True, integer=True)},
+           "Payoffs piecewise stationary with abrupt changes. A two-sided CUSUM per arm restarts that arm when it "
+           "alarms. Liu, Lee & Shroff treat the detectability eps as known and rewards as bounded in [0, 1]; "
+           "neither holds here, so eps and the exploration constant are tuned on training environments and the "
+           "constant absorbs the reward scale. Its location estimates are sample means, which a heavy tail "
+           "can drag.",
+           "O(K) per period, O(M) memory per arm; one uniform draw per period.", ("liu2018", "auer2002"),
+           "Chosen-action payoff"),
+    Family("cusum_ucb_robust", "Change-detecting UCB, robust location (CUSUM-UCB)", "competitor",
+           {"eps": Param(0.01, 2.0, log=True), "h": Param(0.5, 100.0, log=True),
+            "alpha": Param(0.005, 0.5, log=True), "c": Param(0.01, 5.0, log=True),
+            "M": Param(5, 150, log=True, integer=True)},
+           "As CUSUM-UCB, with the detector's reference mean taken by median of block means instead of the "
+           "sample mean, so a few extreme observations cannot move it far. This substitution is this "
+           "laboratory's adaptation for the heavy-tailed evaluation condition, not a result of theirs.",
+           "As CUSUM-UCB plus an O(M log M) median over blocks at each reference estimate.",
+           ("liu2018", "auer2002"), "Chosen-action payoff"),
     Family("ts_sw", "Sliding-window Thompson sampling", "competitor",
            {"window": Param(5, 500, log=True, integer=True), "reward_sd": Param(0.1, 10.0, log=True),
             "prior_sd": Param(0.1, 10.0, log=True)},

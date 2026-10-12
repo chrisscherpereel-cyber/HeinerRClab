@@ -312,6 +312,15 @@ _REFS = [
     _a("trovo2020", "Trovo, F.; Paladino, S.; Restelli, M.; Gatti, N.", 2020,
        "Sliding-window Thompson sampling for non-stationary settings", "Journal of Artificial Intelligence "
        "Research", "68", "", "311-364"),
+    _c("scarf1958", "Scarf, H.", 1958, "A min-max solution of an inventory problem",
+       "Studies in the mathematical theory of inventory and production", "K. J. Arrow, S. Karlin, & H. Scarf",
+       "201-209", "Stanford University Press"),
+    _a("gallego1993", "Gallego, G.; Moon, I.", 1993, "The distribution free newsboy problem: Review and extensions",
+       "Journal of the Operational Research Society", "44", "8", "825-834"),
+    _c("liu2018", "Liu, F.; Lee, J.; Shroff, N.", 2018,
+       "A change-detection based framework for piecewise-stationary multi-armed bandit problem",
+       "Proceedings of the Thirty-Second AAAI Conference on Artificial Intelligence (AAAI-18)", "S. A. McIlraith & "
+       "K. Q. Weinberger", "3651-3658", "AAAI Press"),
     _a("auer2002", "Auer, P.; Cesa-Bianchi, N.; Fischer, P.", 2002,
        "Finite-time analysis of the multiarmed bandit problem", "Machine Learning", "47", "", "235–256"),
     _b("sutton2018", "Sutton, R. S.; Barto, A. G.", 2018, "Reinforcement learning: An introduction (2nd ed.)",
@@ -994,7 +1003,7 @@ CONTRIBUTIONS: List[Tuple[str, str, List[str]]] = [
 METHOD_REFS = ["creed2021", "holm1979", "mckay1979", "nowak1993", "hall1939", "roth1995", "boyd1985", "rockafellar2000",
                "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986", "adams2007", "fearnhead2007", "bental2013", "garivier2011", "auer2002",
-               "thompson1933", "agrawal2013", "trovo2020",
+               "thompson1933", "agrawal2013", "trovo2020", "liu2018", "scarf1958", "gallego1993",
                "kauffman1987", "kauffman1993", "levinthal1997", "rivkin2000"]
 
 

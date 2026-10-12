@@ -4,6 +4,7 @@
     python -m heiner_abm.workbench run-dir <run directory>        (used by background runs)
     python -m heiner_abm.workbench preset <key> > spec.json       (write a guided-question preset)
     python -m heiner_abm.workbench estimate spec.json
+    python -m heiner_abm.workbench fingerprint                    (the code fingerprint and what it covers)
 """
 from __future__ import annotations
 
@@ -30,7 +31,16 @@ def main(argv=None) -> int:
     e = sub.add_parser("estimate")
     e.add_argument("spec")
     e.add_argument("--kind", default="research", choices=execution.KINDS)
+    f = sub.add_parser("fingerprint")
+    f.add_argument("--modules", action="store_true", help="list every module the fingerprint covers")
     a = ap.parse_args(argv)
+    if a.cmd == "fingerprint":
+        from . import provenance
+        detail = provenance.code_fingerprint_detail()
+        if not a.modules:
+            detail = {k: v for k, v in detail.items() if k != "modules"}
+        print(json.dumps({"code": detail, "software": provenance.software_environment()}, indent=1))
+        return 0
     if a.cmd == "preset":
         print(presets.load(a.key, "research").to_json())
         return 0
@@ -45,7 +55,9 @@ def main(argv=None) -> int:
     if out is None:
         out = execution.execute(spec, a.kind, progress=lambda f, m: print(f"{100 * f:5.1f}%  {m}", file=sys.stderr))
         store.save_run(out)
-    print(json.dumps({"key": out.key, "status": out.provenance["status"], "dir": store.run_dir(out.key)}))
+    print(json.dumps({"key": out.key, "status": out.provenance["status"], "dir": store.run_dir(out.key),
+                      "code_fingerprint": out.provenance.get("code_version"),
+                      "manifest": os.path.join(store.run_dir(out.key), "manifest.json")}))
     if a.out:
         os.makedirs(a.out, exist_ok=True)
         with open(os.path.join(a.out, f"run_{out.key}.zip"), "wb") as f:

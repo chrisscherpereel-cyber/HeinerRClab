@@ -1,5 +1,7 @@
 """Experiment workbench (heiner_abm.workbench): one specification, validity checks, reproducible paired execution,
 identical interface and command-line runs, the run store, cancellation, background runs and the workspace pages."""
+import ast
+import glob
 import json
 import os
 import subprocess
@@ -96,7 +98,11 @@ def test_validity_checks():
 def test_seed_blocks_are_disjoint_and_preview_is_reduced():
     s = presets.load("learnability")
     s.design.tuning, s.design.train_replications = "grid", 5
-    assert not set(execution.train_seeds(s)) & set(execution.test_seeds(s))
+    s.design.pilot_replications = s.design.validation_replications = 4
+    drawn = [set(execution.namespace_seeds(s, ns)) for ns in ("training", "pilot", "evaluation", "validation")]
+    for i, a in enumerate(drawn):
+        for b in drawn[i + 1:]:
+            assert not a & b
     p = execution.effective_spec(s, "preview")
     assert p.design.replications <= 3 and p.design.periods <= 300
     assert execution.run_key(s, "preview") != execution.run_key(s, "research")
@@ -117,7 +123,8 @@ def test_execution_is_reproducible_paired_and_traced(key):
     for pols in a.traces.values():
         for pol, tr in pols.items():
             assert len(tr) == s.design.periods
-            assert {"acted", "reason", "feedback_available"} <= set(tr.columns)
+            assert {"acted", "reason", "feedback_release_period", "feedback_origin",
+                    "feedback_matured_period", "replication"} <= set(tr.columns)
     eff = analysis.overview(a)["effects"]
     assert len(eff) == levels and (eff["lo"] <= eff["effect"] + 1e-12).all()
 
@@ -341,3 +348,54 @@ def test_inventory_cost_controls_reach_the_config_and_are_exported():
     only_mag = L.cost_components(env._cfg({**params, "cost": 0.0, "switch_cost": 0.0, "magnitude_cost": 1.0}), S, S_D)
     assert only_switch["switching"].sum() > 0 and only_switch["magnitude"].sum() == 0
     assert only_mag["magnitude"].sum() > 0 and only_mag["switching"].sum() == 0
+
+
+# ================================================================================================ page-script safety
+def _deferred_name_clashes(source: str):
+    """Names a lambda reads that a later module-level loop rebinds.
+
+    A Streamlit page is a module-level script, so a `for` target leaks into module scope. Streamlit evaluates a
+    `format_func` lambda after the script has finished, by which time such a name has been overwritten - the widget
+    then fails with an unrelated error far from its cause. Regression: the Results page binds `label` for its run
+    selector's format_func, and a `for label, rows in ...` further down the page silently broke that selector.
+    """
+    tree = ast.parse(source)
+    lambdas = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Lambda):
+            bound = {a.arg for a in n.args.args} | {a.arg for a in n.args.kwonlyargs}
+            bound |= {a.arg for a in (n.args.vararg, n.args.kwarg) if a}
+            free = {x.id for x in ast.walk(n.body) if isinstance(x, ast.Name) and isinstance(x.ctx, ast.Load)}
+            lambdas.append((n.lineno, free - bound))
+    loops = []
+
+    def walk(body):
+        for n in body:
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(n, ast.For):
+                loops.append((n.lineno, {x.id for x in ast.walk(n.target) if isinstance(x, ast.Name)}))
+                walk(n.body)
+            elif hasattr(n, "body") and not isinstance(n, ast.Lambda):
+                walk(n.body)
+                walk(getattr(n, "orelse", []) or [])
+
+    walk(tree.body)
+    return [f"lambda at line {ll} reads {sorted(names & tgt)}, rebound by the loop at line {tl}"
+            for ll, names in lambdas for tl, tgt in loops if tl > ll and names & tgt]
+
+
+def test_the_clash_detector_catches_the_pattern_it_is_meant_to_catch():
+    source = ("label = {1: 'one'}\n"
+              "pick = selectbox('Run', [1], format_func=lambda x: label.get(x, x))\n"
+              "for label, rows in costs.items():\n"
+              "    caption(label)\n")
+    assert _deferred_name_clashes(source), "the detector missed a rebound captured name"
+    assert not _deferred_name_clashes("label = {1: 'one'}\nf = lambda x: label.get(x)\n")
+
+
+@pytest.mark.parametrize("path", sorted(glob.glob(os.path.join(ROOT, "app_pages", "*.py"))
+                                        + glob.glob(os.path.join(ROOT, "ui", "*.py"))))
+def test_no_page_rebinds_a_name_a_lambda_captured(path):
+    clashes = _deferred_name_clashes(open(path, "rb").read().decode("utf-8"))
+    assert not clashes, f"{os.path.basename(path)}: " + "; ".join(clashes)

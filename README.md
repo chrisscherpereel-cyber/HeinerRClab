@@ -153,7 +153,7 @@ Within each section the simulation pages are split by fairness. **General simula
 
 | Page | What it does |
 |---|---|
-| Results | Opens with the question, the comparison, the primary outcome and the kind of evidence, then the paired effect with its 95% interval and a plain interpretation against the smallest effect of interest; tabs for performance, behavior, mechanisms, robustness (split replications, per-replication spread), a decision inspector (what the agent observed, believed and proposed, why it acted, when feedback arrived; researcher-only values marked) and details & export (configuration, provenance, trial data, a reproducible bundle) |
+| Results | Opens with the question, the comparison, the primary outcome and the kind of evidence, then the paired effect with its 95% interval and a plain interpretation against the smallest effect of interest; tabs for performance, behavior, mechanisms, robustness (split replications, per-replication spread), a decision inspector (what the agent had before deciding, what it chose and why, what followed, and where its feedback came from, when that outcome matured and when it reached the agent; researcher-only values marked) and details & export (the run manifest, configuration, provenance, trial data, any pilot and validation passes, a reproducible bundle) |
 | Heiner: mechanisms (oracle vs learned) | Principle versus implementation: focal-firm variants on a shared target (always, inaction band, learned reliability condition, the same learner judging with the true model, an oracle with true reliability, a memory grid), with the cost of applying the principle decomposed into estimation and model bias; a boundary test against the measured error-to-signal ratio K; standardized effects of each source of uncertainty; cross-validated metamodel maps of which theory does best where. Frozen study plan with five pre-registered hypotheses |
 | Reliability gates under uncertainty (extension) | **Proposed extension.** The Adaptive rule's decision to adopt a recommendation is made by one of three gates with identical recommendations: the existing estimated-gain gate, a confidence-sensitive gate (adopt only with enough evidence and a lower confidence bound above the adjustment cost) and an exploration-enabled gate (learns from its own payoffs in randomized trials, without counterfactual feedback), plus an ORACLE benchmark estimated from independent runs. Reports false adaptations, missed opportunities, net payoff, calibration and lower-bound coverage, learning delay and performance after regime changes |
 | Heiner: dynamic RC (1989) | Decomposes each decision's value into immediate, persistence and strategic-feedback parts. Tests Heiner's (1989) partial-adjustment bound β₀ = 1/((1+K)(1−f′)) against the profit-maximizing flexibility. Signal-detection ROC of each firm's decisions |
@@ -757,6 +757,9 @@ heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
 heiner_abm/nk.py           NK-landscape environment: landscapes, searchers, gates, exact or best-known benchmarks
 heiner_abm/workbench/      experiment specification, environment adapters, execution, analysis, run store, CLI
+heiner_abm/workbench/provenance.py
+                           code fingerprint, software environment, seed namespaces, decision-log schema,
+                           trace retention and researcher-only fields (docs/provenance.md)
 heiner_abm/model_spec.py   model specification: every agent's objective, information, actions, feedback, limits
 heiner_abm/claim_status.py established theory, reduced form and proposed extensions
 ui/theory_page.py, ui/illustrations.py  theory page renderer and one interactive illustration per theory
@@ -764,6 +767,48 @@ ui/common.py               navigation, sidebar base scenario, presets, caching, 
 ui/workbench_ui.py         workspace widgets bound to the experiment specification, result charts
 app_pages/*.py             the Streamlit pages
 ```
+
+## Provenance of a workbench run
+
+Full note: [`docs/provenance.md`](docs/provenance.md). A stored run answers five questions without anyone re-reading
+the code behind it.
+
+**Which code produced it.** `provenance.code_fingerprint()` hashes the transitive closure of first-party imports
+reachable from the workbench, found by parsing the source so that imports written inside functions count. It covers
+23 modules, including `agents.py`, `arena.py`, `analysis.py` and `workbench/analysis.py`. The fingerprint it replaced
+hashed a hand-written list of eleven modules and left all four of those out, so a change to an agent or to the
+analysis left stored runs looking current. A run key hashes the specification, the kind and the fingerprint, so any
+covered change invalidates the cache. `python -m heiner_abm.workbench fingerprint --modules` prints what it covers.
+
+**In what software.** Python and platform versions and every declared dependency, recorded with the run. No absolute
+paths: a published run should not carry an account name.
+
+**Which seeds, for what.** Four disjoint namespaces: `training` (tuning only), `pilot` (effect and workload
+estimates, never reported), `evaluation` (the reported results, common random numbers across policies) and
+`validation` (confirmation on environments the result was not estimated on). Training and evaluation keep the offsets
+the workbench has always used, so earlier runs reproduce. A design whose namespaces could collide is refused rather
+than silently wrapped, and pilot and validation rows are stored apart from the reported ones.
+
+**What each agent knew.** Every decision-log column has a declared role: *predecision* (what it had when it chose),
+*action*, *postdecision* (consequences, known only afterwards), *feedback* and *researcher-only*. Feedback carries
+its origin, the period the outcome matured and the period it reached the agent, with −1 for never: the single
+"feedback available" column it replaces conflated maturation with release and named no origin.
+
+**What no agent saw.** Columns prefixed `researcher_`, listed explicitly in the manifest and the export README. The
+market's `profit_rule` and `profit_default` are researcher-only by `information.RESEARCHER_ONLY` and are recorded
+only under that prefix: a firm sees the gain released to it, never both branches of the counterfactual.
+
+How much is kept is configurable (`summary`, `illustrative`, `all`) and recorded; logs are stored column-wise and
+compressed. The manifest (`manifest.json`, also in the export bundle) holds the configuration, the policies, the
+tuning choices and budget, **the cost definitions in force as separate frictions**, the information assumptions, the
+code fingerprint, the software environment, the seed plan, the decision-log schema and the run status.
+
+> **No registered result is affected by this.** The changes are confined to `heiner_abm/workbench/` and the interface
+> pages; all seven finding fingerprints and all four plan hashes were verified unchanged afterwards, and
+> `REPLICATION_REQUIRED` is empty. Workbench caches are invalidated by design, since the fingerprint now covers
+> modules it previously missed. The procedure for a change that *does* move a registered hash — mark for
+> replication first, rerun, compare plan hashes, only then re-register — is in
+> [`docs/provenance.md`](docs/provenance.md).
 
 ## Established theory, reduced form and proposed extensions
 

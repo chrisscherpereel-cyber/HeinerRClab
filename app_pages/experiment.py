@@ -4,6 +4,8 @@ import pandas as pd
 import streamlit as st
 
 from heiner_abm.workbench import execution, presets, store
+from heiner_abm.workbench.execution import seed_counts
+from heiner_abm.workbench.provenance import RETENTION, RETENTION_LABELS, disjoint as seeds_disjoint
 from heiner_abm.workbench.environments import ENVIRONMENTS
 from heiner_abm.workbench.spec import GROUP_LABELS, STEPS, Treatment
 from ui.common import set_engine
@@ -222,14 +224,37 @@ elif step == "design":
     if d.tuning == "grid":
         d.train_replications = int(st.number_input("Training replications (disjoint seeds)", 1, 50,
                                                    int(d.train_replications), key=k("train")))
+    if mode() == "research":
+        st.markdown("##### Extra passes and what is kept")
+        c1, c2, c3 = st.columns(3)
+        d.pilot_replications = int(c1.number_input(
+            "Pilot replications", 0, 200, int(d.pilot_replications), key=k("pilot"),
+            help="Run on the pilot seed namespace before the reported pass. Used to size effects and workload; "
+                 "never reported as a result. 0 = no pilot."))
+        d.validation_replications = int(c2.number_input(
+            "Validation replications", 0, 500, int(d.validation_replications), key=k("valid"),
+            help="Rerun the same comparison on the validation seed namespace: fresh environments, same tuned "
+                 "parameters. Reported separately from the result it confirms. 0 = none."))
+        d.trace_retention = c3.selectbox(
+            "Decision logs kept", list(RETENTION), index=list(RETENTION).index(d.trace_retention),
+            format_func=lambda r: RETENTION_LABELS[r].split(":")[0], key=k("retain"),
+            help="Per-period decision logs of the reported pass. "
+                 + " ".join(f"{r}: {RETENTION_LABELS[r]}" for r in RETENTION))
+        st.caption(RETENTION_LABELS[d.trace_retention])
     outs = {o.key: o.label for o in env.outcomes if o.key != spec.question.primary_outcome}
     d.outcomes = tuple(st.multiselect("Secondary outcomes", list(outs), [o for o in d.outcomes if o in outs],
                                       format_func=outs.get, key=k("outs")))
     if mode() == "research":
         d.n_boot = int(st.number_input("Bootstrap resamples", 200, 20000, int(d.n_boot), 100, key=k("boot")))
     st.markdown("#### Validity checks")
-    st.caption("Seeds: training (tuning) and test (reported) blocks never overlap, and all policies in a condition "
-               "see the same test environments, so differences are paired. " + env.cluster_note)
+    counts = seed_counts(spec)
+    clash = seeds_disjoint(d.seed, counts)
+    st.caption("Seed namespaces, all disjoint by construction: "
+               + ", ".join(f"{name} {counts[name]}" for name in ("training", "pilot", "evaluation", "validation"))
+               + ". Nothing estimated on one namespace is reported from another, and all policies in a condition see "
+                 "the same evaluation environments, so differences are paired. " + env.cluster_note)
+    if clash:
+        st.error("Seed namespaces would overlap: " + clash)
     if issues:
         show_issues(issues)
     else:

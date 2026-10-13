@@ -1,0 +1,43 @@
+family,family_name,policy,role,status,reason
+base,Control: piecewise-constant mean,bayes_est,competitor,estimated,"the generating model; hazard, sigma and tau tuned, never given"
+base,Control: piecewise-constant mean,bayes_true,reference,correct,the generating model with its generating parameters
+base,Control: piecewise-constant mean,dro_emp,competitor,misspecified,"as SAA, with a ball around the empirical distribution"
+base,Control: piecewise-constant mean,dro_moment,competitor,misspecified,keeps only the first two moments of the window
+base,Control: piecewise-constant mean,ewma,competitor,misspecified,no model of change; one gain for every regime
+base,Control: piecewise-constant mean,rule_b,default,misspecified,as EWMA with a fixed slow gain
+base,Control: piecewise-constant mean,saa,competitor,misspecified,treats the window as i.i.d. draws of the coming demand and ignores tau
+decision_dependent,E. Decision-dependent uncertainty,bayes_est,competitor,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,bayes_true,reference,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,dro_emp,competitor,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,dro_moment,competitor,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,ewma,competitor,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,rule_b,default,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+decision_dependent,E. Decision-dependent uncertainty,saa,competitor,misspecified,assumes the demand process is unaffected by its own orders; here it is not
+heavy,B. Heavy tails and rare contamination,bayes_est,competitor,misspecified,as above; tuning sigma upward trades bias for a permanently wide margin
+heavy,B. Heavy tails and rare contamination,bayes_true,reference,misspecified,"Gaussian likelihood and Gaussian predictive; the true innovation has infinite kurtosis, and sigma understates the realized spread"
+heavy,B. Heavy tails and rare contamination,dro_emp,competitor,agnostic,shape-free within the observed support
+heavy,B. Heavy tails and rare contamination,dro_moment,competitor,misspecified,"the ambiguity set is shape-free, but the mean and s.d. it is built from are the two least robust statistics available"
+heavy,B. Heavy tails and rare contamination,ewma,competitor,misspecified,a squared-error update is driven by the contaminated draws
+heavy,B. Heavy tails and rare contamination,rule_b,default,misspecified,"as EWMA, and slower to forget a contaminated draw"
+heavy,B. Heavy tails and rare contamination,saa,competitor,agnostic,"an empirical quantile assumes no shape, so heavy tails cost it sample efficiency rather than correctness - but it still assumes the window is i.i.d."
+multimodal,"D. Multimodal demand, moving mode probabilities",bayes_est,competitor,misspecified,as above
+multimodal,"D. Multimodal demand, moving mode probabilities",bayes_true,reference,misspecified,"unimodal predictive; it tracks the mixture mean, a level that almost never occurs"
+multimodal,"D. Multimodal demand, moving mode probabilities",dro_emp,competitor,agnostic,"as SAA, with a ball around it"
+multimodal,"D. Multimodal demand, moving mode probabilities",dro_moment,competitor,misspecified,"a mean and an s.d. cannot tell a wide unimodal demand from a narrow bimodal one, and the two have different optimal orders"
+multimodal,"D. Multimodal demand, moving mode probabilities",ewma,competitor,misspecified,tracks the mixture mean
+multimodal,"D. Multimodal demand, moving mode probabilities",rule_b,default,misspecified,as EWMA
+multimodal,"D. Multimodal demand, moving mode probabilities",saa,competitor,agnostic,"an empirical quantile represents a mixture directly, given a window long enough to contain both modes and short enough to be current"
+outside_support,C. Outcomes outside the observed support,bayes_est,competitor,misspecified,as above
+outside_support,C. Outcomes outside the observed support,bayes_true,reference,misspecified,Gaussian demand around the mean; the history is truncated and the excursions are not Gaussian
+outside_support,C. Outcomes outside the observed support,dro_emp,competitor,misspecified,BY CONSTRUCTION: the ball reweights observed values and can place no mass on an outcome that has never occurred
+outside_support,C. Outcomes outside the observed support,dro_moment,competitor,agnostic,"the worst case is a two-point distribution that need not sit on observed values, so unseen outcomes are priced"
+outside_support,C. Outcomes outside the observed support,ewma,competitor,misspecified,its margin comes from its own observed variance
+outside_support,C. Outcomes outside the observed support,rule_b,default,misspecified,as EWMA
+outside_support,C. Outcomes outside the observed support,saa,competitor,misspecified,an empirical quantile cannot exceed the largest value ever observed
+reversal,"A. Long stability, unannounced reversal",bayes_est,competitor,misspecified,"the same model form, parameters tuned"
+reversal,"A. Long stability, unannounced reversal",bayes_true,reference,misspecified,assumes geometric change times and Gaussian jump sizes; here the change time is a single draw in a known window and the jump is +-magnitude
+reversal,"A. Long stability, unannounced reversal",dro_emp,competitor,misspecified,the ball is around a history containing none of the post-reversal level
+reversal,"A. Long stability, unannounced reversal",dro_moment,competitor,misspecified,moments of a window straddling the reversal describe neither side
+reversal,"A. Long stability, unannounced reversal",ewma,competitor,misspecified,no model of change
+reversal,"A. Long stability, unannounced reversal",rule_b,default,misspecified,"as EWMA, and slower"
+reversal,"A. Long stability, unannounced reversal",saa,competitor,misspecified,i.i.d. window; a long quiet history makes the window confident just before it becomes wrong

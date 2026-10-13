@@ -1,0 +1,8 @@
+policy,role,parameters,configurations,runs_per_configuration,tuning_runs,tuning_periods,note
+rule_b,default,0,1,96,96,400,no parameters to tune
+ewma,competitor,1,16,96,1536,400,
+saa,competitor,1,16,96,1536,400,
+dro_emp,competitor,2,16,96,1536,400,
+dro_moment,competitor,2,16,96,1536,400,
+bayes_est,competitor,3,16,96,1536,400,
+bayes_true,reference,0,1,96,96,400,no parameters to tune

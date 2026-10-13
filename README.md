@@ -755,6 +755,11 @@ heiner_abm/bench_inventory.py, bench_bandit.py, bench_tuning.py, bench_checks.py
                            Stage families added October 2026: a Bayesian state space with estimated parameters;
                            moment-ambiguity (Scarf) robustness; sliding-window and discounted Thompson sampling;
                            change-detecting CUSUM-UCB with a robust location variant. See docs/benchmarks.md
+heiner_abm/stress.py       registered stress-test suite: five process families that break what the benchmarks
+                           assume (unannounced reversal, heavy tails and contamination, outcomes outside the
+                           observed support, multimodal demand with moving mode probabilities, decision-dependent
+                           uncertainty), a 2^5 factorial, a per-family oracle, reserved process variants and
+                           Kaplan-Meier recovery (docs/stress_suite.md)
 heiner_abm/gates.py        selection gates of the Adaptive rule: evidence statistics, uncertainty bounds, exploration
 heiner_abm/gate_study.py   comparison of the gates with an ORACLE benchmark from independent runs
 heiner_abm/gate_validation.py
@@ -788,6 +793,48 @@ ui/common.py               navigation, sidebar base scenario, presets, caching, 
 ui/workbench_ui.py         workspace widgets bound to the experiment specification, result charts
 app_pages/*.py             the Streamlit pages
 ```
+
+## When the process is not the one anybody's model assumes
+
+Full note: [`docs/stress_suite.md`](docs/stress_suite.md). Results: `docs/stress_results/`. Frozen plan
+`7a5c48cca6ce2817`; **not a registered finding**. Reproduce: `python tools/run_stress_suite.py`.
+
+The decision benchmarks are compared on one process, and on that process exactly one model is correctly
+specified, so the ranking largely restates that fact. This suite runs the same agents, under the same
+information restrictions and cost definitions, on five deliberately hostile processes — an unannounced reversal
+after a long quiet spell, heavy tails with rare contamination, outcomes and an optimal order outside everything
+ever observed, multimodal demand with moving mode probabilities, and demand the agent's own orders move — plus
+the original process as a control, so the stressed numbers have a reference point.
+
+Each family reserves a process variant that tuning never sees, on a disjoint seed block, and a 2⁵ factorial
+separates noise, change frequency, shock magnitude, observation precision and adjustment cost. The regret
+benchmark is stated rather than implied: an oracle that knows the state and the law of the noise but never the
+draw, written per family as the 0.8 quantile of the true conditional law and checked empirically against it,
+because `μ + zσ` would quietly hand the benchmark a Gaussian assumption four of these families violate.
+
+**Knowing the parameters beats having the right shape.** The reference model is misspecified on all five stress
+families and still finishes first on three of them — it is handed the true hazard, σ, τ and jump scale while
+everything else must find them. A "correctly specified benchmark" in a comparison like this is partly measuring
+privileged information. Where shape is the problem, shape-free window models take the top two places.
+
+**A prediction in the suite's own specification map is contradicted by its results.** The moment-ambiguity model
+is the one that *can* price outcomes never observed, which the empirical-support model provably cannot — and it
+finished behind both models lacking the capability (+1.007 ± 0.347 worse in 62% of 128 paired runs). It was not
+failing to price the tail; it was ordering too little, because tuning pooled across all six families shrank the
+very margin family C exists to test. The capability claim stands; the step from capability to performance does
+not.
+
+> Recovery is a survival time and is estimated like one: aligned windows on both sides, Kaplan–Meier, and the
+> censoring rate beside every median. Episodes whose baseline is not a settled level are excluded and **counted**
+> rather than censored — and that counter is what reveals that 75–95% of candidate episodes are unmeasurable in
+> five of the six families, so recovery is estimable only where changes are far enough apart. Dropping them
+> silently would have left medians that looked like a clean comparison across all 32 cells. Only the reversal
+> family gives a clean answer, and there it is sharp: the slow default rule takes more than twice as long to
+> recover and fails entirely in 58% of episodes against 31% for the best model.
+
+Two of the five families had to be rebuilt before they tested anything: family C put its optimal order *inside*
+the observed band, and family B scaled contamination so that in half its own factorial the "contamination" was
+smaller than ordinary noise. Both are recorded in the note.
 
 ## Validating the reliability gates
 

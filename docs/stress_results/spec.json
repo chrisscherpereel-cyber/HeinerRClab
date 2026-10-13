@@ -1,0 +1,347 @@
+{
+ "plan_digest": "7a5c48cca6ce2817",
+ "plan": {
+  "burn_in": 60,
+  "code": "6d77b359def5f03f",
+  "constants": {
+   "HEAVY_DF": 3.0,
+   "HEAVY_RATE": 0.05,
+   "HEAVY_SCALE": 8.0,
+   "HISTORY_BAND": 0.5,
+   "HISTORY_FRACTION": 0.45,
+   "KAPPA": 0.35,
+   "LAMBDA": 6.0,
+   "MODE_WALK": 1.2,
+   "RECOVER": 0.1
+  },
+  "equations": {
+   "base": "jump_t ~ Bern(hazard); mu_t = clip(mu_{t-1} + jump_t N(0, magnitude), 30, 170); d_t = max(0, mu_t + sigma N(0,1)); y_t = d_t + tau N(0,1)",
+   "decision_dependent": "level: g_t = 0.9 g_{t-1} + 0.35 lost_{t-1}; mu_t = clip(b_t - g_t, 30, 170); regime: hazard_t = hazard (1 + 6 * 1{stocked out at t-1})",
+   "heavy": "d_t = max(0, mu_t + sigma e_t); e_t ~ N(0,1) w.p. 1-0.05, (magnitude/sigma) T_3 w.p. 0.05 [variant student_t: e_t ~ standardized T_3 every period]",
+   "multimodal": "modes at mu_0 -+ magnitude/2 (three_mode adds mu_0); logit(w_t) walks by N(0, 1.2) when Bern(hazard); k_t ~ Cat(w_t); d_t = max(0, m_{k_t} + sigma N(0,1))",
+   "outside_support": "d_t truncated to mu_0 +- 2 sigma for t < 0.45T; thereafter an excursion of size magnitude beyond the historical extreme with probability hazard",
+   "reversal": "mu_t = mu_0 for t < c; mu_0 - direction * magnitude for t >= c; c ~ U{0.35T, 0.60T}; further reversals at rate hazard"
+  },
+  "eval_cells": 0,
+  "evaluation_variants": {
+   "base": [
+    "standard"
+   ],
+   "decision_dependent": [
+    "regime"
+   ],
+   "heavy": [
+    "student_t"
+   ],
+   "multimodal": [
+    "three_mode"
+   ],
+   "outside_support": [
+    "both_tails"
+   ],
+   "reversal": [
+    "double"
+   ]
+  },
+  "factors": {
+   "hazard": [
+    0.004,
+    0.03
+   ],
+   "magnitude": [
+    20.0,
+    55.0
+   ],
+   "sigma": [
+    10.0,
+    28.0
+   ],
+   "switch_cost": [
+    0.0,
+    6.0
+   ],
+   "tau": [
+    2.0,
+    20.0
+   ]
+  },
+  "families": [
+   "base",
+   "reversal",
+   "heavy",
+   "outside_support",
+   "multimodal",
+   "decision_dependent"
+  ],
+  "paths": 4,
+  "periods": 600,
+  "recovery_tolerance": 0.25,
+  "recovery_window": 20,
+  "seed": 20261013,
+  "seed_block_evaluation": 2,
+  "seed_block_tuning": 1,
+  "specification": {
+   "base": {
+    "bayes_est": [
+     "estimated",
+     "the generating model; hazard, sigma and tau tuned, never given"
+    ],
+    "bayes_true": [
+     "correct",
+     "the generating model with its generating parameters"
+    ],
+    "dro_emp": [
+     "misspecified",
+     "as SAA, with a ball around the empirical distribution"
+    ],
+    "dro_moment": [
+     "misspecified",
+     "keeps only the first two moments of the window"
+    ],
+    "ewma": [
+     "misspecified",
+     "no model of change; one gain for every regime"
+    ],
+    "rule_b": [
+     "misspecified",
+     "as EWMA with a fixed slow gain"
+    ],
+    "saa": [
+     "misspecified",
+     "treats the window as i.i.d. draws of the coming demand and ignores tau"
+    ]
+   },
+   "decision_dependent": {
+    "bayes_est": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "bayes_true": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "dro_emp": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "dro_moment": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "ewma": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "rule_b": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ],
+    "saa": [
+     "misspecified",
+     "assumes the demand process is unaffected by its own orders; here it is not"
+    ]
+   },
+   "heavy": {
+    "bayes_est": [
+     "misspecified",
+     "as above; tuning sigma upward trades bias for a permanently wide margin"
+    ],
+    "bayes_true": [
+     "misspecified",
+     "Gaussian likelihood and Gaussian predictive; the true innovation has infinite kurtosis, and sigma understates the realized spread"
+    ],
+    "dro_emp": [
+     "agnostic",
+     "shape-free within the observed support"
+    ],
+    "dro_moment": [
+     "misspecified",
+     "the ambiguity set is shape-free, but the mean and s.d. it is built from are the two least robust statistics available"
+    ],
+    "ewma": [
+     "misspecified",
+     "a squared-error update is driven by the contaminated draws"
+    ],
+    "rule_b": [
+     "misspecified",
+     "as EWMA, and slower to forget a contaminated draw"
+    ],
+    "saa": [
+     "agnostic",
+     "an empirical quantile assumes no shape, so heavy tails cost it sample efficiency rather than correctness - but it still assumes the window is i.i.d."
+    ]
+   },
+   "multimodal": {
+    "bayes_est": [
+     "misspecified",
+     "as above"
+    ],
+    "bayes_true": [
+     "misspecified",
+     "unimodal predictive; it tracks the mixture mean, a level that almost never occurs"
+    ],
+    "dro_emp": [
+     "agnostic",
+     "as SAA, with a ball around it"
+    ],
+    "dro_moment": [
+     "misspecified",
+     "a mean and an s.d. cannot tell a wide unimodal demand from a narrow bimodal one, and the two have different optimal orders"
+    ],
+    "ewma": [
+     "misspecified",
+     "tracks the mixture mean"
+    ],
+    "rule_b": [
+     "misspecified",
+     "as EWMA"
+    ],
+    "saa": [
+     "agnostic",
+     "an empirical quantile represents a mixture directly, given a window long enough to contain both modes and short enough to be current"
+    ]
+   },
+   "outside_support": {
+    "bayes_est": [
+     "misspecified",
+     "as above"
+    ],
+    "bayes_true": [
+     "misspecified",
+     "Gaussian demand around the mean; the history is truncated and the excursions are not Gaussian"
+    ],
+    "dro_emp": [
+     "misspecified",
+     "BY CONSTRUCTION: the ball reweights observed values and can place no mass on an outcome that has never occurred"
+    ],
+    "dro_moment": [
+     "agnostic",
+     "the worst case is a two-point distribution that need not sit on observed values, so unseen outcomes are priced"
+    ],
+    "ewma": [
+     "misspecified",
+     "its margin comes from its own observed variance"
+    ],
+    "rule_b": [
+     "misspecified",
+     "as EWMA"
+    ],
+    "saa": [
+     "misspecified",
+     "an empirical quantile cannot exceed the largest value ever observed"
+    ]
+   },
+   "reversal": {
+    "bayes_est": [
+     "misspecified",
+     "the same model form, parameters tuned"
+    ],
+    "bayes_true": [
+     "misspecified",
+     "assumes geometric change times and Gaussian jump sizes; here the change time is a single draw in a known window and the jump is +-magnitude"
+    ],
+    "dro_emp": [
+     "misspecified",
+     "the ball is around a history containing none of the post-reversal level"
+    ],
+    "dro_moment": [
+     "misspecified",
+     "moments of a window straddling the reversal describe neither side"
+    ],
+    "ewma": [
+     "misspecified",
+     "no model of change"
+    ],
+    "rule_b": [
+     "misspecified",
+     "as EWMA, and slower"
+    ],
+    "saa": [
+     "misspecified",
+     "i.i.d. window; a long quiet history makes the window confident just before it becomes wrong"
+    ]
+   }
+  },
+  "tuning_cells": 8,
+  "tuning_configs": 16,
+  "tuning_paths": 2,
+  "tuning_periods": 400,
+  "tuning_variants": {
+   "base": [
+    "standard"
+   ],
+   "decision_dependent": [
+    "level"
+   ],
+   "heavy": [
+    "contaminated"
+   ],
+   "multimodal": [
+    "two_mode"
+   ],
+   "outside_support": [
+    "upper"
+   ],
+   "reversal": [
+    "single"
+   ]
+  },
+  "version": "1.0"
+ },
+ "exports": {
+  "cells": "one row per family, variant, design cell, policy and path: every metric",
+  "summary": "one row per family and policy: regret with its standard error, payoff, tail loss, calibration",
+  "recovery": "Kaplan-Meier recovery per cell and policy, with the censoring rate beside it",
+  "factors": "matched contrast for each of the five factors, per family and policy",
+  "specification": "which model is correctly specified, estimated, agnostic or misspecified, and why",
+  "processes": "the five stress families and the control: equations, information, reserved variant",
+  "tuning": "every configuration scored during tuning, and the one selected",
+  "budget": "the computational budget each policy was given",
+  "boundary": "selected parameters sitting at the edge of their search range",
+  "tuned": "the frozen configuration each policy carried into evaluation"
+ },
+ "policies": {
+  "rule_b": {
+   "role": "default",
+   "parameters": []
+  },
+  "ewma": {
+   "role": "competitor",
+   "parameters": [
+    "gain"
+   ]
+  },
+  "saa": {
+   "role": "competitor",
+   "parameters": [
+    "window"
+   ]
+  },
+  "dro_emp": {
+   "role": "competitor",
+   "parameters": [
+    "rho",
+    "window"
+   ]
+  },
+  "dro_moment": {
+   "role": "competitor",
+   "parameters": [
+    "sd_scale",
+    "window"
+   ]
+  },
+  "bayes_est": {
+   "role": "competitor",
+   "parameters": [
+    "hazard",
+    "sigma",
+    "tau"
+   ]
+  },
+  "bayes_true": {
+   "role": "reference",
+   "parameters": []
+  }
+ }
+}

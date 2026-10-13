@@ -317,6 +317,17 @@ _REFS = [
        "201-209", "Stanford University Press"),
     _a("gallego1993", "Gallego, G.; Moon, I.", 1993, "The distribution free newsboy problem: Review and extensions",
        "Journal of the Operational Research Society", "44", "8", "825-834"),
+    # --- the stress suite: change detection, heavy tails, decision-dependent ambiguity
+    _a("page1954", "Page, E. S.", 1954, "Continuous inspection schemes", "Biometrika", "41", "1-2", "100-115"),
+    _a("genalti2025", "Genalti, G.; Bhatt, S.; Gatti, N.; Metelli, A. M.", 2025,
+       "Catoni-style change point detection for regret minimization in non-stationary heavy-tailed bandits",
+       "arXiv preprint arXiv:2505.20051", "", "", ""),
+    _a("luo2020", "Luo, F.; Mehrotra, S.", 2020,
+       "Distributionally robust optimization with decision dependent ambiguity sets", "Optimization Letters",
+       "14", "8", "2565-2594"),
+    _a("yu2026", "Yu, X.; Basciftci, B.", 2026,
+       "Distributionally robust optimization with multimodal decision-dependent ambiguity sets",
+       "Mathematical Programming", "", "", ""),
     _c("liu2018", "Liu, F.; Lee, J.; Shroff, N.", 2018,
        "A change-detection based framework for piecewise-stationary multi-armed bandit problem",
        "Proceedings of the Thirty-Second AAAI Conference on Artificial Intelligence (AAAI-18)", "S. A. McIlraith & "
@@ -1004,6 +1015,7 @@ METHOD_REFS = ["creed2021", "holm1979", "mckay1979", "nowak1993", "hall1939", "r
                "savage1951", "tesfatsion2006", "davis2007", "harrison2007", "hanley1982", "stone1974", "efron1993",
                "diebold1995", "chong1986", "adams2007", "fearnhead2007", "bental2013", "garivier2011", "auer2002",
                "thompson1933", "agrawal2013", "trovo2020", "liu2018", "scarf1958", "gallego1993",
+               "page1954", "genalti2025", "luo2020", "yu2026",
                "kauffman1987", "kauffman1993", "levinthal1997", "rivkin2000"]
 
 

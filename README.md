@@ -763,6 +763,10 @@ heiner_abm/gate_validation.py
                            coverage, both error types and their cost, memory variants (docs/gate_validation.md)
 heiner_abm/learnability.py, learnability_market.py
                            learnability study: when reliability can be learned before change; market replication
+heiner_abm/learnability_validity.py
+                           incremental construct validity of the learnability index: a prespecified
+                           comparison model, held-out configurations and process families, matched
+                           designs, hierarchical resampling (docs/learnability_validity.md)
 heiner_abm/traces.py       decision-level traces of the tournament, rule choice and the market lab: what each agent
                            saw, chose and was later told (pinned to the originals exactly in tests/test_traces.py)
 heiner_abm/ecology.py      organizational ecology agents and selection through exit and entry
@@ -833,6 +837,32 @@ only shows at policy level, because a gate has to run live to generate trials at
 > run outside any agent's feedback queue, and are checked by running a market, running a full validation, and
 > asserting a rerun of the same market is bit-identical. No registered fingerprint or plan hash depends on this
 > module; all seven and all four were verified unchanged afterwards.
+
+## Is the learnability index worth its name?
+
+Full note: [`docs/learnability_validity.md`](docs/learnability_validity.md). Results:
+`docs/learnability_validity_results/`. Frozen plan `1164c1fedc632908`; **not a registered finding**.
+
+The learnability study proposes an index R and reports that a gate's advantage falls as R rises, and that R adds
+cross-validated accuracy beyond log σ and log(1 + τ). Two covariates is a low bar, and a negative slope is
+equally consistent with R being a distinct mechanism and with R being a convenient summary of things already
+known to matter. This separates them, with the index imported unchanged, a comparison model of ten covariates and
+three interactions fixed in advance, and a confirmatory arm on seeds and configurations never used before, run
+once.
+
+**The slope is real, and the index is redundant.** On 180 independent confirmatory configurations the index
+correlates with the advantage at r = −0.369 and its own slope is −1.276 per decade, so the registered negative
+slope replicates cleanly. But the prespecified comparison model reaches a cross-validated R² of **+0.399**, and
+adding the index moves it to **+0.4015** — a gain of +0.003 [−0.006, +0.026]. On held-out process families it
+makes transfer *worse*. Propagating the uncertainty of estimating the index from pilot paths changes nothing.
+
+> A negative slope is not evidence of a distinct mechanism; it is the sign the construct was built to have.
+
+Configurations matched on the index but drawn from different processes differ in outcome by 95% of the overall
+spread, so the index is not a sufficient summary either. The strongest single correlate of the advantage is
+**learner memory** — stronger than the index, and something the index is defined without reference to.
+
+This does not refute the registered H1, which replicates. It bounds what H1 can mean.
 
 ## Provenance of a workbench run
 

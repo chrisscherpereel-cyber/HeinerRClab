@@ -167,10 +167,19 @@ class Config:
     magnitude_cost: float = 0.0    # charged per unit of |S_t - S_{t-1}|
     cost_model: str = "components"  # or "legacy_departure_only": the departure overhead alone, as before 9 Oct 2026
     perfect: bool = False          # negative control: the flexible order is the oracle's order
+    # Properties of the FEEDBACK, as distinct from the environment. All three are zero by default, which
+    # reproduces the independent, immediate, unbiased observation the study has always used.
+    obs_delay: int = 0             # periods between a demand occurring and its observation becoming available
+    obs_bias: float = 0.0          # systematic error added to every observation (units of demand)
+    obs_corr: float = 0.0          # AR(1) coefficient of the observation noise; 0 = independent draws
 
     def __post_init__(self):
         if self.cost_model not in COST_MODELS:
             raise ValueError(f"Unknown cost model {self.cost_model!r} (one of {', '.join(COST_MODELS)}).")
+        if int(self.obs_delay) < 0:
+            raise ValueError("An observation delay cannot be negative.")
+        if not -0.99 <= float(self.obs_corr) <= 0.99:
+            raise ValueError("The observation-noise correlation must lie in [-0.99, 0.99].")
 
     @property
     def zero_cost(self) -> bool:
@@ -203,9 +212,29 @@ def paths(cfg: Config, T: int, seed: int) -> Dict[str, np.ndarray]:
             raise ValueError(cfg.family)
         mu[t] = m
     d = np.maximum(0.0, mu + cfg.sigma * r_dem.standard_normal(T))
-    y = d + cfg.tau * r_obs.standard_normal(T)
+    # Observation noise. With obs_corr = 0 this is exactly the independent draw the study has always used; the
+    # AR(1) recursion is written so that rho = 0 returns z unchanged and the marginal variance is preserved for
+    # any rho, so correlated feedback is a change of dependence and not of scale.
+    z = r_obs.standard_normal(T)
+    rho = float(cfg.obs_corr)
+    if rho:
+        e = np.empty(T)
+        e[0] = z[0]
+        k = np.sqrt(1.0 - rho * rho)
+        for t in range(1, T):
+            e[t] = rho * e[t - 1] + k * z[t]
+    else:
+        e = z
+    y = d + cfg.tau * e + float(cfg.obs_bias)
     seen = r_av.random(T) < cfg.avail
-    return dict(mu=mu, d=d, y=np.where(seen, y, np.nan), seen=seen, change=change)
+    y = np.where(seen, y, np.nan)
+    lag = int(cfg.obs_delay)
+    if lag:
+        # the observation available at period t is the one that occurred `lag` periods earlier; the first `lag`
+        # periods have nothing to report, and the truth (mu, d, change) is unaffected
+        y = np.concatenate([np.full(lag, np.nan), y[:-lag]])
+        seen = np.concatenate([np.zeros(lag, bool), seen[:-lag]])
+    return dict(mu=mu, d=d, y=y, seen=seen, change=change)
 
 
 def payoff(S, d):

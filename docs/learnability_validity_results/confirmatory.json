@@ -1,0 +1,237 @@
+{
+ "plan_hash": "1164c1fedc632908",
+ "arm": "confirmatory",
+ "incremental": {
+  "n": 180,
+  "protocol": "held-out configurations (leave one out)",
+  "comparison_r2": 0.39887131327071923,
+  "with_index_r2": 0.4015368342996941,
+  "delta_r2": 0.002665521028974882,
+  "ci_lo": -0.006232957061159861,
+  "ci_hi": 0.02579259779260042,
+  "supported": false,
+  "comparison_columns": [
+   "adv_noise",
+   "log_regime_len",
+   "avail",
+   "delay",
+   "log_memory_window",
+   "log_evidence",
+   "default_gap",
+   "cost",
+   "adv_noise_x_log_regime_len",
+   "avail_x_log_memory_window",
+   "cost_x_adv_noise"
+  ],
+  "index_column": "log10_ratio",
+  "claim": "a positive delta means the index carries information the comparison model does not; it does NOT establish a distinct mechanism"
+ },
+ "transfer": {
+  "protocol": "held-out process families (fitted on jump)",
+  "n_train": 60,
+  "n_test": 120,
+  "test_families": [
+   "drift",
+   "switch"
+  ],
+  "comparison_r2": 0.07575221068976068,
+  "with_index_r2": 0.0408277654896676,
+  "delta_r2": -0.03492444520009308,
+  "ci_lo": -0.263547028426518,
+  "ci_hi": 0.04327403263527347,
+  "supported": false
+ },
+ "hierarchical": {
+  "n": 180,
+  "inner_resamples": 16,
+  "outer_resamples": 1000,
+  "delta_r2_mean": 0.003191057902487919,
+  "ci_lo": -0.006376317808540144,
+  "ci_hi": 0.02540114781921479,
+  "supported": false,
+  "note": "configurations resampled in the outer loop, pilot paths in the inner loop, so the interval carries the uncertainty of estimating the index itself"
+ },
+ "matched_simple": {
+  "design": "similar simple uncertainty, different index",
+  "pairs": 20,
+  "mean_difference": 0.38193927319983645,
+  "ci_lo": -0.40024323363771835,
+  "ci_hi": 1.2361434229033954,
+  "supported": false,
+  "reading": "positive means the member of a pair with the LOWER index did better, which is the direction the index predicts once volatility and observation noise are held close"
+ },
+ "matched_index": {
+  "design": "similar index, different process family",
+  "pairs": 20,
+  "mean_absolute_difference": 1.626732430291319,
+  "ci_lo": 1.0274494978244484,
+  "ci_hi": 2.4359166551899385,
+  "outcome_sd": 1.711722146191868,
+  "relative_to_outcome_sd": 0.9503484160150474,
+  "reading": "the index is a SUFFICIENT summary only if matched pairs perform alike. A mean absolute difference comparable to the spread of the outcome says it is not, however well it predicts on average"
+ },
+ "settings": {
+  "plan": {
+   "burn_in": 100,
+   "clip_variants": [
+    [
+     1.0,
+     1000000.0
+    ],
+    [
+     1.0,
+     1000.0
+    ],
+    [
+     0.1,
+     1000000000.0
+    ]
+   ],
+   "eval_paths": 8,
+   "families": [
+    "jump",
+    "switch",
+    "drift"
+   ],
+   "inner_boot": 16,
+   "matched_pairs": 20,
+   "n_boot": 1000,
+   "n_configs": 60,
+   "periods": 1200,
+   "pilot_paths": 8,
+   "ranges": [
+    [
+     "sigma",
+     [
+      5.0,
+      40.0
+     ]
+    ],
+    [
+     "tau",
+     [
+      0.0,
+      30.0
+     ]
+    ],
+    [
+     "hazard",
+     [
+      0.002,
+      0.05
+     ]
+    ],
+    [
+     "avail",
+     [
+      0.2,
+      1.0
+     ]
+    ],
+    [
+     "memory",
+     [
+      0.9,
+      0.995
+     ]
+    ],
+    [
+     "obs_delay",
+     [
+      0.0,
+      6.0
+     ]
+    ],
+    [
+     "cost",
+     [
+      0.0,
+      4.0
+     ]
+    ]
+   ],
+   "ridge": 1.0,
+   "robustness": [
+    [
+     "obs_corr",
+     [
+      0.0,
+      0.4,
+      0.8
+     ]
+    ],
+    [
+     "obs_bias",
+     [
+      0.0,
+      5.0,
+      15.0
+     ]
+    ],
+    [
+     "memory",
+     [
+      0.9,
+      0.97,
+      0.995
+     ]
+    ]
+   ],
+   "seed": 20261012,
+   "version": "1.0"
+  },
+  "plan_hash": "1164c1fedc632908",
+  "index": "proposed learnability index R",
+  "index_note": "R = median over regimes of (observations needed to determine the sign of the advantage) / (informative observations available). Defined in heiner_abm.learnability.learnability_ratio and imported unchanged; this module never redefines it.",
+  "covariates": {
+   "adv_noise": "|mean advantage| / s.d. of the observed gain, from pilot paths",
+   "log_regime_len": "log10 of the expected regime length (1 / hazard)",
+   "avail": "share of periods whose demand is observed",
+   "delay": "periods between a demand occurring and its observation",
+   "log_memory_window": "log10 of the learner's effective window (1 + lambda) / (1 - lambda)",
+   "log_evidence": "log10 of informative observations per regime, from pilot paths",
+   "default_gap": "mean |default order - oracle order|, from pilot paths",
+   "cost": "default-departure overhead",
+   "switch_cost": "fixed switching cost",
+   "magnitude_cost": "magnitude cost per unit moved"
+  },
+  "interactions": [
+   [
+    "adv_noise",
+    "log_regime_len"
+   ],
+   [
+    "avail",
+    "log_memory_window"
+   ],
+   [
+    "cost",
+    "adv_noise"
+   ]
+  ],
+  "arm": "confirmatory",
+  "seed_block": 6,
+  "claims": {
+   "V1": {
+    "claim": "The index adds predictive accuracy beyond the prespecified comparison model, on held-out configurations.",
+    "decision_rule": "Supported if the lower limit of the bootstrap interval on the added cross-validated R-squared exceeds 0. Supports: the index is a USEFUL SUMMARY INDEX carrying information the listed quantities do not. Does NOT support: a distinct mechanism."
+   },
+   "V2": {
+    "claim": "The index still adds accuracy on process families it was not fitted on.",
+    "decision_rule": "As V1, fitting on the jump family and scoring on switch and drift. Failure here with V1 supported means the index summarizes within a process but does not transfer."
+   },
+   "V3": {
+    "claim": "The added accuracy survives the uncertainty of estimating the index from pilot paths.",
+    "decision_rule": "As V1, with pilot paths resampled inside each configuration resample. A V1 supported and V3 not means the apparent gain is within the noise of measuring the index."
+   },
+   "D1": {
+    "claim": "Holding simple uncertainty measures close, configurations with a lower index do better.",
+    "decision_rule": "Matched pairs close in standardized log sigma and log(1 + tau) and far apart in the index. Supported if the interval on the mean within-pair difference lies above 0."
+   },
+   "D2": {
+    "claim": "Holding the index close, the underlying process does not matter.",
+    "decision_rule": "Matched cross-family pairs close in the index. The index is a SUFFICIENT summary only if the mean absolute within-pair difference is small relative to the spread of the outcome. This claim is reported, never asserted: a large difference is evidence against sufficiency, not against usefulness."
+   }
+  }
+ }
+}

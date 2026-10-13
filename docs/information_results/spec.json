@@ -1,0 +1,120 @@
+{
+ "plan_digest": "bc23bb881461aa28",
+ "plan": {
+  "adjustment_costs": [
+   0.0,
+   2.0,
+   8.0
+  ],
+  "band": 0.35,
+  "burn_in": 50,
+  "gain": 0.1,
+  "hazards": [
+   0.002,
+   0.01,
+   0.05
+  ],
+  "instrument": "audit",
+  "paths": 12,
+  "periods": 600,
+  "seed": 20261013,
+  "threshold_quantile": 0.75,
+  "unmet_access": [
+   0.0,
+   0.5,
+   1.0
+  ],
+  "version": "1.0"
+ },
+ "exports": {
+  "cells": "one row per cell and path: the three arms and the decomposition",
+  "decisions": "acquisition decisions and what they cost, per arm",
+  "availability": "what was observable: sales, stockouts, recorded unmet demand, signals received",
+  "truth": "researcher-only ground truth, kept in its own file so it cannot be mistaken for agent information"
+ },
+ "instruments": {
+  "none": {
+   "key": "none",
+   "name": "No instrument",
+   "price": 0.0,
+   "sd": 0.0,
+   "delay": 0,
+   "reveals": "demand",
+   "note": "The agent buys nothing."
+  },
+  "forecast": {
+   "key": "forecast",
+   "name": "Forecast",
+   "price": 1.0,
+   "sd": 12.0,
+   "delay": 0,
+   "reveals": "mean",
+   "note": "Cheap, immediate, imprecise: a noisy reading of the current mean demand, in time to order on."
+  },
+  "audit": {
+   "key": "audit",
+   "name": "Audit",
+   "price": 6.0,
+   "sd": 3.0,
+   "delay": 0,
+   "reveals": "mean",
+   "note": "Expensive, immediate, precise: what a careful count of current conditions would show."
+  },
+  "pilot": {
+   "key": "pilot",
+   "name": "Pilot experiment",
+   "price": 3.0,
+   "sd": 1.0,
+   "delay": 3,
+   "reveals": "demand",
+   "note": "Precise but late: an almost exact reading of demand that arrives three periods after the decision it was bought for, so it informs the next decisions and not this one."
+  }
+ },
+ "contracts": {
+  "censored": {
+   "key": "censored",
+   "name": "Censored observer",
+   "fields": [
+    "sales",
+    "stocked_out",
+    "order",
+    "lost_sales_reported",
+    "signal",
+    "signal_kind",
+    "period"
+   ],
+   "note": "Sees its own sales, whether it stocked out, and unmet demand only where the environment records it.",
+   "may_acquire": false
+  },
+  "censored_buyer": {
+   "key": "censored_buyer",
+   "name": "Censored observer that may buy information",
+   "fields": [
+    "sales",
+    "stocked_out",
+    "order",
+    "lost_sales_reported",
+    "signal",
+    "signal_kind",
+    "period"
+   ],
+   "note": "As the censored observer, and may buy an instrument before ordering.",
+   "may_acquire": true
+  },
+  "free_info": {
+   "key": "free_info",
+   "name": "Censored observer given an instrument free",
+   "fields": [
+    "sales",
+    "stocked_out",
+    "order",
+    "lost_sales_reported",
+    "signal",
+    "signal_kind",
+    "period"
+   ],
+   "note": "As the censored observer, given the same instrument at the same rate with no choice and no charge.",
+   "may_acquire": false
+  }
+ }
+}

@@ -93,7 +93,7 @@ EXPERIMENT_PLAN = "e39ff2f6582cc591"
 # Learnability study (heiner_abm.learnability): frozen in the repository on 7 October 2026, before its registered run;
 # not preregistered with any external registry. Re-registered the same day when every policy was given the same tuning
 # budget (see the revision note above); the run under the previous plan "ec9b781e125e289d" requires replication.
-LEARN_PLAN = "9260337adfac96c2"
+LEARN_PLAN = "a676b092f8025f77"
 
 # Agent tournament: mean profit rank and aggregate rank over six criteria (1 = best of 10), main run and three
 # replications with fresh seeds, and the design selected on training data in the main run.
@@ -373,6 +373,19 @@ SPECIAL_RESULTS: Dict[str, Tuple[str, str]] = {'cobweb': ('supported',
 #   committed code against the code of commit 2bcff32 (tools/rerun_adaptive_findings.py: directional B1, B3, C1, C42,
 #   horse_race, presets; signature tests at the Full scale; field patterns at the page defaults): every output was
 #   byte-identical. Re-fingerprinted and removed from REPLICATION_REQUIRED.
+# * 12 October 2026, feedback properties added to the inventory task for the construct-validity analysis
+#   (learnability.py: Config.obs_delay, obs_bias and obs_corr, with the observation noise optionally AR(1) and the
+#   observation optionally delayed and biased). All three are zero by default, which is the independent, immediate,
+#   unbiased observation the study has always used; the AR(1) recursion returns the original draw at rho = 0 and
+#   preserves the marginal variance at any rho. Checked first on an 18-case battery over all three process
+#   families and a spread of sigma, tau, hazard, availability and memory: every path, candidate order and policy
+#   outcome hash identical. Then rerun in full (tools/rerun_learnability_study.py, 16.1 min): H1 -0.95
+#   [-1.50, -0.44], H2 +0.251 [-0.324, +0.846], H3 -1.13 [-1.74, -0.65], H4 -1721.7 [-2721.4, -703.4], NC1-NC3
+#   passed, and the same five tuning choices. Every number reproduced exactly, so the plan was re-registered
+#   (9260337adfac96c2 -> a676b092f8025f77) on that evidence and nothing was added to REPLICATION_REQUIRED: the
+#   computation did not change.
+#   The analysis these fields exist for is heiner_abm.learnability_validity, whose results are NOT registered
+#   findings: it is a separate frozen plan with its own confirmatory arm (docs/learnability_validity.md).
 # * 12 October 2026, memory variants of the selection gates as live policies (gates.py: MEMORY_RULES and a third
 #   exploration-draw row; params.py: AdaptiveParams.memory_rule and explore_after with validation; engine.py:
 #   calendar-time ageing of the evidence statistics, and a randomized trial on a bin already classified decisively).

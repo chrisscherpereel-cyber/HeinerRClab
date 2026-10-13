@@ -767,6 +767,11 @@ heiner_abm/learnability_validity.py
                            incremental construct validity of the learnability index: a prespecified
                            comparison model, held-out configurations and process families, matched
                            designs, hierarchical resampling (docs/learnability_validity.md)
+heiner_abm/information_contract.py, information_env.py
+                           information environments: a contract enforcing what each policy may read, censored
+                           demand with configurable access to unmet demand, purchasable forecast/audit/pilot
+                           instruments with price, precision and delay, an exact small-case value-of-information
+                           benchmark and a matched free-information control (docs/information_environments.md)
 heiner_abm/traces.py       decision-level traces of the tournament, rule choice and the market lab: what each agent
                            saw, chose and was later told (pinned to the originals exactly in tests/test_traces.py)
 heiner_abm/ecology.py      organizational ecology agents and selection through exit and entry
@@ -863,6 +868,41 @@ spread, so the index is not a sufficient summary either. The strongest single co
 **learner memory** — stronger than the index, and something the index is defined without reference to.
 
 This does not refute the registered H1, which replicates. It bounds what H1 can mean.
+
+## When demand is censored, and information has a price
+
+Full note: [`docs/information_environments.md`](docs/information_environments.md). Results:
+`docs/information_results/`. Frozen plan `bc23bb881461aa28`; **not a registered finding**.
+Reproduce: `python tools/run_information_experiment.py`.
+
+Two environments the laboratory could not previously express. In the first, the firm observes what it **sold**,
+not what was demanded: when the shelf empties it does not see the customers it turned away, and `unmet_access`
+sets how often those are recorded anyway. In the second, the firm may **buy** information — a cheap vague
+forecast, an expensive sharp audit, or a precise pilot that arrives three periods too late to inform the decision
+it was bought for.
+
+The enforcement matters more than either. A policy written for full feedback will reach for total demand, and if
+total demand is still in the dictionary it was handed it will get it, keep its privileged access, and the
+experiment will measure nothing while looking fine. `InfoContract` and `InfoView` make that raise instead: a view
+refuses an ungranted field by indexing, by attribute, by iteration and by copying, and carries only the granted
+fields, so there is nothing privileged inside it to reach. Six fields can never be granted by any contract.
+
+Every comparison includes an **exogenous free-information control** — the same instrument, handed over free at
+the rate the buyer actually bought it — so that the value of better information is separated from the skill of
+choosing when to acquire it, rather than added to it.
+
+**Buying the audit pays in 12 of 27 cells.** In a persistent environment it is a clear loss (net −0.213 ± 0.036):
+the information is worth +0.08 and costs 0.52, because an agent can learn a level that holds still from its own
+sales. It pays only when the environment moves fast (+0.648 ± 0.062). Bought information and recorded unmet
+demand are **substitutes**: the value of the signal falls from +0.359 to +0.152 as the firm records more of its
+own lost sales. The interaction with adjustment costs runs in the expected direction and is **not distinguishable
+from zero** at this design size, and a sign split seen in a four-cell probe did not replicate on the full design.
+Both are reported as such.
+
+> The value-of-information benchmark is exact where an exact answer exists — a two-point newsvendor with a normal
+> signal, where a perfect signal must be worth exactly EVPI and a useless one exactly zero, both tested. The
+> Monte-Carlo estimator is checked against it at six precisions. In the full environment no exact answer exists;
+> what is reported there is labelled an approximation and explicitly **not** an EVSI.
 
 ## Provenance of a workbench run
 

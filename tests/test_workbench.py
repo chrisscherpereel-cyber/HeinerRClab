@@ -224,10 +224,15 @@ def test_workspace_steps_and_results_pages_run():
         next(b for b in at.button if b.key == "start_use_noise_simple").click().run()
         assert not at.exception, [e.value for e in at.exception]
         at.switch_page("app_pages/experiment.py").run()       # AppTest does not keep an app-initiated page switch
-        for step in ("question", "environment", "agents", "information", "design", "run"):
+        # read from the module rather than restating it: the stage list changed once and this test was the
+        # only thing still naming the old one
+        from heiner_abm.workbench.spec import STEPS as _STAGES
+        for step in _STAGES:
             at.session_state["wb_step"] = step
             at.run()
             assert not at.exception, (mode, step, [e.value for e in at.exception])
+        at.session_state["wb_step"] = "run"        # the loop above ends on the last stage
+        at.run()
         next(b for b in at.button if b.key == "wb_preview").click().run()
         assert not at.exception, [e.value for e in at.exception]
         assert at.session_state["wb_run_key"]

@@ -1,0 +1,49 @@
+check,item,status,detail,evidence_value,evidence_n_moved
+reachability,inventory.sigma,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",60.0,11
+reachability,inventory.tau,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",40.0,11
+reachability,inventory.avail,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",0.050000000000000044,11
+reachability,inventory.hazard,pass,"moved 11 outcome(s): adjustment_magnitude, compute_ms, cost_departure, cost_total",0.1,11
+reachability,inventory.family,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",switch,11
+reachability,inventory.default,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",slow,11
+reachability,inventory.cost,pass,"moved 7 outcome(s): compute_ms, cost_departure, cost_total, cvar5",20.0,7
+reachability,inventory.switch_cost,pass,"moved 7 outcome(s): compute_ms, cost_switching, cost_total, cvar5",20.0,7
+reachability,inventory.magnitude_cost,pass,"moved 7 outcome(s): compute_ms, cost_magnitude, cost_total, cvar5",2.0,7
+reachability,inventory.cost_model,pass,moved 1 outcome(s): compute_ms,legacy_departure_only,1
+reachability,inventory.memory,pass,moved 1 outcome(s): compute_ms,0.999,1
+reachability,inventory.band_b,pass,"moved 11 outcome(s): adjustment_magnitude, adjustment_rate, compute_ms, cost_departure",4.0,11
+reachability,inventory.gate_conf,pass,moved 1 outcome(s): compute_ms,0.995,1
+reachability,inventory.gate_nmin,pass,moved 1 outcome(s): compute_ms,50.0,1
+reachability,market.delta,pass,"moved 7 outcome(s): adaptation_rate, change_size, compute_ms, false_share",40.0,7
+reachability,market.noise,pass,"moved 7 outcome(s): adaptation_rate, change_size, compute_ms, false_share",20.0,7
+reachability,market.obs_noise,pass,moved 1 outcome(s): compute_ms,10.0,1
+reachability,market.obs_delay,pass,moved 1 outcome(s): compute_ms,10,1
+reachability,market.hazard,pass,"moved 6 outcome(s): adaptation_rate, change_size, compute_ms, false_share",0.05,6
+reachability,market.intercept_sd,pass,moved 1 outcome(s): compute_ms,30.0,1
+reachability,market.announced,pass,moved 1 outcome(s): compute_ms,True,1
+reachability,market.demand_knowledge,pass,moved 1 outcome(s): compute_ms,none,1
+reachability,market.belief_lag,pass,moved 1 outcome(s): compute_ms,100,1
+reachability,market.n_firms,pass,"moved 7 outcome(s): adaptation_rate, change_size, compute_ms, false_share",8,7
+reachability,market.adjust_cost,pass,"moved 2 outcome(s): compute_ms, net_profit",200.0,2
+reachability,market.threshold,pass,moved 1 outcome(s): compute_ms,200.0,1
+reachability,market.memory,pass,moved 1 outcome(s): compute_ms,0.999,1
+reachability,market.window,pass,moved 1 outcome(s): compute_ms,50,1
+reachability,market.confidence,pass,moved 1 outcome(s): compute_ms,0.99,1
+reachability,learning.noise,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",7.5,4
+reachability,learning.obs_noise,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",7.5,4
+reachability,learning.hazard,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",0.1,4
+reachability,learning.band_b,pass,moved 1 outcome(s): compute_ms,4.0,1
+reachability,learning.rc_memory,pass,moved 1 outcome(s): compute_ms,0.9999,1
+reachability,investment.noise,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",6.0,4
+reachability,investment.obs_noise,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",6.0,4
+reachability,investment.hazard,pass,"moved 4 outcome(s): K, compute_ms, deviation_rate, payoff",0.1,4
+reachability,investment.band_b,pass,moved 1 outcome(s): compute_ms,4.0,1
+reachability,investment.rc_memory,pass,moved 1 outcome(s): compute_ms,0.9999,1
+reachability,nk.obs_noise,pass,"moved 12 outcome(s): compute_ms, evaluations, false_improvements, false_share",0.2,12
+reachability,nk.hazard,pass,"moved 13 outcome(s): changes, compute_ms, evaluations, false_improvements",0.05,13
+reachability,nk.change_frac,pass,"moved 13 outcome(s): compute_ms, escapes, evaluations, false_improvements",1.0,13
+reachability,nk.N,pass,"moved 12 outcome(s): compute_ms, evaluations, false_improvements, false_share",16,12
+reachability,nk.K_NK,pass,"moved 12 outcome(s): compute_ms, evaluations, false_improvements, false_share",0,12
+reachability,nk.topology,pass,"moved 13 outcome(s): compute_ms, escapes, evaluations, false_improvements",random,13
+reachability,nk.budget,pass,moved 1 outcome(s): compute_ms,2000,1
+reachability,nk.cost,pass,"moved 12 outcome(s): compute_ms, evaluations, false_improvements, false_share",0.05,12
+reachability,nk.observe,pass,moved 1 outcome(s): compute_ms,1.0,1

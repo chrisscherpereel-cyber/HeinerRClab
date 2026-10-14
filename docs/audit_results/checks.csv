@@ -1,0 +1,7 @@
+check,description
+reachability,Configuration parameters reach the intended simulation components
+parity,Policies face the same cost definitions and declared information
+provenance,"Caching and provenance: code changes invalidate, unchanged runs reproduce"
+tests,Engine and interface tests
+end_to_end,Small reproducible end-to-end experiments
+outstanding,Full studies that still require execution

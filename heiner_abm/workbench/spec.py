@@ -22,9 +22,26 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 SPEC_VERSION = "1.0"
-STEPS = ("question", "environment", "agents", "information", "design", "run")
-STEP_LABELS = {"question": "1. Question", "environment": "2. Environment", "agents": "3. Agents",
-               "information": "4. Information", "design": "5. Design", "run": "6. Run"}
+# The seven stages of a research run, in the order the work actually happens. Information was previously a
+# stage of its own; it now sits with the environment, because what an agent may see is a property of the world
+# it is in rather than a separate decision. Results and validation/export were previously nowhere: a run ended
+# at execution and the reader was left to find the numbers. The keys below are also the keys of validation
+# issues, and `information` is kept as an ALIAS rather than removed so that environment code raising an issue
+# against it keeps working.
+STEPS = ("question", "environment", "agents", "design", "run", "results", "export")
+STEP_LABELS = {"question": "1. Research question",
+               "environment": "2. Environment & information",
+               "agents": "3. Policies & tuning",
+               "design": "4. Experimental design",
+               "run": "5. Execution",
+               "results": "6. Results",
+               "export": "7. Validation & export"}
+ISSUE_STEP_ALIAS = {"information": "environment"}
+
+
+def issue_step(step: str) -> str:
+    """The stage an issue belongs to, resolving legacy keys."""
+    return ISSUE_STEP_ALIAS.get(step, step)
 UNCERTAINTY_GROUPS = ("outcome", "observation", "change", "model", "complexity")
 GROUP_LABELS = {"outcome": "Outcome variation", "observation": "Observation quality",
                 "change": "Environmental change", "model": "Model knowledge", "complexity": "Decision complexity"}
@@ -158,8 +175,11 @@ def step_status(issues: List[Issue]) -> Dict[str, str]:
     """'invalid', 'incomplete' (warnings) or 'ok' per step."""
     st = {s: "ok" for s in STEPS}
     for i in issues:
+        key = issue_step(i.step)
+        if key not in st:                      # an issue against an unknown stage must not vanish silently
+            key = "design"
         if i.level == "error":
-            st[i.step] = "invalid"
-        elif st[i.step] == "ok":
-            st[i.step] = "incomplete"
+            st[key] = "invalid"
+        elif st[key] == "ok":
+            st[key] = "incomplete"
     return st

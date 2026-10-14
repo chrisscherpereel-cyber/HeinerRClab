@@ -789,6 +789,14 @@ heiner_abm/ecology.py      organizational ecology agents and selection through e
                            (Hannan & Freeman); exploratory, outside the registered tournament
 heiner_abm/nk.py           NK-landscape environment: landscapes, searchers, gates, exact or best-known benchmarks
 heiner_abm/workbench/      experiment specification, environment adapters, execution, analysis, run store, CLI
+heiner_abm/workbench/disclosure.py
+                           the seven things a reader must be told before a research run - estimand, cost
+                           semantics, information restrictions, training/evaluation separation, tuning status,
+                           replication requirements, calibration limits - and the five result statuses
+heiner_abm/integration_audit.py
+                           whether the parts are wired to each other: do controls reach their components, do
+                           policies face the same costs and declared information, does a code change invalidate
+                           a cache, do small end-to-end runs reproduce (docs/implementation_report.md)
 heiner_abm/workbench/provenance.py
                            code fingerprint, software environment, seed namespaces, decision-log schema,
                            trace retention and researcher-only fields (docs/provenance.md)
@@ -985,6 +993,39 @@ the parameter the hypothesis is about.
 > — did not improve calibration at all and cost power (0.92 → 0.75 at n = 32); it is reported as a failed
 > prediction. With 12 replications none of these rates is distinguishable from 0.05, so the corrected procedure
 > is *consistent with* calibration and not shown to achieve it.
+
+## Before you run, and what you may claim afterwards
+
+Full notes: [`docs/implementation_report.md`](docs/implementation_report.md) and, for a reviewer,
+[`docs/methods_for_reviewers.md`](docs/methods_for_reviewers.md). Audit results: `docs/audit_results/`.
+Reproduce: `python tools/run_integration_audit.py`.
+
+Research work in the Experiment workspace runs in seven stages — research question, environment and
+information, policies and tuning, experimental design, execution, results, validation and export. Between
+design and execution, which is the last point at which anything can still change, the workbench shows **seven
+things read off the specification**: the primary estimand and outcome, which costs are charged and when, what
+each policy may read, whether the seed blocks are disjoint, what was tuned and on what, whether any registered
+finding is awaiting a re-run, and where a reported interval does not mean what it appears to. A non-existent
+estimand or overlapping seed blocks **block** the run; the rest inform. An item that cannot be determined says
+so rather than guessing.
+
+Afterwards a result is given one of five statuses — exploratory, confirmatory, not supported, requires
+replication, descriptive — each stating what it permits and what it forbids. The weakest is offered first.
+Selecting *confirmatory* warns that this workbench does not register plans, so unless the run executes a frozen
+plan the honest status is exploratory.
+
+**The integration audit passes all six checks** (106 findings, 0 failures, 3.8 min): all **48 treatable
+controls across five environments** move a reported outcome when changed; all 33 policies declare what they
+read and the charges in force do not depend on who is compared; the run key is stable, sensitive to the
+specification and insensitive to the name; engine, workbench and interface suites pass; a complete preview run
+reproduces **45 rows × 10 substantive columns exactly**; and seven of eight studies have results, the eighth
+being the human experiment, which needs participants.
+
+> Passing the audit means the software is wired the way the documentation says. It is a precondition for a
+> result, not a result, and **it does not make anything publication-ready.** The limits that remain are listed
+> in both notes, and several are substantive: the human experiment has not been run, the action-value models
+> are not identified at the lengths used, confidence sensitivity is not separable from slow learning, and the
+> gate's nominal 90% bound covers 45-62%.
 
 ## Provenance of a workbench run
 

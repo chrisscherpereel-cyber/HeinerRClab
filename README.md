@@ -793,6 +793,10 @@ heiner_abm/workbench/disclosure.py
                            the seven things a reader must be told before a research run - estimand, cost
                            semantics, information restrictions, training/evaluation separation, tuning status,
                            replication requirements, calibration limits - and the five result statuses
+heiner_abm/adjudication.py
+                           a frozen replication specification: every study re-run on independent seeds, each
+                           study's own prespecified rule re-applied, and a frozen rule mapping the pair of
+                           verdicts onto retained / narrowed / rejected (docs/adjudication.md)
 heiner_abm/integration_audit.py
                            whether the parts are wired to each other: do controls reach their components, do
                            policies face the same costs and declared information, does a code change invalidate
@@ -993,6 +997,30 @@ the parameter the hypothesis is about.
 > — did not improve calibration at all and cost power (0.92 → 0.75 at n = 32); it is reported as a failed
 > prediction. With 12 replications none of these rates is distinguishable from 0.05, so the corrected procedure
 > is *consistent with* calibration and not shown to achieve it.
+
+## Which claims survive an independent draw
+
+Full note: [`docs/adjudication.md`](docs/adjudication.md). Results: `docs/adjudication_results/`.
+Frozen plan `eedc8c4ac843a18a`. Reproduce: `python tools/run_adjudication.py`.
+
+Every study was re-run with its seed moved by a fixed offset and nothing else changed, and each study's own
+prespecified decision rule was re-applied to the new data. Re-running a frozen plan on its own seeds reproduces
+its numbers exactly; that is reproduction, and it cannot move a claim. Seventeen claims, 89 minutes.
+
+**Five retained, two rejected, one overturned, nine rejections confirmed.**
+
+| | |
+|---|---|
+| **H2 rejected** | the learnability index adds nothing beyond volatility and observation noise on independent seeds. With V1 and V2 confirming it adds nothing beyond the full comparison model either, the construct narrows: **H1 replicates** (slope −0.72 against −0.95) but its incremental content does not, by two independent routes. |
+| **I1 rejected** | the substitution of bought information for recorded unmet demand flipped sign, +0.206 to −0.194. Chasing it found something worse: all nine design cells share twelve path seeds, so 108 rows were treated as independent. Path-clustered, the **original was never significant** (+0.206 ± 0.157). |
+| **PR2 overturned** | failed on the registered seeds, supported on these. Reported as needing a third run, **not as a vindication** — a prediction landing on opposite sides of its threshold on two draws is sitting on the boundary. |
+| **retained** | the correctly specified model still wins on the control; shape-free models still win on multimodal demand; knowing true parameters still beats right functional form (3 of 5 families); buying information still pays only under fast change. |
+| **confirmed** | the gate's nominal 90% bound covers **51.8%** (45.0–56.3%); the moment-ambiguity model, the only one able to price unseen outcomes, fell from 4th to **5th**; five of six reliability-condition predictions fail again. |
+
+> A single replication is a weaker instrument than it looks. Both runs share the generating code, the
+> environments and every modelling assumption; only the draw differs. A claim that survives here has survived
+> **sampling variation and nothing else**. A claim rejected here was fragile to sampling alone, which is the
+> stronger statement.
 
 ## Before you run, and what you may claim afterwards
 

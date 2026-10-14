@@ -1,0 +1,6 @@
+outcome,meaning
+retained,"Supported before and again, at a comparable magnitude."
+narrowed,"Supported before and again, but weaker; or supported before and inconclusive now with the sign unchanged. The claim survives in a smaller form than it was stated in."
+rejected,"Supported before, not supported on independent seeds. The original was fragile to sampling."
+rejection_confirmed,"Not supported before, not supported again."
+overturned,"Not supported before, supported now. Needs a third run before anybody relies on it."

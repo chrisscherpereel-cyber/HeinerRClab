@@ -1,0 +1,226 @@
+{
+ "plan_digest": "eedc8c4ac843a18a",
+ "code_digest": "0328bfad98dfa197",
+ "plan": {
+  "claim_table": [
+   {
+    "effect_units": "",
+    "key": "PR1",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR1 verdict of the registered tournament protocol",
+    "statement": "In held-out mixed markets the reliability-condition agent earns more than each rival.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "",
+    "key": "PR2",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR2 verdict",
+    "statement": "The reliability-condition agent's advantage grows with environmental uncertainty.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "",
+    "key": "PR3",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR3 verdict",
+    "statement": "The reliability-condition agent adapts less often than the always-adjust rule.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "",
+    "key": "PR4",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR4 verdict",
+    "statement": "The reliability-condition agent's selectivity is what earns its advantage.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "",
+    "key": "PR5",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR5 verdict",
+    "statement": "The reliability-condition agent is robust across market protocols.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "",
+    "key": "PR6",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "PR6 verdict",
+    "statement": "The reliability-condition agent carries less downside risk than always adjusting.",
+    "study": "tournament"
+   },
+   {
+    "effect_units": "net payoff per period per decade of R",
+    "key": "H1",
+    "note": "",
+    "original_effect": -0.95,
+    "original_verdict": "supported",
+    "quantity": "OLS slope of configuration-mean advantage on log10 R, 95% bootstrap CI below 0",
+    "statement": "The confidence-sensitive gate's advantage over the better fixed rule falls as the learnability ratio R rises.",
+    "study": "learnability"
+   },
+   {
+    "effect_units": "cross-validated R-squared",
+    "key": "H2",
+    "note": "",
+    "original_effect": null,
+    "original_verdict": "supported",
+    "quantity": "gain in leave-one-out cross-validated R-squared from adding log10 R",
+    "statement": "log10 R explains the gate's advantage beyond outcome volatility and observation noise.",
+    "study": "learnability"
+   },
+   {
+    "effect_units": "cross-validated R-squared",
+    "key": "V1",
+    "note": "",
+    "original_effect": 0.0027,
+    "original_verdict": "not supported",
+    "quantity": "difference in cross-validated R-squared, bootstrap lower limit above 0",
+    "statement": "The learnability index adds predictive accuracy beyond the prespecified comparison model, on held-out configurations.",
+    "study": "validity"
+   },
+   {
+    "effect_units": "cross-validated R-squared",
+    "key": "V2",
+    "note": "",
+    "original_effect": -0.0349,
+    "original_verdict": "not supported",
+    "quantity": "difference in cross-validated R-squared on unseen families",
+    "statement": "The index transfers to held-out process families.",
+    "study": "validity"
+   },
+   {
+    "effect_units": "coverage share",
+    "key": "G1",
+    "note": "Rejected on the first run at 45-62%. The replication asks whether that was sampling.",
+    "original_effect": null,
+    "original_verdict": "not supported",
+    "quantity": "measured coverage of the 90% bound across feedback regimes",
+    "statement": "The confidence-sensitive gate's reported lower bound has its nominal 90% coverage.",
+    "study": "gate_validation"
+   },
+   {
+    "effect_units": "rank",
+    "key": "S1",
+    "note": "",
+    "original_effect": 1.0,
+    "original_verdict": "supported",
+    "quantity": "rank of bayes_true by mean regret on the `base` family",
+    "statement": "On the control process, the correctly specified model wins.",
+    "study": "stress"
+   },
+   {
+    "effect_units": "rank",
+    "key": "S2",
+    "note": "",
+    "original_effect": 1.0,
+    "original_verdict": "supported",
+    "quantity": "rank of saa by mean regret on the `multimodal` family",
+    "statement": "Where distributional shape is the problem, shape-free window models win.",
+    "study": "stress"
+   },
+   {
+    "effect_units": "rank",
+    "key": "S3",
+    "note": "Contradicted on the first run: it finished behind both models that provably cannot represent the stress.",
+    "original_effect": 4.0,
+    "original_verdict": "not supported",
+    "quantity": "rank of dro_moment by mean regret on the `outside_support` family",
+    "statement": "The moment-ambiguity model, the only one able to price outcomes never observed, is the one suited to the outside-support family.",
+    "study": "stress"
+   },
+   {
+    "effect_units": "families out of 5",
+    "key": "S4",
+    "note": "",
+    "original_effect": 3.0,
+    "original_verdict": "supported",
+    "quantity": "number of the five stress families on which bayes_true ranks first",
+    "statement": "Knowing the true nuisance parameters beats having the right functional form.",
+    "study": "stress"
+   },
+   {
+    "effect_units": "net payoff per period",
+    "key": "I1",
+    "note": "",
+    "original_effect": 0.206,
+    "original_verdict": "supported",
+    "quantity": "value of information at unmet_access 0.0 minus at 1.0",
+    "statement": "Bought information and recorded unmet demand are substitutes.",
+    "study": "information"
+   },
+   {
+    "effect_units": "net payoff per period",
+    "key": "I2",
+    "note": "Supported in the sense that the prediction was of a NEGATIVE net at low hazard.",
+    "original_effect": -0.213,
+    "original_verdict": "supported",
+    "quantity": "net of buying at the lowest hazard",
+    "statement": "Buying information pays only when the environment changes fast enough.",
+    "study": "information"
+   }
+  ],
+  "claims": [
+   "PR1",
+   "PR2",
+   "PR3",
+   "PR4",
+   "PR5",
+   "PR6",
+   "H1",
+   "H2",
+   "V1",
+   "V2",
+   "G1",
+   "S1",
+   "S2",
+   "S3",
+   "S4",
+   "I1",
+   "I2"
+  ],
+  "code": "0328bfad98dfa197",
+  "human_models_included": false,
+  "learnability_scale": "registered",
+  "outcomes": {
+   "narrowed": "Supported before and again, but weaker; or supported before and inconclusive now with the sign unchanged. The claim survives in a smaller form than it was stated in.",
+   "overturned": "Not supported before, supported now. Needs a third run before anybody relies on it.",
+   "rejected": "Supported before, not supported on independent seeds. The original was fragile to sampling.",
+   "rejection_confirmed": "Not supported before, not supported again.",
+   "retained": "Supported before and again, at a comparable magnitude."
+  },
+  "retain_fraction": 0.5,
+  "seed_offset": 770000,
+  "stress_paths": 4,
+  "studies": [
+   "tournament",
+   "learnability",
+   "validity",
+   "gate_validation",
+   "stress",
+   "information"
+  ],
+  "version": "1.0"
+ },
+ "exports": {
+  "claims": "the claim table as frozen, with each claim's original verdict and effect",
+  "outcomes": "what each of the five outcomes means",
+  "verdicts": "per claim: original verdict, replication verdict, and the outcome the frozen rule assigns",
+  "plan": "the frozen specification and its hash"
+ },
+ "caveat": "A single replication tests a claim against sampling variation only. Both runs share the generating code, the environments and every modelling assumption."
+}

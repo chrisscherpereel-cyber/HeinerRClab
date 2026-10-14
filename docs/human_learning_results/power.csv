@@ -1,0 +1,21 @@
+n,truth,true_omega,reps,rejection_rate,estimator,randomized_paths,variant,across_rep_sd
+16,effect,0.8,12,0.6666666666666666,two_pass,False,as originally specified,
+16,,0.0,12,0.5,two_pass,False,as originally specified,
+32,effect,0.8,12,0.9166666666666666,two_pass,False,as originally specified,
+32,,0.0,12,0.5,two_pass,False,as originally specified,
+48,effect,0.8,12,1.0,two_pass,False,as originally specified,
+48,,0.0,12,0.75,two_pass,False,as originally specified,
+64,effect,0.8,12,1.0,two_pass,False,as originally specified,
+64,,0.0,12,0.5,two_pass,False,as originally specified,
+16,effect,0.8,12,0.4166666666666667,first_pass,False,first-pass estimates only,0.21057276819872242
+16,null,0.0,12,0.08333333333333333,first_pass,False,first-pass estimates only,0.2793074039241136
+32,effect,0.8,12,0.9166666666666666,first_pass,False,first-pass estimates only,0.17597983731316572
+32,null,0.0,12,0.16666666666666666,first_pass,False,first-pass estimates only,0.13961548756952924
+64,effect,0.8,12,1.0,first_pass,False,first-pass estimates only,0.15002264166358378
+64,null,0.0,12,0.08333333333333333,first_pass,False,first-pass estimates only,0.13471738206306028
+16,effect,0.8,12,0.3333333333333333,first_pass,True,first-pass + paths re-randomised,0.1944807000190825
+16,null,0.0,12,0.08333333333333333,first_pass,True,first-pass + paths re-randomised,0.30029711057954056
+32,effect,0.8,12,0.75,first_pass,True,first-pass + paths re-randomised,0.1895553842290402
+32,null,0.0,12,0.16666666666666666,first_pass,True,first-pass + paths re-randomised,0.16218713313214303
+64,effect,0.8,12,1.0,first_pass,True,first-pass + paths re-randomised,0.12147405454960059
+64,null,0.0,12,0.08333333333333333,first_pass,True,first-pass + paths re-randomised,0.12421541440132676

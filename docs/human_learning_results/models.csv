@@ -1,0 +1,7 @@
+model,label,n_params,parameters,role
+advantage,Learned expected advantage,9,"a0, beta, alpha, cV, cN, cR, lapse, phi, sd",mechanism
+confidence,Estimation uncertainty + confidence-sensitive adaptation,11,"a0, beta, omega, sigma_w, sigma_r, cV, cN, cR, lapse, phi, sd",mechanism
+changebayes,Bayesian beliefs about environmental change,12,"a0, beta, lam, h, sigma_jump, k, cV, cN, cR, lapse, phi, sd",mechanism
+aspiration,Aspiration-based satisficing,9,"a0, beta, eta, cV, cN, cR, lapse, phi, sd",mechanism
+risk,Risk preference separated from estimation uncertainty,13,"a0, beta, omega, gamma, nu, sigma_w, sigma_r, cV, cN, cR, lapse, phi, sd",mechanism
+inertia_learn,Learned advantage + inertia (the confound competitor),10,"a0, beta, alpha, g, cV, cN, cR, lapse, phi, sd",confound competitor

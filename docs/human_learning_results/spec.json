@@ -1,0 +1,301 @@
+{
+ "plan_digest": "ac5c9814645d1f1b",
+ "code_digest": "c0ff4c0d576ecaba",
+ "plan": {
+  "alpha": 0.05,
+  "carry_state": false,
+  "code": "c0ff4c0d576ecaba",
+  "factor_cells": [
+   [
+    0,
+    12
+   ],
+   [
+    0,
+    32
+   ],
+   [
+    10,
+    12
+   ],
+   [
+    10,
+    32
+   ]
+  ],
+  "history_levels": [
+   0,
+   10
+  ],
+  "horizon_levels": [
+   12,
+   32
+  ],
+  "model_params": {
+   "advantage": [
+    "a0",
+    "beta",
+    "alpha",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ],
+   "aspiration": [
+    "a0",
+    "beta",
+    "eta",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ],
+   "changebayes": [
+    "a0",
+    "beta",
+    "lam",
+    "h",
+    "sigma_jump",
+    "k",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ],
+   "confidence": [
+    "a0",
+    "beta",
+    "omega",
+    "sigma_w",
+    "sigma_r",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ],
+   "inertia_learn": [
+    "a0",
+    "beta",
+    "alpha",
+    "g",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ],
+   "risk": [
+    "a0",
+    "beta",
+    "omega",
+    "gamma",
+    "nu",
+    "sigma_w",
+    "sigma_r",
+    "cV",
+    "cN",
+    "cR",
+    "lapse",
+    "phi",
+    "sd"
+   ]
+  },
+  "model_recovery_n": 10,
+  "models": [
+   "advantage",
+   "confidence",
+   "changebayes",
+   "aspiration",
+   "risk",
+   "inertia_learn"
+  ],
+  "n_participants": 32,
+  "params": {
+   "a0": [
+    "id",
+    0.0,
+    3.0
+   ],
+   "alpha": [
+    "logit",
+    0.0,
+    1.5
+   ],
+   "beta": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "cN": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "cR": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "cV": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "eta": [
+    "logit",
+    0.0,
+    1.5
+   ],
+   "g": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "gamma": [
+    "id",
+    0.0,
+    2.5
+   ],
+   "h": [
+    "logit",
+    -2.5,
+    1.0
+   ],
+   "k": [
+    "logit",
+    -1.0,
+    1.5
+   ],
+   "lam": [
+    "id",
+    0.0,
+    2.0
+   ],
+   "lapse": [
+    "logit",
+    -3.0,
+    1.5
+   ],
+   "nu": [
+    "logit",
+    0.0,
+    1.5
+   ],
+   "omega": [
+    "id",
+    0.0,
+    2.5
+   ],
+   "phi": [
+    "phi",
+    0.0,
+    2.0
+   ],
+   "sd": [
+    "exp",
+    2.70805020110221,
+    1.5
+   ],
+   "sigma_jump": [
+    "exp",
+    1.6094379124341003,
+    1.0
+   ],
+   "sigma_r": [
+    "exp",
+    0.0,
+    1.0
+   ],
+   "sigma_w": [
+    "exp",
+    -1.2039728043259361,
+    1.0
+   ]
+  },
+  "population": {
+   "a0": -0.4,
+   "a0_sd": 0.7,
+   "alpha": 0.35,
+   "alpha_sd": 0.6,
+   "beta": 1.2,
+   "beta_sd": 0.5,
+   "cN": -0.3,
+   "cR": 0.5,
+   "cV": 0.5,
+   "c_sd": 0.3,
+   "eta": 0.4,
+   "eta_sd": 0.6,
+   "g": 1.0,
+   "g_sd": 0.5,
+   "gamma": 0.6,
+   "gamma_sd": 0.5,
+   "h": 0.08,
+   "h_sd": 0.5,
+   "k": 0.3,
+   "k_sd": 0.5,
+   "lam": 1.5,
+   "lam_sd": 0.6,
+   "lapse": 0.03,
+   "lapse_sd": 0.5,
+   "nu": 0.3,
+   "nu_sd": 0.6,
+   "omega": 0.8,
+   "omega_sd": 0.5,
+   "phi": 0.6,
+   "phi_sd": 0.4,
+   "sd": 15.0,
+   "sd_sd": 0.3,
+   "sigma_jump": 6.0,
+   "sigma_jump_sd": 0.4,
+   "sigma_r": 1.0,
+   "sigma_r_sd": 0.4,
+   "sigma_w": 0.3,
+   "sigma_w_sd": 0.4
+  },
+  "power_reps": 12,
+  "power_sizes": [
+   16,
+   32,
+   48,
+   64
+  ],
+  "recovery_n": 32,
+  "scales": {
+   "cost": 10.0,
+   "profit": 500.0
+  },
+  "seed": 20261013,
+  "version": "1.0"
+ },
+ "exports": {
+  "models": "the five mechanisms, their parameters, and the inertia competitor",
+  "protocol": "the four manipulations, what each moves and what it leaves alone",
+  "parameter_recovery": "per model and parameter: correlation, bias and RMSE of estimates against truth",
+  "model_recovery": "confusion matrix: generating model against selected model",
+  "model_recovery_detail": "per participant held-out scores behind that matrix",
+  "identifiability": "the five claims about telling confidence sensitivity apart, and whether each holds",
+  "omega_recovery": "recovery of omega with and without the two new manipulations",
+  "confidence_vs_inertia": "held-out scores when the truth is confidence sensitivity and no inertia",
+  "risk_tradeoff": "whether omega and gamma are collinear inside the model that carries both",
+  "waiter_vs_slow": "a confident waiter against a slow learner, matched on adjustment rate",
+  "power": "rejection rate by sample size, with the false-positive rate beside it"
+ },
+ "claims": {
+  "I1": "Confidence sensitivity is recoverable: omega correlates with its true value across participants.",
+  "I2": "Confidence sensitivity is not inertia: data generated with omega > 0 and no inertia is assigned to the confidence model rather than to the inertia model.",
+  "I3": "Confidence sensitivity is not risk preference: in the risk model, which carries both, the estimation errors of omega and gamma are not collinear.",
+  "I4": "Confidence sensitivity is not slow learning: a confident waiter and a slow learner, matched on how often they adapt, are distinguished.",
+  "I5": "The new manipulations help: omega recovers better with the sampling-history and horizon factors than without them."
+ },
+ "synthetic": true,
+ "note": "Synthetic participants generated by the models under test. Not evidence about people."
+}

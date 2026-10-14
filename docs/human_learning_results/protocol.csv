@@ -1,0 +1,5 @@
+manipulation,factor,levels,within_participant,new,moves,leaves_alone
+outcome variability,condition V,delta 8 -> 24,True,False,spread of realized profit,precision of the cost estimate
+observation precision,condition N,noise 2 -> 10,True,False,precision of the cost estimate,spread of the underlying world
+sampling history,history,"(0, 10) watched periods",True,True,estimation uncertainty at the first scored decision,everything on the screen at the moment of choice
+opportunities for further learning,horizon,"(12, 32) scored periods, announced",True,True,value of adapting now,the screen and the precision of the estimate

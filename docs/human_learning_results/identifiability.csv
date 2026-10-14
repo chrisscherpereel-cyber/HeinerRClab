@@ -1,0 +1,6 @@
+claim,statement,value,supported,detail
+I1,Confidence sensitivity is recoverable: omega correlates with its true value across participants.,0.703,True,correlation of estimated with true omega = 0.703
+I2,Confidence sensitivity is not inertia: data generated with omega > 0 and no inertia is assigned to the confidence model rather than to the inertia model.,0.281,True,"confidence selected 28%, inertia 16%"
+I3,"Confidence sensitivity is not risk preference: in the risk model, which carries both, the estimation errors of omega and gamma are not collinear.",-0.154,True,"error correlation -0.154; omega r=0.40, gamma r=0.55"
+I4,"Confidence sensitivity is not slow learning: a confident waiter and a slow learner, matched on how often they adapt, are distinguished.",0.044,False,omega gap +0.018 against a within-group s.d. of 0.415
+I5,The new manipulations help: omega recovers better with the sampling-history and horizon factors than without them.,0.206,True,"correlation 0.703 with the new factors, 0.497 without"

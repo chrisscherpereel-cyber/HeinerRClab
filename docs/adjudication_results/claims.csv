@@ -1,0 +1,18 @@
+key,statement,study,quantity,original_verdict,original_effect,effect_units,note,outcome_if_repeats
+PR1,In held-out mixed markets the reliability-condition agent earns more than each rival.,tournament,PR1 verdict of the registered tournament protocol,not supported,,,,rejection_confirmed
+PR2,The reliability-condition agent's advantage grows with environmental uncertainty.,tournament,PR2 verdict,not supported,,,,rejection_confirmed
+PR3,The reliability-condition agent adapts less often than the always-adjust rule.,tournament,PR3 verdict,not supported,,,,rejection_confirmed
+PR4,The reliability-condition agent's selectivity is what earns its advantage.,tournament,PR4 verdict,not supported,,,,rejection_confirmed
+PR5,The reliability-condition agent is robust across market protocols.,tournament,PR5 verdict,not supported,,,,rejection_confirmed
+PR6,The reliability-condition agent carries less downside risk than always adjusting.,tournament,PR6 verdict,not supported,,,,rejection_confirmed
+H1,The confidence-sensitive gate's advantage over the better fixed rule falls as the learnability ratio R rises.,learnability,"OLS slope of configuration-mean advantage on log10 R, 95% bootstrap CI below 0",supported,-0.95,net payoff per period per decade of R,,retained
+H2,log10 R explains the gate's advantage beyond outcome volatility and observation noise.,learnability,gain in leave-one-out cross-validated R-squared from adding log10 R,supported,,cross-validated R-squared,,retained
+V1,"The learnability index adds predictive accuracy beyond the prespecified comparison model, on held-out configurations.",validity,"difference in cross-validated R-squared, bootstrap lower limit above 0",not supported,0.0027,cross-validated R-squared,,rejection_confirmed
+V2,The index transfers to held-out process families.,validity,difference in cross-validated R-squared on unseen families,not supported,-0.0349,cross-validated R-squared,,rejection_confirmed
+G1,The confidence-sensitive gate's reported lower bound has its nominal 90% coverage.,gate_validation,measured coverage of the 90% bound across feedback regimes,not supported,,coverage share,Rejected on the first run at 45-62%. The replication asks whether that was sampling.,rejection_confirmed
+S1,"On the control process, the correctly specified model wins.",stress,rank of bayes_true by mean regret on the `base` family,supported,1.0,rank,,retained
+S2,"Where distributional shape is the problem, shape-free window models win.",stress,rank of saa by mean regret on the `multimodal` family,supported,1.0,rank,,retained
+S3,"The moment-ambiguity model, the only one able to price outcomes never observed, is the one suited to the outside-support family.",stress,rank of dro_moment by mean regret on the `outside_support` family,not supported,4.0,rank,Contradicted on the first run: it finished behind both models that provably cannot represent the stress.,rejection_confirmed
+S4,Knowing the true nuisance parameters beats having the right functional form.,stress,number of the five stress families on which bayes_true ranks first,supported,3.0,families out of 5,,retained
+I1,Bought information and recorded unmet demand are substitutes.,information,value of information at unmet_access 0.0 minus at 1.0,supported,0.206,net payoff per period,,retained
+I2,Buying information pays only when the environment changes fast enough.,information,net of buying at the lowest hazard,supported,-0.213,net payoff per period,Supported in the sense that the prediction was of a NEGATIVE net at low hazard.,retained

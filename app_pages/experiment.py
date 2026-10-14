@@ -1,9 +1,10 @@
+import json
 import time
 
 import pandas as pd
 import streamlit as st
 
-from heiner_abm.workbench import execution, presets, store
+from heiner_abm.workbench import disclosure as DISCLOSURE, execution, presets, provenance as PROVENANCE, store
 from heiner_abm.workbench.execution import seed_counts
 from heiner_abm.workbench.provenance import RETENTION, RETENTION_LABELS, disjoint as seeds_disjoint
 from heiner_abm.workbench.environments import ENVIRONMENTS
@@ -16,8 +17,8 @@ st.title("Experiment")
 spec = get_spec()
 env = ENVIRONMENTS[spec.environment]
 set_engine(env.engine)
-st.caption(f"Mode: **{MODE_LABELS[mode()]}** (switch in the sidebar). One specification is edited across the six "
-           "steps; you can return to any step. ⛔ marks a step that blocks a run, ⚠️ one with warnings.")
+st.caption(f"Mode: **{MODE_LABELS[mode()]}** (switch in the sidebar). One specification is edited across the seven "
+           "stages; you can return to any stage. ⛔ marks a stage that blocks a run, ⚠️ one with warnings.")
 
 issues, status = statuses(spec)
 st.session_state.setdefault("wb_step", "question")
@@ -79,8 +80,8 @@ if step == "question":
     show_issues(issues, "question")
 
 # ============================================================================================ 2. Environment
+# ============================================================================================ 2. Environment and information
 elif step == "environment":
-    st.subheader("2. Environment")
     keys = list(ENVIRONMENTS)
     new = st.radio("Task environment", keys, format_func=lambda e: ENVIRONMENTS[e].label, key=k("env"),
                    index=keys.index(spec.environment), horizontal=True)
@@ -124,31 +125,10 @@ elif step == "environment":
             controls_block(spec, cs, f"env_{g}")
     show_issues(issues, "environment")
 
-# ============================================================================================ 3. Agents
-elif step == "agents":
-    st.subheader("3. Agents")
-    st.markdown(f"Candidates come from **{env.candidate_for(spec).label}** for every selection policy, so selection "
-                "policies differ only in when they act on the same candidate. Complete policies generate their own "
-                "actions; their assumptions are listed. Researcher benchmarks use information agents do not have and "
-                "are shown beside the comparison, never in it.")
-    kind_label = {"selection": "Selection policy", "complete": "Complete policy", "benchmark": "Researcher benchmark"}
-    df = pd.DataFrame([dict(Include=p.key in spec.policies, Policy=p.label, Type=kind_label[p.kind],
-                            Status="proposed extension" if p.extension else "", Behavior=p.description, Uses=p.uses,
-                            Assumptions=p.assumptions, key=p.key) for p in env.policies])
-    ed = st.data_editor(df, hide_index=True, width="stretch", key=k("agents_table"),
-                        disabled=[c for c in df.columns if c != "Include"],
-                        column_config={"key": None,
-                                       "Include": st.column_config.CheckboxColumn("Include", width="small")})
-    spec.policies = tuple(ed.loc[ed["Include"], "key"])
-    agent_controls = [c for c in env.all_controls() if c.group == "agents"]
-    if agent_controls:
-        st.markdown("#### Policy settings")
-        controls_block(spec, agent_controls, "agents")
-    show_issues(issues, "agents")
-
-# ============================================================================================ 4. Information
-elif step == "information":
-    st.subheader("4. Information and feedback")
+    st.markdown("---")
+    st.markdown("#### Information and feedback")
+    st.caption("What an agent may see is a property of the world it is in, so it is set here rather than in a "
+               "stage of its own.")
     from heiner_abm.information import ENGINES
     eng = ENGINES[env.engine]
     if env.key == "market":
@@ -182,11 +162,33 @@ elif step == "information":
     st.markdown("#### What this environment can deliver")
     st.dataframe(pd.DataFrame([(kk, v) for kk, v in eng.controls.items()], columns=["Information control", "Support"]),
                  hide_index=True, width="stretch")
-    show_issues(issues, "information")
+    show_issues([i for i in issues if i.step == "information"])
 
 # ============================================================================================ 5. Design
+# ============================================================================================ 3. Policies and tuning
+elif step == "agents":
+    st.markdown(f"Candidates come from **{env.candidate_for(spec).label}** for every selection policy, so selection "
+                "policies differ only in when they act on the same candidate. Complete policies generate their own "
+                "actions; their assumptions are listed. Researcher benchmarks use information agents do not have and "
+                "are shown beside the comparison, never in it.")
+    kind_label = {"selection": "Selection policy", "complete": "Complete policy", "benchmark": "Researcher benchmark"}
+    df = pd.DataFrame([dict(Include=p.key in spec.policies, Policy=p.label, Type=kind_label[p.kind],
+                            Status="proposed extension" if p.extension else "", Behavior=p.description, Uses=p.uses,
+                            Assumptions=p.assumptions, key=p.key) for p in env.policies])
+    ed = st.data_editor(df, hide_index=True, width="stretch", key=k("agents_table"),
+                        disabled=[c for c in df.columns if c != "Include"],
+                        column_config={"key": None,
+                                       "Include": st.column_config.CheckboxColumn("Include", width="small")})
+    spec.policies = tuple(ed.loc[ed["Include"], "key"])
+    agent_controls = [c for c in env.all_controls() if c.group == "agents"]
+    if agent_controls:
+        st.markdown("#### Policy settings")
+        controls_block(spec, agent_controls, "agents")
+    show_issues(issues, "agents")
+
+# ============================================================================================ 4. Information
+# ============================================================================================ 4. Experimental design
 elif step == "design":
-    st.subheader("5. Design")
     d = spec.design
     treatable = [c for c in env.all_controls() if c.treatable]
     opts = [""] + [c.key for c in treatable]
@@ -261,8 +263,8 @@ elif step == "design":
         st.success("No problems found.", icon="✅")
 
 # ============================================================================================ 6. Run
-else:
-    st.subheader("6. Run")
+# ============================================================================================ 5. Execution
+elif step == "run":
     st.markdown("**Configuration**")
     st.dataframe(config_table(spec), hide_index=True, width="stretch")
     st.markdown("**Uncertainty settings**")
@@ -272,6 +274,22 @@ else:
         st.error("Fix the marked steps before running.", icon="⛔")
         show_issues(errors)
     outdated_notice(spec)
+    st.markdown("#### Before you run: what a reader has to be told")
+    _items = DISCLOSURE.disclosure(spec)
+    st.caption(DISCLOSURE.summary_line(_items) + " These are read off the specification, not entered by hand; "
+               "an item that cannot be determined says so rather than guessing.")
+    _icon = {"ok": "✅", "caution": "⚠️", "unknown": "❔", "blocking": "⛔"}
+    for _it in _items:
+        with st.expander(f"{_icon[_it.level]}  {_it.title} — {_it.summary}",
+                         expanded=_it.level in ("blocking", "unknown")):
+            for _d in _it.detail:
+                if str(_d).strip():
+                    st.markdown(f"- {_d}")
+    _block = DISCLOSURE.blocking(_items)
+    if _block:
+        st.error("A research run is blocked until these are resolved: "
+                 + "; ".join(b.title for b in _block), icon="⛔")
+    st.divider()
     est_p, est_r = execution.estimate(spec, "preview"), execution.estimate(spec, "research")
     st.caption(f"Workload: preview ≈ {est_p['policy_periods']:,} policy-periods (~{est_p['seconds']:.0f} s); "
                f"research ≈ {est_r['policy_periods']:,} policy-periods (~{est_r['seconds']:.0f} s, rough estimate). "
@@ -299,7 +317,8 @@ else:
         st.session_state["wb_run_key"], st.session_state["wb_run_spec"] = hit.key, spec.copy()
         st.success("Preview complete. Open **Results** in the sidebar to interpret it.", icon="✅")
     if mode() == "research":
-        if c2.button("Research run (background)", width="stretch", disabled=bool(errors), key="wb_research",
+        if c2.button("Research run (background)", width="stretch", disabled=bool(errors) or bool(_block),
+                     key="wb_research",
                      help="The full design, in a separate process; this page shows its progress and can cancel it."):
             hit = store.cached(spec, "research")
             if hit is not None:
@@ -332,6 +351,87 @@ else:
         _poll()
     if st.session_state.get("wb_run_key"):
         st.page_link("app_pages/results.py", label="Open the results of the latest run", icon="📊")
+
+
+# ============================================================================================ 6. Results
+elif step == "results":
+    st.subheader("6. Results")
+    key = st.session_state.get("wb_run_key")
+    if not key:
+        st.info("No run yet. Go to **5. Execution** and start a preview or a research run.", icon="ℹ️")
+    else:
+        outdated_notice(spec)
+        st.caption(f"Run `{key}`. The full tables, charts and comparisons are on the **Results** page; this "
+                   "stage is where the run is given a status, which is what a reader needs first.")
+        st.page_link("app_pages/results.py", label="Open the full results", icon="📊")
+
+    st.markdown("#### What kind of claim is this?")
+    st.caption("A number is not a finding until somebody says which kind of claim it is. The weakest options "
+               "are first and are not embarrassing to use.")
+    opts = list(DISCLOSURE.STATUS_ORDER)
+    cur = st.session_state.get("wb_status", "exploratory")
+    chosen = st.radio("Result status", opts, index=opts.index(cur) if cur in opts else 0,
+                      format_func=lambda s: DISCLOSURE.status(s).label, key="wb_status", horizontal=True)
+    s_obj = DISCLOSURE.status(chosen)
+    st.info(s_obj.meaning, icon="🏷️")
+    c1, c2 = st.columns(2)
+    c1.markdown(f"**May claim**  \n{s_obj.may_claim}")
+    c2.markdown(f"**May not claim**  \n{s_obj.may_not_claim}")
+    if chosen == "confirmatory":
+        st.warning("Confirmatory requires a registered plan fixed before these data were generated, with a "
+                   "matching hash. This workbench does not register plans: unless this run executes one of "
+                   "the frozen plans in `heiner_abm/registered.py`, the honest status is exploratory.",
+                   icon="⚠️")
+    with st.expander("All statuses and what each permits"):
+        st.dataframe(pd.DataFrame(DISCLOSURE.status_table()), hide_index=True, width="stretch")
+
+# ============================================================================================ 7. Validation and export
+elif step == "export":
+    st.subheader("7. Validation and export")
+    key = st.session_state.get("wb_run_key")
+    st.markdown("#### Pre-run disclosure, as recorded")
+    items = DISCLOSURE.disclosure(spec)
+    st.dataframe(pd.DataFrame([{"Item": i.title, "Level": i.level, "Summary": i.summary} for i in items]),
+                 hide_index=True, width="stretch")
+
+    st.markdown("#### Reproducibility checklist")
+    checks = [
+        ("Specification saved", bool(spec.name and spec.name != "Untitled experiment")),
+        ("Primary outcome and comparison named", bool(spec.question.primary_outcome
+                                                      and all(spec.question.comparison))),
+        ("Smallest effect of interest declared", bool(spec.question.smallest_effect)),
+        ("Seed blocks disjoint", seeds_disjoint(spec.design.seed, seed_counts(spec)) is None),
+        ("Evaluation replications at research minimum", spec.design.replications >= 8),
+        ("Decision logs retained", spec.design.trace_retention != "summary"),
+        ("A run exists for this specification", bool(key)),
+        ("Result status chosen", bool(st.session_state.get("wb_status"))),
+    ]
+    st.dataframe(pd.DataFrame([{"Check": c, "Met": "yes" if ok else "no"} for c, ok in checks]),
+                 hide_index=True, width="stretch")
+    missing = [c for c, ok in checks if not ok]
+    if missing:
+        st.warning(f"{len(missing)} checklist item(s) unmet: {', '.join(missing)}.", icon="⚠️")
+    else:
+        st.success("Every checklist item is met.", icon="✅")
+
+    st.markdown("#### Export")
+    c1, c2 = st.columns(2)
+    c1.download_button("Specification (JSON)", spec.to_json(), file_name=f"{spec.name or 'experiment'}.json",
+                       mime="application/json", width="stretch", key="wb_dl_spec")
+    bundle = {"specification": spec.to_dict(),
+              "disclosure": DISCLOSURE.to_records(items),
+              "result_status": st.session_state.get("wb_status", "exploratory"),
+              "statuses_explained": DISCLOSURE.status_table(),
+              "checklist": {c: bool(ok) for c, ok in checks},
+              "run_key": key,
+              "code_fingerprint": PROVENANCE.code_fingerprint(),
+              "software_environment": PROVENANCE.software_environment()}
+    c2.download_button("Run record (JSON)", json.dumps(bundle, indent=1, default=str),
+                       file_name=f"{spec.name or 'experiment'}-record.json", mime="application/json",
+                       width="stretch", key="wb_dl_record")
+    st.caption("The run record carries the specification, the seven disclosure items as they stood, the chosen "
+               "result status, the checklist, the code fingerprint and the software environment. It is what a "
+               "reviewer needs to tell what was run and what it may be said to show.")
 
 st.divider()
 i = STEPS.index(step)

@@ -1,0 +1,7 @@
+check,pass,fail,warn,info,verdict
+end_to_end,3,0,0,0,pass
+outstanding,7,0,0,1,pass
+parity,33,0,0,3,pass
+provenance,7,0,0,0,pass
+reachability,48,0,0,0,pass
+tests,4,0,0,0,pass
